@@ -1,0 +1,23 @@
+{
+  "name": "vleserver_basex",
+  "version": "1.0.0",
+  "description": "Server part of VLE for BaseX",
+  "main": "test.js",
+  "scripts": {
+    "test": "test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acdh-oeaw/vleserver_basex.git"
+  },
+  "author": "Omar Siam; ACDH-OEAW",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/acdh-oeaw/vleserver_basex/issues"
+  },
+  "homepage": "https://github.com/acdh-oeaw/vleserver_basex#readme",
+  "dependencies": {
+    "chakram": "^1.5.0",
+    "mocha": "^6.0.2"
+  }
+}

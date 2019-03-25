@@ -1,0 +1,923 @@
+swagger: '2.0'
+info:
+  title: wde
+  version: '2'
+tags:
+  - name: changes
+    description: Access to the change log entries stored for a particular entry in the dictionaries.
+  - name: dicts
+    description: Query and manipulate dictionaries and the users table.
+  - name: entries_ndx
+    description: Access and update the XPaths that are used when limiting the data returned on an entries GET using the ndx parameter.
+  - name: entries
+    description: Create and manipulate entries in a given dictionary.
+  - name: users
+    description: "Manipulate the users and user rights for a dictionary. Can also be used by global admin users to manipulate users for any table when used with \"dict_users\".\r\nDefinitions:\r\n<ul>\r\n<li>A standard user is a user that is authorized to read and write her own entries in a dictionary.</li>\r\n<li>An admin user is a user that is authorized to read and write any entry in a partictular dictionary (writeown = 'n')</li>\r\n<li>A global admin user is a user that is authorized to read and write any entry in \"dict_users\". Global admin users are authorized to manipulate users for any dictionary also through a url referriung to that dictionary.</li>\r\n</ul>"
+paths:
+  '/dicts/{dict_name}/entries/{entries_id}/changes':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary. dict_users does not record changes"
+     - name: entries_id
+       in: path
+       required: true
+       type: string
+       description: "ID referencing a particular entry"
+    get:
+      tags:
+        - changes
+      description: Read only. The list size can be limited by passing pageSize. For a pageSize of more than 10 no entry before is returned as embedded result. Default pageSize is 25. For only getting the changes of a user pass a user paramter with the user name.
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+  '/dicts/{dict_name}/entries/{entries_id}/changes/{changes_id}':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary. dict_users does not record changes"
+     - name: entries_id
+       in: path
+       required: true
+       type: string
+       description: "ID referencing a particular entry"
+    get:
+      tags:
+        - changes
+      description: Read only.
+      parameters:
+        - in: path
+          name: changes_id
+          description: URL parameter changes_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+  /dicts:
+    get:
+      tags:
+        - dicts
+      description: Return all known dictionaries and the user rights storage "dict_users".
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    post:
+      tags:
+        - dicts
+      description: "Create a new dictionary. Can create an empty user rights storage by using the special name \"dict_users\".\r\nIn order to create a dictionary you need to be an admin user at least for that dictionary. See users.\r\nIf the data base is empty any user may create \"dict_users\"."
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/dicts'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+  '/dicts/{dicts_name}':
+    get:
+      tags:
+        - dicts
+      description: "Get a dictionary. Does not provide any useful additional information about the dicionary yet but will only succede if the user has the right to access the dictionary using the supplied username and password. If the user is not authorized for the dictionary 404 Item not found is returned.\r\nTODO: Get statistics about the dictionary?"
+      parameters:
+        - in: path
+          name: dicts_name
+          description: URL parameter dicts_name
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    delete:
+      tags:
+        - dicts
+      description: "Delete that dictionary.\r\nOnly global admins can do this. All others get 403 \"Not allowed\""
+      parameters:
+        - in: path
+          name: dicts_name
+          description: URL parameter dicts_name
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+  '/dicts/{dict_name}/entries/{entries_id}/entries_ndx':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary. dict_users does not have that auxilliary data"
+     - name: entries_id
+       in: path
+       required: true
+       type: string
+       description: "ID referencing a particular entry"
+    get:
+      tags:
+        - entries_ndx
+      description: Get all the xpath => txt data for the entry specified in the path.
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    delete:
+      tags:
+        - entries_ndx
+      description: Delete all xpath => text entries for the entry_id specified in the path.
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    patch:
+      tags:
+        - entries_ndx
+      description: Create or change all xpath => text entries for the entry_id specified in the path. With the special path entries/0/entries_ndx bulk changes and inserts can be achieved.
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/entries_ndx'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+  '/dicts/{dict_name}/entries/{entries_id}/entries_ndx/{entries_ndx_id}':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary. dict_users does not have that auxilliary data"
+     - name: entries_id
+       in: path
+       required: true
+       type: string
+       description: "ID referencing a particular entry"
+    get:
+      tags:
+        - entries_ndx
+      description: Not implemneted yet.
+      parameters:
+        - in: path
+          name: entries_ndx_id
+          description: URL parameter entries_ndx_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    put:
+      tags:
+        - entries_ndx
+      description: Not implemneted yet.
+      parameters:
+        - in: path
+          name: entries_ndx_id
+          description: URL parameter entries_ndx_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/entries_ndx'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - entries_ndx
+      description: Not implemneted yet.
+      parameters:
+        - in: path
+          name: entries_ndx_id
+          description: URL parameter entries_ndx_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    post:
+      tags:
+        - entries_ndx
+      description: Not implemneted yet.
+      parameters:
+        - in: path
+          name: entries_ndx_id
+          description: URL parameter entries_ndx_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/entries_ndx'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+  '/dicts/{dict_name}/entries':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary or dict_users."
+    get:
+      tags:
+        - entries
+      description: "Get a list of entries.\r\nLimiting the query:\r\n<ul>\r\n<li>Query parameter \"lem\": limit using the lemma column. May contain * jokers.</li>\r\n<li>Query parameter \"sid\": limit using the sid column</li>\r\n<li>Query parameters \"xpath\" and \"txt\": Do a (limited) xpath search to narrow down the result.\r\nThe parameters may be used in a key => value style to secify multiple xpath criteria. \"txt\" may contain \"*\" jokers.</li>\r\n</ul>\r\nNotes on paging:\r\n<ul>\r\n<li>The page size can be set using the pageSize query parameter. For performance reasons better do not request more the a few hundred entries per page.</li>\r\n<li>Only if 10 or less entries per page are requested the actual entry is sent for performance reasons</li>\r\n</ul>"
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    post:
+      tags:
+        - entries
+      description: 'Create a new entry. An id is automatically assigned. TODO: implement -> An id may be supplied by admin users to create entries in the special entries section of the dictionary below id 700.'
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/entries'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - entries
+      description: Warnung! Dangerous! Deletes every entry except the system entries < 699 from the dictionary.
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    patch:
+      tags:
+        - entries
+      description: Create a set of Entries or change them in bulk (e. g. lock or unlock many entries).
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/entries'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+  '/dicts/{dict_name}/entries/{entries_id}':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary or dict_users."
+    get:
+      tags:
+        - entries
+      description: Get an entry and (TODO) lock it for writing if the user has the right to do this.
+      parameters:
+        - in: path
+          name: entries_id
+          description: URL parameter entries_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    patch:
+      tags:
+        - entries
+      description: Manipulate just one part of the entry. (TODO change to post for compatibility reasons?)
+      parameters:
+        - in: path
+          name: entries_id
+          description: URL parameter entries_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/entries'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+    put:
+      tags:
+        - entries
+      description: Recreate the whole entry.
+      parameters:
+        - in: path
+          name: entries_id
+          description: URL parameter entries_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/entries'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - entries
+      description: Delete an entry. Admin user authorization needed.
+      parameters:
+        - in: path
+          name: entries_id
+          description: URL parameter entries_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+  '/dicts/{dict_name}/users':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary or dict_users."
+    get:
+      tags:
+        - users
+      description: "<ul>\r\n<li>For standard users: Get ones rights. The list is filtered to only contain the user that was provided as username during authentication.</li>\r\n<li>For admin users: Get a list of all users and their rights for the table given by the url. This also means that global admin users which are authorized to see and manitpulate \"dict_users\" can see all users when querying \"dict_user\".</li>\r\n</ul>\r\nNote that the password is write only thus it is never shown in any response."
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    post:
+      tags:
+        - users
+      description: Create a new user for that table. Admin users only. With the special dictionary "dict_users" users can be created for any table by global admins.
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/users'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+  '/dicts/{dict_name}/users/{users_id}':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary or dict_users."
+    get:
+      tags:
+        - users
+      description: "Get a user's rights for that table. Non admin users can only query their rights using der user ID.<br/>\r\nNote: The password is not sent over the wire."
+      parameters:
+        - in: path
+          name: users_id
+          description: URL parameter users_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    delete:
+      tags:
+        - users
+      description: "Delete a user for that table. Admin users only."
+      parameters:
+        - in: path
+          name: users_id
+          description: URL parameter users_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    post:
+      tags:
+        - users
+      description: "<ul>\r\n<li>For a standard user: Change the password. Any other fields are read-only, a 403 error is returned if an attempt is made to manipulate them.</li>\r\n<li>For an admin user: Change the access rights and the password of some user. TODO: check setting rights without changing pw</li>\r\n</ul>"
+      parameters:
+        - in: path
+          name: users_id
+          description: URL parameter users_id
+          type: string
+          required: true
+          minimum: 0
+          maximum: 1
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/users'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Client Error
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+definitions:
+  dicts:
+    type: object
+    properties:
+      name:
+        type: string
+        description: Name of the dictionary.
+    required:
+      - name
+    example:
+      name: Name of the dictionary.
+  entries_ndx:
+    type: object
+    properties:
+      id:
+        type: string
+        description: The id of the entry this XPath belongs to
+      xpath:
+        type: string
+        description: An XPath (although with - as the separator) within an entry.
+      txt:
+        type: string
+        description: The text that will be returned if this XPath is selected using an XML tool.
+      weight:
+        type: string
+        description: Some integer value by wihch an important occurence of a word can be destinguished from a less important one.
+    required:
+      - id
+      - xpath
+      - txt
+  entries:
+    type: object
+    properties:
+      id:
+        type: string
+        description: The automatically generated id.
+      sid:
+        type: string
+        description: A string id. Ought to be unique. Should not contain any Unicode characters.
+      lemma:
+        type: string
+        description: The lemma of the entry. Probably contains Unicode characters.
+      status:
+        type: string
+        description: Status of the entry. E. g. released.
+      locked:
+        type: string
+        description: The user that currently edits the entry.
+      type:
+        type: string
+        description: 'Type of the entry. For quickly limiting searches. E. g. lemma, example, multi_word_unit.'
+      entry:
+        type: string
+        description: The entry in the dictionary. A TEI XML snippet (or a whole document).
+    required:
+      - sid
+      - lemma
+      - entry
+    example:
+      id: Optional for creating special entries below id 700.
+      sid: A string id. Ought to be unique. Should not contain any Unicode characters.
+      lemma: The lemma of the entry. Probably contains Unicode characters.
+      status: Status of the entry. E. g. released.
+      locked: The user that currently edits the entry.
+      type: 'Type of the entry. For quickly limiting searches. E. g. lemma, example, multi_word_unit.'
+      entry: The entry in the dictionary. A TEI XML snippet (or a whole document).
+  users:
+    type: object
+    properties:
+      id:
+        type: string
+        description: The internal ID. When creating a new user this will be filled in automatically.
+      userID:
+        type: string
+        description: The user's ID or user name.
+      pw:
+        type: string
+        description: The password for that user and that table.
+      read:
+        type: string
+        description: Whether the user has read access.
+      write:
+        type: string
+        description: Whether the user has write access.
+      writeown:
+        type: string
+        description: Whether the user may change entries that don't belong to her.
+      table:
+        type: string
+        description: A table name. Will only be returned on administrative queries on the special dict_users storage.
+    required:
+      - id
+      - userID
+      - pw
+      - read
+      - write
+      - writeown
+    example:
+      id: The internal ID. When creating a new user this will be filled in automatically.
+      pw: The password for that user and that table.
+      read: Whether the user has read access.
+      write: Whether the user has write access.
+      writeown: Whether the user may change entries that don't belong to her.
+      table: A table name. Will only be returned on administrative queries on the special dict_users storage.
