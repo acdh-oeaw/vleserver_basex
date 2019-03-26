@@ -1,4 +1,4 @@
-xquery version "3.0";
+xquery version "3.1";
 
 module namespace _ = "https://tools.ietf.org/html/rfc7807";
 import module namespace req = "http://exquery.org/ns/request";
@@ -23,11 +23,7 @@ declare function _:or_result($api-function as function(*)*, $parameters as array
             $ret := apply($api-function, $parameters)
         return if ($ret instance of element(rfc7807:problem)) then _:return_problem($ret,$header-elements)
         else        
-          (<rest:response>
-              <http:response status="{$ok-status}" message="{$_:codes_to_message($ok-status)}">
-              {_:map_to_header_elements($header-elements)}
-              </http:response>
-          </rest:response>,
+          (web:response-header(map {'method': 'json'}, $header-elements, map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
           $ret
           )
     } catch * {
@@ -52,19 +48,9 @@ declare function _:or_result($api-function as function(*)*, $parameters as array
 declare function _:return_problem($problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
 let $header-elements := map:merge(map{'Content-Type': if (matches(req:header("ACCEPT"), '[+/]json')) then 'application/problem+json' else 'application/problem+xml'}),
     $error-status := if ($problem/rfc7807:status castable as xs:integer) then xs:integer($problem/rfc7807:status) else 400
-return (<rest:response>
-    <http:response status="{$error-status}" message="{$_:codes_to_message($error-status)}">
-        {_:map_to_header_elements($header-elements)}
-    </http:response>
- </rest:response>,
+return (web:response-header((), $header-elements, map{'message': rfc7807:title, 'status': $error-status}),
  _:on_accept_to_json($problem)
 )   
-};
-
-declare %private function _:map_to_header_elements($header-elements as map(xs:string, xs:string)) as element()* {
-    map:for-each($header-elements, function($key, $value){
-        <http:header name="{$key}" value="{$value}"/>
-    })
 };
 
 declare %private function _:on_accept_to_json($problem as element(rfc7807:problem)) as item() {
