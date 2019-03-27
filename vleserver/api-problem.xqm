@@ -48,7 +48,7 @@ declare function _:or_result($api-function as function(*)*, $parameters as array
 declare function _:return_problem($problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
 let $header-elements := map:merge(map{'Content-Type': if (matches(req:header("ACCEPT"), '[+/]json')) then 'application/problem+json' else 'application/problem+xml'}),
     $error-status := if ($problem/rfc7807:status castable as xs:integer) then xs:integer($problem/rfc7807:status) else 400
-return (web:response-header((), $header-elements, map{'message': rfc7807:title, 'status': $error-status}),
+return (web:response-header((), $header-elements, map{'message': $problem/rfc7807:title, 'status': $error-status}),
  _:on_accept_to_json($problem)
 )   
 };

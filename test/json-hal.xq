@@ -5,9 +5,9 @@ import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json
 import module namespace rest = "http://exquery.org/ns/restxq";
 
 declare function _:test_create_list() {
-   serialize(json-hal:create_document_list(static-base-uri(), static-base-uri(), static-base-uri(), (), 'dicts',
+   serialize(json-hal:create_document_list(static-base-uri(), 'dicts',
    [json-hal:create_document(xs:anyURI('/orders/1'), <sth type='object'/>), 
-    json-hal:create_document(xs:anyURI('/orders/2'), <sth type='object'/>)], 1, 25, 1, 1), map {'method': 'json'})
+    json-hal:create_document(xs:anyURI('/orders/2'), <sth type='object'/>)], 1, 2, 1), map {'method': 'json'})
 };
 
 _:test_create_list()
