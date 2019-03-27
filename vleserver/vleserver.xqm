@@ -31,7 +31,9 @@ declare
     %rest:GET
     %rest:path('restvle/dicts/{$dict_name}')
 function _:getDictDictName($dict_name as xs:string) {
-  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', ['entries', 'users'], 2, 2, 1])
+  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
+    json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
+    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1])
 };
 
 declare
