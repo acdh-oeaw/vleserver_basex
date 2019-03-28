@@ -17,6 +17,22 @@ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-
 declare variable $_:enable_trace := false();
 
 declare
+    %perm:check('restvle/dicts', '{$_}')
+function _:checkPermissions($_ as map(*)) {
+  if ($_('method') ne 'GET' or
+      request:header('Accept', '') eq 'application/vnd.wde.v2+json')
+  then
+    if (db:exists('dict_users')) then
+      let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($_('authorization'), '^Basic ', ''))), ':'),
+          $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])]
+      return if (exists($user_tag)) then () else
+        error(xs:QName('response-codes:_403'),
+                       'Wrong username and password')
+     else()
+  else ()
+};
+
+declare
     %rest:GET
     %rest:path('restvle/dicts')
     %rest:query-param("page", "{$page}", 1)
@@ -50,7 +66,14 @@ else
         then error(xs:QName('response-codes:_422'),
                    'User directory does not exist',
                    'You need to create the special dict_users first')
-        else util:eval(``[db:create("dict_users", <empty/>, "users.xml")]``,
+        else util:eval(``[db:create("dict_users",                                    
+<users>
+  <user name="admin"
+        dict="dict_users"
+        type="su"
+        pw="8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+        dt="2000-01-01T00:00:00"/>
+</users>, "dict_users.xml")]``,
                        (), 'create_dict_users', true())
       else error(xs:QName('response-codes:_422'),
                'Wrong JSON object',
