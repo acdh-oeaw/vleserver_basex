@@ -53,6 +53,32 @@ return (web:response-header((), $header-elements, map{'message': $problem/rfc780
 )   
 };
 
+declare
+  %rest:error('Q{https://tools.ietf.org/html/rfc7231#section-6}*')
+  %rest:error-param("code", "{$code}")
+  %rest:error-param("description", "{$description}")
+  %rest:error-param("value", "{$value}")
+  %rest:error-param("module", "{$module}")
+  %rest:error-param("line-number", "{$line-number}")
+  %rest:error-param("column-number", "{$column-number}")
+  %rest:error-param("additional", "{$additional}")
+function _:error-handler($code as xs:string, $description, $value, $module, $line-number, $column-number, $additional) as item()+ {
+        let $status-code := 
+          let $status-code-from-local-name := replace(local-name-from-QName(xs:QName($code)), '_', '')
+          return if ($status-code-from-local-name castable as xs:integer and 
+                     xs:integer($status-code-from-local-name) > 400 and
+                     xs:integer($status-code-from-local-name) < 500) then xs:integer($status-code-from-local-name) else 400       
+        return _:return_problem(
+                <problem xmlns="urn:ietf:rfc:7807">
+                    <type>{namespace-uri-from-QName(xs:QName($code))}</type>
+                    <title>{$description}</title>
+                    <detail>{$value}</detail>
+                    <instance>{namespace-uri-from-QName(xs:QName($code))}/{local-name-from-QName(xs:QName($code))}</instance>
+                    <status>{$status-code}</status>
+                    {if ($_:enable_trace) then <trace>{$module}: {$line-number}/{$column-number}{replace($additional, '^.*Stack Trace:', '', 's')}</trace> else ()}
+                </problem>, ())  
+};
+
 declare %private function _:on_accept_to_json($problem as element(rfc7807:problem)) as item() {
   let $objects := string-join($problem//*[*[local-name() ne '_']]/local-name(), ' '),
       $arrays := string-join($problem//*[*[local-name() eq '_']]/local-name(), ' ')

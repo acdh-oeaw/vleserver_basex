@@ -16,28 +16,6 @@ declare variable $_:enable_trace := false();
 
 declare
     %rest:GET
-    %rest:path('restvle/dicts')
-    %rest:query-param("page", "{$page}", 1)
-    %rest:query-param("pageSize", "{$pageSize}", 25)
-function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
-  let $dicts := util:eval(``[db:list()[ends-with(., '__prof')]!replace(., '__prof', '')]``, (), 'get-list-of-profile'),
-      $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(rest:uri()||'/'||.), <name>{.}</name>)
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page])
-};
-
-(: Get dict_name -> ganzes dict, RFC 7233, Accept-Ranges: bytes, bytes für eine bestimmte Menge entries? :)
-
-declare
-    %rest:GET
-    %rest:path('restvle/dicts/{$dict_name}')
-function _:getDictDictName($dict_name as xs:string) {
-  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
-    json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
-    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1])
-};
-
-declare
-    %rest:GET
     %rest:path('restvle/dicts/{$dict_name}/entries')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
