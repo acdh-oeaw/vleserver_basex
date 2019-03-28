@@ -31,23 +31,40 @@ declare
     %rest:POST('{$data}') 
     %rest:path('restvle/dicts')
     %rest:header-param("Content-Type", "{$content-type}", "")
-function _:createDict($data, $content-type as xs:string) {
-  if ($content-type = 'application/json') then
-    (: in this case $data is an element(json) :)
-    if (exists($data/json/name)) then
-      util:eval(``[
+    %rest:header-param("Accept", "{$wanted-response}", "")
+function _:createDict($data, $content-type as xs:string, $wanted-response as xs:string) {
+  if ($wanted-response = "application/vnd.wde.v2+json") then
+    if ($content-type = 'application/json') then
+      (: in this case $data is an element(json) :)
+      if (exists($data/json/name)) then
+        if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users')) then
+          util:eval(``[
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
-error(xs:QName('response-codes:_406'),
-      'Dictionary "`{$data/json/name}`" already exists')
-]``, (), 'try-create-dict')
-    else error(xs:QName('response-codes:_422'),
+if (db:exists("`{$data/json/name}`__prof")) then
+  error(xs:QName('response-codes:_406'),
+        'Dictionary "`{$data/json/name}`" already exists')
+else
+  db:create("`{$data/json/name}`__prof", <empty/>, "`{$data/json/name}`.xml")
+]``, (), 'try-create-dict', true())
+        else if ($data/json/name ne "dict_users")
+        then error(xs:QName('response-codes:_422'),
+                   'User directory does not exist',
+                   'You need to create the special dict_users first')
+        else util:eval(``[db:create("dict_users", <empty/>, "users.xml")]``,
+                       (), 'create_dict_users', true())
+      else error(xs:QName('response-codes:_422'),
                'Wrong JSON object',
                'Need a { "name": "some_name" } object.&#x0a;'||
                'JSON was: '||serialize($data, map{'method': 'json'}))
-  else 
-    error(xs:QName('response-codes:_415'),
-          'Content-Type needs to be application/json',
-          'Content-Type was: '||$content-type)
+    else 
+      error(xs:QName('response-codes:_415'),
+            'Content-Type needs to be application/json',
+            'Content-Type was: '||$content-type)
+ else
+   error(xs:QName('response-codes:_403'),
+         'Only wde.v2 aware clients allowed',
+         'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
+         'Accept was :'||$wanted-response)
 };
 
 (: Get dict_name -> ganzes dict, RFC 7233, Accept-Ranges: bytes, bytes für eine bestimmte Menge entries? :)

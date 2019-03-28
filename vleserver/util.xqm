@@ -23,8 +23,8 @@ declare %private function _:start-eval-job($query as xs:string, $bindings as map
         (: , $log := l:write-log($query, 'DEBUG') :)
         return jobs:eval($query, $bindings, map {
           'cache': true(),
-          'id': 'sru:'||$jobName||'-'||$subJobNumber||'-'||jobs:current(),
-          'base-uri': $_:basePath||'/sru_'||$jobName||'-'||$subJobNumber||'.xq'})
+          'id': 'vleserver:'||$jobName||'-'||$subJobNumber||'-'||jobs:current(),
+          'base-uri': $_:basePath||'/vleserver_'||$jobName||'-'||$subJobNumber||'.xq'})
 };
 
 (: throws wde:dubious-query :)
