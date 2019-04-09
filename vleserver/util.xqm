@@ -57,10 +57,20 @@ declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName 
                   , $_ := $js!jobs:wait(.)
                   , $status := jobs:list-details()[@id = $js]
                 (:, $log := $status!l:write-log('Job '||./@id||' duration '||seconds-from-duration(./@duration)*1000||' ms') :)
-                return $js!jobs:result(.)
+                return $js!(try { jobs:result(.) } catch * {
+                  <_:error>
+                    <_:code>{$err:code}</_:code>
+                    <_:description>{$err:description}</_:description>
+                    <_:value>{$err:value}</_:value>
+                    <_:module>{$err:module}</_:module>
+                    <_:line-number>{$err:line-number}</_:line-number>
+                    <_:column-number>{$err:column-number}</_:column-number>
+                    <_:additional>{$err:additional}</_:additional>
+                  </_:error>
+                })
       , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100,
         $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($queries)||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
-    return $ret
+    return if (exists($ret/_:error)) then error(xs:QName($ret/_:error[1]/_:code), $ret/_:error[1]/_:description, $ret/_:error) else $ret
 };
 
 declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:string) as document-node() {

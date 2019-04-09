@@ -33,7 +33,7 @@ declare %private function _:get-skel-if-exists($dict as xs:string) as xs:string?
 
 declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) {
   let $dict_name := _:get-real-dict($dict_name, $id)
-  return util:eval(``[collection("`{$dict_name}`")//*[@xml:id = "`{$id}`"]]``, (), 'getDictDictNameEntry')  
+  return util:eval(``[collection("`{$dict_name}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')  
 };
 
 declare %private function _:get-real-dict($dict as xs:string, $id as xs:string) as xs:string {
@@ -53,6 +53,7 @@ let $dicts := _:get-list-of-data-dbs($dict),
 return $found-in-parts
 };
 
+(: this may throw FODC0002 if $dict||'__prof' does not exist :)
 declare function _:get-all-entries($dict as xs:string) {
 let $dicts := _:get-list-of-data-dbs($dict),
     $get-all-entries-scripts := for $dict in $dicts
@@ -75,7 +76,7 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, 
                        $c//mds:mods,
                        $c//tei:entry,
                        $c//tei:entryFree),
-      $results := $all-entries[(if (exists($id)) then @xml:id = $id else true()) and (if (exists($dt)) then @dt = $dt else true())]
+      $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())]
     , $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG')
   return if (count($results) > 25) then util:dehydrate($results) else $results
 };

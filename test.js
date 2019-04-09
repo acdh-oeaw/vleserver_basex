@@ -1,5 +1,5 @@
 const _ = '_'
-  , baseURI = 'http://localhost:8984/restutf8'
+  , baseURI = 'http://localhost:8984/restvle'
   , basexAdminUser = 'admin'
   , basexAdminPW = 'admin';
   // , baseURI = 'https://basex-curation.eos.arz.oeaw.ac.at'

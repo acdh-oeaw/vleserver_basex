@@ -11,6 +11,7 @@ import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/dat
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
 declare namespace http = "http://expath.org/ns/http-client";
+declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 
 declare variable $_:enable_trace := false();
 
@@ -20,11 +21,16 @@ declare
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
 function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integer, $page as xs:integer) {
-  let $entries_ids := data-access:get-all-entries($dict_name)!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
+  let $entries_ids := try { data-access:get-all-entries($dict_name)!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
   declare function local:filter($nodes as node()*) as node()* {
-    $nodes/@xml:id
+    $nodes/(@xml:id|@ID)
   };
-]``) else ./@xml:id),
+]``) else ./(@xml:id|@ID)) }
+      catch err:FODC0002 {
+        error(xs:QName('response-codes:_404'),
+                       'Not found',
+                       $err:additional)
+      },
       $entries_as_documents := subsequence($entries_ids, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else ())
   return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_ids), $page])
 };

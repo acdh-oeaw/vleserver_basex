@@ -24,8 +24,9 @@ function _:checkPermissions($_ as map(*)) {
   then
     if (db:exists('dict_users')) then
       let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($_('authorization'), '^Basic ', ''))), ':'),
-          $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])]
-      return if (exists($user_tag)) then () else
+          $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])],
+          $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1')
+      return if (exists($user_tag[if ($dict ne "") then @dict = $dict else true()])) then () else
         error(xs:QName('response-codes:_403'),
                        'Wrong username and password')
      else()
