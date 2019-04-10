@@ -13,6 +13,7 @@ import module namespace functx = "http://www.functx.com";
 
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+declare namespace perm = "http://basex.org/modules/perm";
 
 declare variable $_:enable_trace := false();
 
@@ -26,10 +27,11 @@ function _:checkPermissions($_ as map(*)) {
       let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($_('authorization'), '^Basic ', ''))), ':'),
           $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])],
           $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1')
-      return if (exists($user_tag[if ($dict ne "") then @dict = $dict else true()])) then () else
+      return if ((not(exists(collection('dict_users')/users/user)) and $dict = ("", "dict_users")) or
+                 exists($user_tag[if ($dict ne "") then @dict = $dict else true()])) then () else
         error(xs:QName('response-codes:_403'),
                        'Wrong username and password')
-     else()
+     else ()
   else ()
 };
 
@@ -68,13 +70,7 @@ else
                    'User directory does not exist',
                    'You need to create the special dict_users first')
         else util:eval(``[db:create("dict_users",                                    
-<users>
-  <user name="admin"
-        dict="dict_users"
-        type="su"
-        pw="8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
-        dt="2000-01-01T00:00:00"/>
-</users>, "dict_users.xml")]``,
+<users/>, "dict_users.xml")]``,
                        (), 'create_dict_users', true())
       else error(xs:QName('response-codes:_422'),
                'Wrong JSON object',
