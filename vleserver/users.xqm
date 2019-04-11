@@ -17,10 +17,10 @@ declare variable $_:enable_trace := false();
 
 declare
     %rest:GET
-    %rest:path('restvle/dicts/dict_users/entries')
+    %rest:path('restvle/dicts/dict_users/users')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
-function _:getDictDictUserEntries($pageSize as xs:integer, $page as xs:integer) {
+function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
   let $users := try { util:eval(``[collection("dict_users")/users/user]``, (), 'get-users') }
       catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
@@ -44,7 +44,7 @@ function _:userAsDocument($_self as xs:anyURI, $user as element()?) {
 
 declare
     %rest:POST('{$userData}')
-    %rest:path('restvle/dicts/dict_users/entries')
+    %rest:path('restvle/dicts/dict_users/users')
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
 function _:createUser($userData, $content-type as xs:string, $wanted-response as xs:string) {
@@ -52,6 +52,7 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
     if ($content-type = 'application/json') then
       (: in this case $data is an element(json) :)
       if (exists($userData/json/id) and
+          exists($userData/json/userID) and
           exists($userData/json/pw) and
           exists($userData/json/table) and
           exists($userData/json/read) and
@@ -63,16 +64,16 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
                        case 'yyy' return ()
                        case 'ynn' return 'ro'
                        default return 'ro',
-            $userTag := <user name="{$userData/json/id}"
+            $userTag := <user name="{$userData/json/userID}"
                               dict="{$userData/json/table}"
                               pw="{$userData/json/pw}"
                               dt="{format-dateTime(current-dateTime(), '[Y1111]-[M11]-[D11]T[H11]:[m11]:[s11]')}">
                         {if ($type) then attribute {'type'}{$type}}
                         </user>
-        return (util:eval(``[
-            insert node `{serialize($userTag)}` as last into collection('dict_users')/users
-        ]``, (), 'write-new-user', true()),
-          error(xs:QName('response-codes:_201'), 'Created'))
+        return api-problem:or_result(util:eval#4, [``[
+            insert node `{serialize($userTag)}` as last into collection('dict_users')/users,            
+            update:output(`{serialize($userData)}` transform with {(replace node ./id with element {'id'} {count(collection('dict_users')/users/*) + 1}, delete node ./pw)})
+        ]``, (), 'write-new-user', true()])
         else error(xs:QName('response-codes:_422'),
                    'User directory does not exist',
                    'You need to create the special dict_users first')
@@ -80,6 +81,7 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
                'Wrong JSON object',
                ``[Need a {
   "id": "The internal ID. When creating a new user this will be filled in automatically.",
+  "userID": "The user id or username.",
   "pw": "The password for that user and that table.",
   "read": "Whether the user has read access.",
   "write": "Whether the user has write access.",
@@ -100,10 +102,29 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
 
 declare
    %rest:GET
-   %rest:path('restvle/dicts/dict_users/entries/{$user}')
-function _:getDictDictNameEntry($userName as xs:string) {
-  let $user := util:eval(``[collection("dict_users")/users/user[@name = "`{$userName}`"]]``, (), 'get-users')
+   %rest:path('restvle/dicts/dict_users/users/{$userName_or_id}')
+function _:getDictDictNameUser($userName_or_id as xs:string) {
+  let $user := util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
   return api-problem:or_result(_:userAsDocument#2, [rest:uri(), $user/@name, $user])
+};
+
+declare
+    %rest:GET
+    %rest:POST
+    %rest:path('restvle/dicts/dict_users/entries')
+function _:getDictDictUserEntries404() {
+  error(xs:QName('response-codes:_404'),
+                       'Not found')  
+};
+
+declare
+    %rest:GET
+    %rest:PUT
+    %rest:DELETE
+    %rest:path('restvle/dicts/dict_users/entries/{$_}')
+function _:getDictDictUserEntriey404($_) {
+  error(xs:QName('response-codes:_404'),
+                       'Not found')  
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
