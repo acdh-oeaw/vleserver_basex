@@ -35,8 +35,11 @@ declare
   %private
 function _:userAsDocument($_self as xs:anyURI, $user as element()?) {
   json-hal:create_document($_self, (
-    <id>{$user/@name}</id>,
-    <table>{$user/@table}</table>,
+    <id>{data($user/@name)}</id>,
+    <dict>{data($user/@dict)}</dict>,
+    <type>{data($user/@type)}</type>,
+    (: Compatibility stuff, delete when possible :)
+    <table>{data($user/@dict)}</table>,
     <read>y</read>,
     <write>{if ($user/@type = 'ro') then 'n' else 'y'}</write>,
     <writeown>{if ($user/@type = 'su') then 'n' else 'y'}</writeown>))
@@ -59,7 +62,13 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
           exists($userData/json/write) and
           exists($userData/json/writeown)) then
         if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users')) then
-        let $type := switch (string-join($userData/json/(read, write, writeown), ''))
+        let $check_first_user_has_access_to_dict_users :=
+            if ($userData/json/table ne 'dict_users' and 
+                util:eval(``[not(exists(collection("dict_users")/users/*))]``, (), 'check-dict-users')) then
+              error(xs:QName('response-codes:_422'),
+                   'There has to be a dict_users user first!',
+                   'You need to create a user for dict_users first.') else (),
+            $type := switch (string-join($userData/json/(read, write, writeown), ''))
                        case 'yyn' return 'su'
                        case 'yyy' return ()
                        case 'ynn' return 'ro'
@@ -104,8 +113,29 @@ declare
    %rest:GET
    %rest:path('restvle/dicts/dict_users/users/{$userName_or_id}')
 function _:getDictDictNameUser($userName_or_id as xs:string) {
-  let $user := util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
-  return api-problem:or_result(_:userAsDocument#2, [rest:uri(), $user/@name, $user])
+  let $users := if ($userName_or_id castable as xs:integer) then util:eval(``[collection("dict_users")/users/user[`{$userName_or_id}`]]``, (), 'get-users')
+                else util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
+  return if (not(exists($users))) then error(xs:QName('response-codes:_404'), $api-problem:codes_to_message(404))
+         else api-problem:or_result(_:userAsDocument#2, [rest:uri(), $users])
+};
+
+declare
+  %rest:DELETE
+  %rest:path('restvle/dicts/dict_users/users/{$userName_or_id}')
+  %updating
+(: write locks dict_users :)
+function _:deleteDictDictNameUser($userName_or_id as xs:string) {
+  (: TODO check that there is one dict_users user left before deleting a dict_users user
+     or that this is the last dict_users user :)
+  if ($userName_or_id castable as xs:integer) then delete node collection('dict_users')//user[xs:integer($userName_or_id)]
+  else delete node collection('dict_users')//user[@name = $userName_or_id],
+  update:output(api-problem:result(
+    <problem xmlns="urn:ietf:rfc:7807">
+       <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+       <title>{$api-problem:codes_to_message(204)}</title>
+       <detail>204</detail>
+    </problem>
+  ))
 };
 
 declare

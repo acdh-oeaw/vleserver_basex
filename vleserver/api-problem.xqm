@@ -53,8 +53,19 @@ return (web:response-header((), $header-elements, map{'message': $problem/rfc780
 )   
 };
 
+declare function _:result($result as element(rfc7807:problem)) {
+  _:or_result(_:return_result#1, [$result])
+};
+
+declare %private function _:return_result($to_return as node()) {
+  $to_return
+};
+
 declare
-  %rest:error('Q{https://tools.ietf.org/html/rfc7231#section-6}*')
+(: use when there is another error handler :)
+(:  %rest:error('Q{https://tools.ietf.org/html/rfc7231#section-6}*') :)
+(: use when this is the only error handler :)
+  %rest:error('*')
   %rest:error-param("code", "{$code}")
   %rest:error-param("description", "{$description}")
   %rest:error-param("value", "{$value}")
@@ -75,7 +86,7 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
                     <detail>{$value}</detail>
                     <instance>{namespace-uri-from-QName(xs:QName($code))}/{local-name-from-QName(xs:QName($code))}</instance>
                     <status>{$status-code}</status>
-                    {if ($_:enable_trace) then <trace>{$module}: {$line-number}/{$column-number}{replace($additional, '^.*Stack Trace:', '', 's')}</trace> else ()}
+                    {if ($_:enable_trace) then <trace xml:space="preserve">{replace(replace($additional, '^.*Stopped at ', '', 's'), ':\n.*($|(\n\nStack Trace:(\n)))', '$3')}</trace> else ()}
                 </problem>, ())  
 };
 
@@ -84,7 +95,7 @@ declare %private function _:on_accept_to_json($problem as element(rfc7807:proble
       $arrays := string-join($problem//*[*[local-name() eq '_']]/local-name(), ' ')
   return
   if (matches(req:header("ACCEPT"), '[+/]json'))
-  then json:serialize(<json type="object" objects="{$objects}" arrays="{$arrays}">{$problem/*}</json>, map {'format': 'direct'})
+  then json:serialize(<json type="object" objects="{$objects}" arrays="{$arrays}">{$problem/* transform with {delete node @xml:space}}</json>, map {'format': 'direct'})
   else $problem
 };
 

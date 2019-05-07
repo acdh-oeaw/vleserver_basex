@@ -9,7 +9,8 @@ describe('tests for /dicts', function() {
     describe('tests for get', function() {
         it('should respond 200 for "OK"', function() {
             var response = request('get', baseURI + '/dicts', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                // Accessing dicts without a username and password is only possible without
+                // 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
             expect(response).to.have.status(200);

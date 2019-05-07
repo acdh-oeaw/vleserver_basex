@@ -20,16 +20,21 @@ declare variable $_:enable_trace := false();
 declare
     %perm:check('restvle/dicts', '{$_}')
 function _:checkPermissions($_ as map(*)) {
+  let $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1'),
+      $list := replace($_('path'), '^/restvle/dicts/?([^/]+/([^/]+)).*$', '$2')
+  (: TODO perhaps stop if ($_('method') ne 'GET' and request:header('Accept', '') ne 'application/vnd.wde.v2+json') :)
+  (: dicts and dicts/dict_users always ok, users is not :)
+  return
+  (: if ($dict = ('', 'dict_users') and not($list = ('users'))) then () else :)
   if ($_('method') ne 'GET' or
       request:header('Accept', '') eq 'application/vnd.wde.v2+json')
   then
     if (db:exists('dict_users')) then
-      if (not(exists($_('authorization')))) then
+      if (not(exists($_('authorization'))) and exists(collection('dict_users')/users/user)) then
         error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
       else
       let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($_('authorization'), '^Basic ', ''))), ':'),
-          $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])],
-          $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1')
+          $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])]          
       return if ((not(exists(collection('dict_users')/users/user)) and $dict = ("", "dict_users")) or
                  exists($user_tag[if ($dict ne "") then @dict = $dict else true()])) then () else
         error(xs:QName('response-codes:_403'),
@@ -99,4 +104,32 @@ function _:getDictDictName($dict_name as xs:string) {
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
     json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1])
+};
+
+declare
+    %rest:DELETE
+    %rest:path('restvle/dicts/{$dict_name}')
+    %rest:header-param('Authorization', '{$auth_header}', '')
+    %updating
+(: This function is meant to have a global write lock. :)
+function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string) {
+  let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($auth_header, '^Basic ', ''))), ':')
+  return if ($auth_header = '') then
+    error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
+  else if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = 'dict_users'])) then
+  (: Draft: need to look up all the dbs in profile. :)
+  for $db in db:list()[matches(., '^'||$dict_name)]
+  return (
+    db:drop($db), 
+    delete node collection('dict_users')//user[@dict=$dict_name],
+    update:output(api-problem:result(
+    <problem xmlns="urn:ietf:rfc:7807">
+       <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+       <title>{$api-problem:codes_to_message(204)}</title>
+       <detail>204</detail>
+    </problem>
+  )))
+  else  (: User is no system superuser :)
+    error(xs:QName('response-codes:_403'),
+                   'Wrong username and password')
 };
