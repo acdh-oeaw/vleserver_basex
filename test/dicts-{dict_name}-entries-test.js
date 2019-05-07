@@ -8,7 +8,7 @@ require('./utilSetup');
 
 module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
 describe('tests for /dicts/{dict_name}/entries', function() {
-    describe('tests for get', function() {
+    xdescribe('tests for get', function() {
         it('should respond 200 for "OK"', function() {
             var response = request('get', baseURI+'/dicts/nostrudsedeaincididunt/entries', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -65,7 +65,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     
     });
     
-    describe('tests for post', function() {
+    xdescribe('tests for post', function() {
         it('should respond 201 for "Created"', function() {
             var response = request('post', baseURI+'/dicts/pariaturaute/entries', { 
                 'body': {"sid":"incididunt in veniam eiusmod","lemma":"velit","entry":"velit laborum"},
@@ -151,7 +151,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     
     });
     
-    describe('tests for delete', function() {
+    xdescribe('tests for delete', function() {
         it('should respond 204 for "No Content"', function() {
             var response = request('delete', baseURI+'/dicts/pariatur/entries', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -208,7 +208,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     
     });
     
-    describe('tests for patch', function() {
+    xdescribe('tests for patch', function() {
         it('should respond 200 for "OK"', function() {
             var response = request('patch', baseURI+'/dicts/nostrudsit/entries', { 
                 'body': {"sid":"est velit dolore","lemma":"eiusmod aliquip proident","entry":"esse"},

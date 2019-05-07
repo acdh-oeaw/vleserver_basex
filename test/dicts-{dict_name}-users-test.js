@@ -8,7 +8,7 @@ require('./utilSetup');
 
 module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
 describe('tests for /dicts/{dict_name}/users', function() {
-    describe('tests for get', function() {
+    xdescribe('tests for get', function() {
         it('should respond 200 for "OK"', function() {
             var response = request('get', baseURI+'/dicts/essedolorecillum/users', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -65,7 +65,7 @@ describe('tests for /dicts/{dict_name}/users', function() {
     
     });
     
-    describe('tests for post', function() {
+    xdescribe('tests for post', function() {
         it('should respond 201 for "Created"', function() {
             var response = request('post', baseURI+'/dicts/c/users', { 
                 'body': {"id":"reprehenderit","userID":"non deserunt nulla id","pw":"in anim esse","read":"esse ut","write":"laboris tempor","writeown":"culpa"},

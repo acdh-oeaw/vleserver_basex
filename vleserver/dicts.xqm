@@ -24,6 +24,9 @@ function _:checkPermissions($_ as map(*)) {
       request:header('Accept', '') eq 'application/vnd.wde.v2+json')
   then
     if (db:exists('dict_users')) then
+      if (not(exists($_('authorization')))) then
+        error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
+      else
       let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($_('authorization'), '^Basic ', ''))), ':'),
           $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])],
           $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1')
