@@ -4,9 +4,37 @@ var chakram = require('chakram');
 var request = chakram.request;
 var expect = chakram.expect;
 
+module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
 describe('tests for /dicts/{dicts_name}', function() {
+    var superuser = {
+        "id": "",
+        "userID": basexAdminUser,
+        "pw": basexAdminPW,
+        "read": "y",
+        "write": "y",
+        "writeown": "n",
+        "table": "dict_users"
+      },
+        superuserauth = {"user":superuser.userID, "pass":superuser.pw},
+        newSuperUserID;
+    beforeEach(function(){
+        return request('post', baseURI + '/dicts/dict_users/users', { 
+            'headers': {"Accept":"application/vnd.wde.v2+json",
+                        "Content-Type":"application/json"},
+            'body': superuser,
+            'time': true
+        })
+        .then(function(userCreateResponse) {
+            newSuperUserID = userCreateResponse.body.id;
+        });
+    });
+
     describe('tests for get', function() {
         it('should respond 200 for "OK"', function() {
+            return request('post', baseURI + '/restvle/dicts', {
+
+            })
+            .then(function(dictCreatedResponse) {
             var response = request('get', 'http://localhost:8984/restutf8/dicts/deseruntsitsuntproident', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
@@ -141,3 +169,4 @@ describe('tests for /dicts/{dicts_name}', function() {
     
     });
 });
+}

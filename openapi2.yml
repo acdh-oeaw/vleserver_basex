@@ -120,6 +120,7 @@ paths:
         - application/vnd.wde.v2+json
         - application/hal+json
         - application/json
+        - application/xml
       responses:
         '201':
           description: Created
@@ -181,6 +182,7 @@ paths:
         - application/vnd.wde.v2+json
         - application/hal+json
         - application/json
+        - application/xml
       responses:
         '204':
           description: No Content

@@ -21,13 +21,23 @@ declare
     %perm:check('restvle/dicts', '{$_}')
 function _:checkPermissions($_ as map(*)) {
   let $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1'),
-      $list := replace($_('path'), '^/restvle/dicts/?([^/]+/([^/]+)).*$', '$2')
+      $list := replace($_('path'), '^/restvle/dicts/?([^/]+/([^/]+)).*$', '$2'),
+      $accept_check := if (not(tokenize(request:header('Accept', ''), '[,;]') = ('',
+        'application/vnd.wde.v2+json',
+        'application/hal+json',
+        'application/json',
+        'application/xml',
+        '*/*'))) then
+      error(xs:QName('response-codes:_406'),
+            $api-problem:codes_to_message(406),
+            'Don&apos;t know how to generate '||request:header('Accept', '')||' response.') else ()
   (: TODO perhaps stop if ($_('method') ne 'GET' and request:header('Accept', '') ne 'application/vnd.wde.v2+json') :)
   (: dicts and dicts/dict_users always ok, users is not :)
   return
   (: if ($dict = ('', 'dict_users') and not($list = ('users'))) then () else :)
   if ($_('method') ne 'GET' or
-      request:header('Accept', '') eq 'application/vnd.wde.v2+json')
+      request:header('Accept', '') eq 'application/vnd.wde.v2+json' or
+      $list = ('users'))       
   then
     if (db:exists('dict_users')) then
       if (not(exists($_('authorization'))) and exists(collection('dict_users')/users/user)) then
@@ -49,7 +59,7 @@ declare
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
-  let $dicts := util:eval(``[db:list()[ends-with(., '__prof')]!replace(., '__prof', '')]``, (), 'get-list-of-profile'),
+  let $dicts := (util:eval(``[db:list()[ends-with(., '__prof')]!replace(., '__prof', '')]``, (), 'get-list-of-profile'), 'dict_users'),
       $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(rest:uri()||'/'||.), <name>{.}</name>)
   return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page])
 };
@@ -64,15 +74,22 @@ function _:createDict($data, $content-type as xs:string, $wanted-response as xs:
     if ($content-type = 'application/json') then
       (: in this case $data is an element(json) :)
       if (exists($data/json/name)) then
-        if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users')) then
+        if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users')) then (
+          _:check_global_super_user(),
           util:eval(``[
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 if (db:exists("`{$data/json/name}`__prof")) then
-  error(xs:QName('response-codes:_406'),
+  error(xs:QName('response-codes:_409'),
         'Dictionary "`{$data/json/name}`" already exists')
 else
   db:create("`{$data/json/name}`__prof", <empty/>, "`{$data/json/name}`.xml")
-]``, (), 'try-create-dict', true())
+]``, (), 'try-create-dict', true()),
+        api-problem:result(
+        <problem xmlns="urn:ietf:rfc:7807">
+          <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+          <title>{$api-problem:codes_to_message(201)}</title>
+          <status>201</status>
+        </problem>))
         else if ($data/json/name ne "dict_users")
         then error(xs:QName('response-codes:_422'),
                    'User directory does not exist',
@@ -95,15 +112,37 @@ else
          'Accept was :'||$wanted-response)
 };
 
+declare function _:check_global_super_user() as empty-sequence() {
+  util:eval(``[ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+  let $name_pw := tokenize("`{convert:binary-to-string(xs:base64Binary(replace(request:header('Authorization', ''), '^Basic ', '')))}`", ':'),
+      $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2]) and 
+                                                       @type="su" and @dict = "dict_users"]          
+      return if (exists($user_tag)) then () else
+        error(xs:QName('response-codes:_403'),
+                       'Only global super users may create dictionaries.') ]``, (), 'check-global-super-user')
+};
+
 (: Get dict_name -> ganzes dict, RFC 7233, Accept-Ranges: bytes, bytes für eine bestimmte Menge entries? :)
 
 declare
     %rest:GET
     %rest:path('restvle/dicts/{$dict_name}')
 function _:getDictDictName($dict_name as xs:string) {
+  if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-exists')) then 
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
     json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1])
+  else
+  error(xs:QName('response-codes:_404'),
+                 $api-problem:codes_to_message(404))
+};
+
+declare
+    %rest:GET
+    %rest:path('restvle/dicts/dict_users')
+function _:getDictDictNameDictUsers() {
+  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
+    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1])  
 };
 
 declare
@@ -126,7 +165,7 @@ function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string
     <problem xmlns="urn:ietf:rfc:7807">
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
        <title>{$api-problem:codes_to_message(204)}</title>
-       <detail>204</detail>
+       <status>204</status>
     </problem>
   )))
   else  (: User is no system superuser :)

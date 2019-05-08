@@ -17,6 +17,14 @@ declare variable $_:enable_trace := false();
 
 declare
     %rest:GET
+    %rest:path('restvle')
+function _:getRoot() {
+  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
+    json-hal:create_document(xs:anyURI(rest:uri()||'/dicts'), <note>all dictionaries</note>)], 1, 1, 1])
+};
+
+declare
+    %rest:GET
     %rest:path('restvle/dicts/{$dict_name}/entries')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)

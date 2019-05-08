@@ -1,7 +1,7 @@
 const _ = '_'
   , baseURI = 'http://localhost:8984/restvle'
   , basexAdminUser = 'admin'
-  , basexAdminPW = 'admin';
+  , basexAdminPW = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
   // , baseURI = 'https://basex-curation.eos.arz.oeaw.ac.at'
   // , basexAdminUser = 'BaseXTestAdmin'
   // , basexAdminPW = 'Stoßwellentherapie';
@@ -10,7 +10,8 @@ require('./test/utilSetup')
 
 describe('WDE REST API', function() {
     this.timeout(20000);
-    describe('Diictionary listing', require('./test/dicts-test').curry(baseURI, basexAdminUser, basexAdminPW))
+    describe('Diictionary listing and creation', require('./test/dicts-test').curry(baseURI, basexAdminUser, basexAdminPW));
+    describe('Diictionary management', require('./test/dicts-{dicts_name}-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('User Management', require('./test/dicts-{dict_name}-users-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary Data Usage', require('./test/dicts-{dict_name}-entries-test').curry(baseURI, basexAdminUser, basexAdminPW));
 })
