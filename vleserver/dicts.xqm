@@ -155,7 +155,7 @@ function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string
   let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($auth_header, '^Basic ', ''))), ':')
   return if ($auth_header = '') then
     error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
-  else if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = 'dict_users'])) then
+  else if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = $dict_name and @type='su'])) then
   (: Draft: need to look up all the dbs in profile. :)
   for $db in db:list()[matches(., '^'||$dict_name)]
   return (

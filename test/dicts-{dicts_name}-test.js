@@ -30,24 +30,60 @@ describe('tests for /dicts/{dicts_name}', function() {
     });
 
     describe('tests for get', function() {
-        it('should respond 200 for "OK"', function() {
-            return request('post', baseURI + '/restvle/dicts', {
-
+        var dictuser = {
+            "id": "",
+            "userID": 'testUser0',
+            "pw": 'PassW0rd',
+            "read": "y",
+            "write": "y",
+            "writeown": "n",
+            "table": "deseruntsitsuntproident"
+        },
+            dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
+            newDictUserID;
+        
+        beforeEach('Create test user and test table', function(){
+            return request('post', baseURI + '/dicts/dict_users/users', { 
+                'headers': {"Accept":"application/vnd.wde.v2+json",
+                            "Content-Type":"application/json"},
+                'auth': superuserauth,
+                'body': dictuser,
+                'time': true
             })
-            .then(function(dictCreatedResponse) {
-            var response = request('get', 'http://localhost:8984/restutf8/dicts/deseruntsitsuntproident', { 
+            .then(function(userCreateResponse) {
+                newDictUserID = userCreateResponse.body.id;
+                return request('post', baseURI + '/dicts', {
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},
+                    'auth': superuserauth,
+                    'body': {"name": dictuser.table},
+                    'time': true
+                });
+            });
+        });
+        it('should respond 200 for "OK"', function() {             
+            var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
                 'time': true
             });
-
+            
             expect(response).to.have.status(200);
             return chakram.wait();
         });
 
+        it('should respond 200 for "OK" (public)', function() {             
+            var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', { 
+                'time': true
+            });
+            
+            expect(response).to.have.status(200);
+            return chakram.wait();
+        });
 
         it('should respond 401 for "Unauthorized"', function() {
-            var response = request('get', 'http://localhost:8984/restutf8/dicts/magna', { 
+            var response = request('get', baseURI + '/dicts/magna', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                // access needs auth with wde.v2
                 'time': true
             });
 
@@ -57,8 +93,9 @@ describe('tests for /dicts/{dicts_name}', function() {
 
 
         it('should respond 403 for "Forbidden"', function() {
-            var response = request('get', 'http://localhost:8984/restutf8/dicts/minimconsequataliquaoccaecat', { 
+            var response = request('get', baseURI + '/dicts/minimconsequataliquaoccaecat', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': {'user': 'nonexisting', 'pass': 'nonsense'},
                 'time': true
             });
 
@@ -66,10 +103,12 @@ describe('tests for /dicts/{dicts_name}', function() {
             return chakram.wait();
         });
 
+        // 404 with wde.v2 is only possible if the table is gone but the user still exists.
+        // This should never happen as the delete command removes also all the users.
+        // Otherwise: 403
 
-        it('should respond 404 for "Not Found"', function() {
-            var response = request('get', 'http://localhost:8984/restutf8/dicts/insed', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+        it('should respond 404 for "Not Found" (public)', function() {
+            var response = request('get', baseURI + '/dicts/insed', { 
                 'time': true
             });
 
@@ -78,8 +117,8 @@ describe('tests for /dicts/{dicts_name}', function() {
         });
 
 
-        it('should respond 406 for "Not Acceptable"', function() {
-            var response = request('get', 'http://localhost:8984/restutf8/dicts/animlaborisdolore', { 
+        xit('should respond 406 for "Not Acceptable"', function() {
+            var response = request('get', baseURI + '/dicts/animlaborisdolore', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
@@ -89,8 +128,8 @@ describe('tests for /dicts/{dicts_name}', function() {
         });
 
 
-        it('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('get', 'http://localhost:8984/restutf8/dicts/sitqui', { 
+        xit('should respond 415 for "Unsupported Media Type"', function() {
+            var response = request('get', baseURI + '/dicts/sitqui', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
@@ -98,23 +137,71 @@ describe('tests for /dicts/{dicts_name}', function() {
             expect(response).to.have.status(415);
             return chakram.wait();
         });
-    
+        afterEach(function() {
+            return request('delete', baseURI + '/dicts/' + dictuser.table, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
+                'time': true
+            })
+            .then(function(dictDeletedResponse) {
+            return request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': superuserauth,
+                'time': true
+            });
+            });
+        });
     });
     
     describe('tests for delete', function() {
-        it('should respond 204 for "No Content"', function() {
-            var response = request('delete', 'http://localhost:8984/restutf8/dicts/reprehenderit', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+        var dictuser = { // a superuser for the test table
+            "id": "",
+            "userID": 'testUser0',
+            "pw": 'PassW0rd',
+            "read": "y",
+            "write": "y",
+            "writeown": "n",
+            "table": "deseruntsitsuntproident"
+        },
+            dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
+            newDictUserID;
+        beforeEach('Create test user', function(){
+            return request('post', baseURI + '/dicts/dict_users/users', { 
+                'headers': {"Accept":"application/vnd.wde.v2+json",
+                            "Content-Type":"application/json"},
+                'auth': superuserauth,
+                'body': dictuser,
                 'time': true
+            })
+            .then(function(userCreateResponse) {
+                newDictUserID = userCreateResponse.body.id;
             });
+        });
+        it('should respond 204 for "No Content"', function() {
+            // A new table can only be created by a global super user
+            return request('post', baseURI + '/dicts', {
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': superuserauth,
+                'body': {"name": dictuser.table},
+                'time': true
+            })
+            .then(function(dictCreatedResponse) {
+                // A table can only be deleted by a super user of that table
+                // A global super user would need to make himself superuser of that table
+                var response = request('delete', baseURI + '/dicts/' + dictuser.table, { 
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
 
-            expect(response).to.have.status(204);
-            return chakram.wait();
+                expect(response).to.have.status(204);
+                return chakram.wait();
+            });
         });
 
 
         it('should respond 401 for "Unauthorized"', function() {
-            var response = request('delete', 'http://localhost:8984/restutf8/dicts/dolorinsint', { 
+            var response = request('delete', baseURI + '/dicts/' + dictuser.table, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
@@ -125,8 +212,9 @@ describe('tests for /dicts/{dicts_name}', function() {
 
 
         it('should respond 403 for "Forbidden"', function() {
-            var response = request('delete', 'http://localhost:8984/restutf8/dicts/eiusmodtempor', { 
+            var response = request('delete', baseURI + '/dicts/eiusmodtempor', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': {'user': 'nonexisting', 'pass': 'nonsense'},
                 'time': true
             });
 
@@ -135,19 +223,10 @@ describe('tests for /dicts/{dicts_name}', function() {
         });
 
 
-        it('should respond 404 for "Not Found"', function() {
-            var response = request('delete', 'http://localhost:8984/restutf8/dicts/voluptateirure', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
+        // 404 for delete is not possible, it is always 403
 
-            expect(response).to.have.status(404);
-            return chakram.wait();
-        });
-
-
-        it('should respond 406 for "Not Acceptable"', function() {
-            var response = request('delete', 'http://localhost:8984/restutf8/dicts/aliquipcommodoid', { 
+        xit('should respond 406 for "Not Acceptable"', function() {
+            var response = request('delete', baseURI + '/dicts/aliquipcommodoid', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
@@ -157,8 +236,8 @@ describe('tests for /dicts/{dicts_name}', function() {
         });
 
 
-        it('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('delete', 'http://localhost:8984/restutf8/dicts/consecteturnulla', { 
+        xit('should respond 415 for "Unsupported Media Type"', function() {
+            var response = request('delete', baseURI + '/dicts/consecteturnulla', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
@@ -166,7 +245,21 @@ describe('tests for /dicts/{dicts_name}', function() {
             expect(response).to.have.status(415);
             return chakram.wait();
         });
+        afterEach('Remove test user', function(){
+            return request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': superuserauth,
+                'time': true
+            });
+        });
     
+    });
+    afterEach(function(){
+        return request('delete', baseURI + '/dicts/dict_users/users/' + newSuperUserID, { 
+            'headers': {"Accept":"application/vnd.wde.v2+json"},
+            'auth': superuserauth,
+            'time': true
+        });
     });
 });
 }

@@ -16,9 +16,9 @@ describe('tests for /dicts', function() {
         "table": "dict_users"
       },
         superuserauth = {"user":superuser.userID, "pass":superuser.pw},
-        newUserID;
+        newSuperUserID;
     describe('tests for get', function() {
-        xit('should respond 200 for "OK"', function() {
+        it('should respond 200 for "OK"', function() {
             var response = request('get', baseURI + '/dicts', { 
                 // Accessing dicts without a username and password is only possible without
                 // 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -28,23 +28,32 @@ describe('tests for /dicts', function() {
             expect(response).to.have.header("content-type", "application/json;charset=utf-8");
             expect(response).to.comprise.of.json({
                 "_embedded": {
-                  "dicts": []
+                  "dicts": [
+                    {
+                      "name":"dict_users",
+                      "_links":{
+                        "_self":{
+                          "href":"\/restvle\/dicts\/dict_users"
+                        }
+                      }
+                    }
+                  ]
                  },
                 "_links": {
                   "_first": {
                     "href": "/restvle/dicts?page=1&pageSize=25"
                   },
                   "_last": {
-                    "href": "/restvle/dicts?page=0&pageSize=25"
+                    "href": "/restvle/dicts?page=1&pageSize=25"
                   },
                   "_self": {
                     "href": "/restvle/dicts?pageSize=25"
                   }
                 },
                 "page": "1",
-                "page_count": "0",
+                "page_count": "1",
                 "page_size": "25",
-                "total_items": "0"
+                "total_items": "1"
             });
             return chakram.wait();
         });
@@ -58,11 +67,11 @@ describe('tests for /dicts', function() {
                     'time': true
                 })
                 .then(function(userCreateResponse) {
-                    newUserID = userCreateResponse.body.id;
+                    newSuperUserID = userCreateResponse.body.id;
                 });
             });
             
-            xit('should respond 401 for "Unauthorized"', function() {
+            it('should respond 401 for "Unauthorized"', function() {
                 var response = request('get', baseURI + '/dicts', { 
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'time': true
@@ -72,7 +81,7 @@ describe('tests for /dicts', function() {
                 return chakram.wait();
             });
             
-            xit('should respond 403 for "Forbidden"', function() {
+            it('should respond 403 for "Forbidden"', function() {
                 var response = request('get', baseURI + '/dicts', { 
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': {'user': 'notadmin', 'pass': 'wrongpw'},
@@ -83,7 +92,7 @@ describe('tests for /dicts', function() {
                 return chakram.wait();
             });
             afterEach(function(){
-                return request('delete', baseURI + '/dicts/dict_users/users/' + newUserID, { 
+                return request('delete', baseURI + '/dicts/dict_users/users/' + newSuperUserID, { 
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': superuserauth,
                     'time': true
@@ -91,7 +100,7 @@ describe('tests for /dicts', function() {
             });
         });
 
-        xit('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 406 for "Not Acceptable"', function() {
             var response = request('get', baseURI + '/dicts', { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
@@ -114,19 +123,57 @@ describe('tests for /dicts', function() {
                 'time': true
             })
             .then(function(userCreateResponse) {
-                newUserID = userCreateResponse.body.id;
+                newSuperUserID = userCreateResponse.body.id;
             });
         });
-        it('should respond 201 for "Created"', function() {
-            var response = request('post', baseURI + '/dicts', { 
-                'body': {"name":"sit_laborum_id"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},                
-                'auth': superuserauth,
-                'time': true
-            });
+        describe('Creating a dictionary', function(){
+            var dictname = "sit_laborum_id";
+            it('should respond 201 for "Created"', function() {                
+                var response = request('post', baseURI + '/dicts', { 
+                    'body': {"name": dictname},
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},                
+                    'auth': superuserauth,
+                    'time': true
+                });
 
-            expect(response).to.have.status(201);
-            return chakram.wait();
+                expect(response).to.have.status(201);
+                return chakram.wait();
+            });
+            afterEach('Delete that dictionary', function(){
+                var dictuser = { // a superuser for the test table
+                    "id": "",
+                    "userID": 'testUser0',
+                    "pw": 'PassW0rd',
+                    "read": "y",
+                    "write": "y",
+                    "writeown": "n",
+                    "table": dictname
+                },
+                    dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
+                    newDictUserID;
+                return request('post', baseURI + '/dicts/dict_users/users', { 
+                    'headers': {"Accept":"application/vnd.wde.v2+json",
+                                "Content-Type":"application/json"},
+                    'auth': superuserauth,
+                    'body': dictuser,
+                    'time': true
+                })
+                .then(function(userCreateResponse) {
+                    newDictUserID = userCreateResponse.body.id;
+                    return request('delete', baseURI + '/dicts/' + dictname, { 
+                        'headers': {"Accept":"application/vnd.wde.v2+json"},
+                        'auth': dictuserauth,
+                        'time': true
+                    });
+                })
+                .then(function(dictDeletedResponse){                   
+                    return request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, { 
+                        'headers': {"Accept":"application/vnd.wde.v2+json"},
+                        'auth': superuserauth,
+                        'time': true
+                    });
+                });
+            });
         });
 
 
@@ -142,7 +189,7 @@ describe('tests for /dicts', function() {
         });
 
 
-        xit('should respond 401 for "Unauthorized"', function() {
+        it('should respond 401 for "Unauthorized"', function() {
             var response = request('post', baseURI + '/dicts', { 
                 'body': {"name":"velit anim laboris"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -167,7 +214,7 @@ describe('tests for /dicts', function() {
         });
 
 
-        xit('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 406 for "Not Acceptable"', function() {
             var response = request('post', baseURI + '/dicts', { 
                 'body': {"name":"anim labore pariatur"},
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
@@ -179,7 +226,7 @@ describe('tests for /dicts', function() {
         });
 
 
-        xit('should respond 415 for "Unsupported Media Type"', function() {
+        it('should respond 415 for "Unsupported Media Type"', function() {
             var response = request('post', baseURI + '/dicts', { 
                 'form': {"name":"quis"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -204,7 +251,7 @@ describe('tests for /dicts', function() {
             return chakram.wait();
         });
         afterEach(function(){
-            return request('delete', baseURI + '/dicts/dict_users/users/' + newUserID, { 
+            return request('delete', baseURI + '/dicts/dict_users/users/' + newSuperUserID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'auth': superuserauth,
                 'time': true
