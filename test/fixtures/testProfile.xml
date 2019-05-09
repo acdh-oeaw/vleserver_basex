@@ -1,0 +1,518 @@
+<profile when="2016_12_16_10_43_17" xml:id="dictProfile" xml:space="preserve">
+<ip/>
+<autoSwitchString/>
+<tableName>{{dictName}}</tableName>
+<basexRest>https://vle-curation.acdh.oeaw.ac.at</basexRest>
+<displayString>{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}</displayString>
+<displayXPaths/>
+<doubleNLElements>cit,entry1,form,gramGrp,rating,re,sense,xr</doubleNLElements>
+<editorFonts/>
+<editorFontsSize>10</editorFontsSize>
+<listBoxFonts/>
+<entrySchema>
+</entrySchema>
+<entryStyle><xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/xhtml" xmlns:mds="http://www.loc.gov/mods/v3" version="1.0">
+
+    <xsl:output method="html"/>
+    <xsl:template match="/">
+
+      <html>
+        <head>
+          <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+          <style type="text/css">
+            h3 {
+               color: red;
+            }
+
+            table {
+              border-collapse: collapse;
+              background: white;
+            }
+            td {
+              border: 0px solid black;
+              padding-right: 5px;
+              vertical-align: top;
+            }
+ 
+            .aInternal {
+               text-decoration: none;
+               color: inherit;
+            }
+
+            .tdLeft {
+               color: green;
+               font-weight: bold;
+               width: 120px;
+               text-align: right;
+            }
+          </style>
+
+          <script language="JavaScript">
+             function omd_(t) {
+               //alert(t.offsetTop);
+             }
+             
+             function omd1_(t) {
+                window.location.href = t;
+             }
+           </script>
+ 
+        </head>
+        
+        <body>
+            <h3><a class="aInternal" href="javascript:;"><xsl:attribute name="onMouseDown">omd1_('gotoid:<xsl:value-of select="//mds:titleInfo/mds:title/@cnt"/>')</xsl:attribute>
+                        <xsl:value-of select="//mds:titleInfo/mds:title"/></a></h3>
+
+            <table>
+               <tr>
+                  <td class="tdLeft">Resource type:</td>
+                  <td>
+                     <a class="aInternal" href="javascript:;"><xsl:attribute name="onMouseDown">omd1_('gotoid:<xsl:value-of select="//mds:typeOfResource/@cnt"/>')</xsl:attribute>
+                        <xsl:value-of select="//mds:typeOfResource"/></a>
+
+                     <a class="aInternal" href="javascript:;"><xsl:attribute name="onMouseDown">omd1_('gotoid:<xsl:value-of select="//mds:genre[@authority='local']/@cnt"/>')</xsl:attribute>
+                        <xsl:if test="//mds:genre[@authority='local']">(<xsl:value-of select="//mds:genre[@authority='local']"/>)</xsl:if>
+                     </a>
+                  </td>
+               </tr>
+
+               <xsl:for-each select="//mds:name[@type='personal']">
+               <tr>
+                  <td class="tdLeft">Name:</td>
+                  <td>
+                     <a class="aInternal" href="javascript:;"><xsl:attribute name="onMouseDown">omd1_('gotoid:<xsl:value-of select="mds:namePart/@cnt"/>')</xsl:attribute>
+                        <xsl:value-of select="mds:namePart"/></a>
+   
+                     (<a class="aInternal" href="javascript:;"><xsl:attribute name="onMouseDown">omd1_('gotoid:<xsl:value-of select="mds:role/mds:roleTerm/@cnt"/>')</xsl:attribute>
+                        <i><xsl:value-of select="mds:role/mds:roleTerm"/></i></a>)
+                     
+                  </td>
+               </tr>
+               </xsl:for-each>
+
+               <tr>
+                  <td class="tdLeft">Origin:</td>
+                  <td>
+                     <a class="aInternal" href="javascript:;"><xsl:attribute name="onMouseDown">omd1_('gotoid:<xsl:value-of select="//mds:originInfo/mds:dateIssued/@cnt"/>')</xsl:attribute>
+                        <xsl:value-of select="//mds:originInfo/mds:dateIssued"/></a>
+                  </td>
+               </tr>
+
+               <tr>
+                  <td class="tdLeft">Topics:</td>
+                  <td>
+                     <xsl:for-each select="//mds:subject/mds:topic">
+                        <xsl:if test="position()&amp;gt;1">, </xsl:if>
+
+                        <a class="aInternal" href="javascript:;"><xsl:attribute name="onMouseDown">omd1_('gotoid:<xsl:value-of select="@cnt"/>')</xsl:attribute>
+                           <xsl:value-of select="."/></a>
+                     </xsl:for-each>
+                  </td>
+               </tr>
+
+            </table>
+            
+        </body>
+      </html>
+    </xsl:template>
+</xsl:stylesheet>
+</entryStyle>
+<entryTemplates>//*********************************************************//
+//* ENTRY (lemma) - TEMPLATE ******************************//
+//*********************************************************//
+<entry xmlns="http://www.tei-c.org/ns/1.0" numID="9" name="fa_entry_001" xml:id="">
+   <form type="lemma">
+      <orth xml:lang="fa-Arab">-</orth>
+      <orth xml:lang="fa-x-modDMG">-</orth>
+   </form>
+
+   <gramGrp>
+      <gram type="pos"/>
+   </gramGrp>
+
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote>-</quote>
+      </cit>
+
+      <cit type="translation" xml:lang="de">
+         <quote>-</quote>
+      </cit>
+   </sense>
+
+</entry>
+
+<entry xmlns="http://www.tei-c.org/ns/1.0" name="fa_noun_001" xml:id="">
+   <form type="lemma">
+      <orth xml:lang="fa-Arab"/>
+      <orth xml:lang="fa-x-modDMG"/>
+   </form>
+
+   <gramGrp>
+      <gram type="pos">noun</gram>
+   </gramGrp>
+   
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote/>
+      </cit>
+
+      <cit type="translation" xml:lang="de">
+         <quote/>
+      </cit>
+   </sense>
+</entry>
+
+<entry xmlns="http://www.tei-c.org/ns/1.0" name="fa_adjective_001" xml:id="">
+   <form type="lemma">
+      <orth xml:lang="fa-Arab"/>
+      <orth xml:lang="fa-x-modDMG"/>
+   </form>
+
+   <gramGrp>
+      <gram type="pos">adjective</gram>
+   </gramGrp>
+   
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote/>
+      </cit>
+
+      <cit type="translation" xml:lang="de">
+         <quote/>
+      </cit>
+   </sense>
+</entry>
+
+<entry xmlns="http://www.tei-c.org/ns/1.0" name="fa_lvc_001" xml:id="">
+   <form type="multiWordUnit">
+      <orth xml:lang="fa-Arab">-</orth>
+      <orth xml:lang="fa-x-modDMG">-</orth>
+   </form>
+
+   <gramGrp>
+      <gram type="pos">lightVerbConstruction</gram>
+   </gramGrp>
+
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote>-</quote>
+      </cit>
+
+      <cit type="translation" xml:lang="de">
+         <quote>-</quote>
+      </cit>
+   </sense>
+
+</entry>
+
+//*********************************************************//
+//* ENTRY (multiWordUnit) - TEMPLATE **********************//
+//*********************************************************//
+<entry xmlns="http://www.tei-c.org/ns/1.0" numID="9" name="fa_mwu_001" xml:id="">
+   <form type="multiWordUnit">
+      <orth xml:lang="fa-Arab">-</orth>
+      <orth xml:lang="fa-x-modDMG">-</orth>
+   </form>
+
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote>-</quote>
+      </cit>
+
+      <cit type="translation" xml:lang="de">
+         <quote>-</quote>
+      </cit>
+   </sense>
+
+</entry>
+
+//*********************************************************//
+//* EXAMPLE - TEMPLATE ************************************//
+//*********************************************************//
+<cit xmlns="http://www.tei-c.org/ns/1.0" name="fa_example_001" xml:id="" type="example">
+   <quote xml:lang="fa-Arab">-</quote>
+   <quote xml:lang="fa-x-modDMG">-</quote>
+
+   <cit type="translation" xml:lang="en">
+      <quote>-</quote>
+   </cit>
+
+   <cit type="translation" xml:lang="de">
+      <quote>-</quote>
+   </cit>
+
+</cit>
+
+<entry xmlns="http://www.tei-c.org/ns/1.0" numID="9" name="farsi_entry_001" xml:id="">
+   <form type="lemma">
+      <orth xml:lang="fa-Arab"/>
+      <orth xml:lang="fa-x-modDMG"/>
+   </form>
+
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote/></cit></sense>
+         
+</entry>
+
+//******************************************************************//
+//******************************************************************//
+//******************************************************************//
+
+<entry xmlns="http://www.tei-c.org/ns/1.0" numID="9" name="farsi_mwu_001" xml:id="">
+   <form type="multiWordUnit">
+      <orth xml:lang="fa-Arab"/>
+      <orth xml:lang="fa-x-modDMG"/>
+   </form>
+
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote/>
+      </cit>
+   </sense>
+</entry>
+</entryTemplates>
+<entryTemplatesNamesXPath>//tei:entry/@name | //tei:cit/@name</entryTemplatesNamesXPath>
+<exampleXPath/>
+<forbiddenXPaths>
+</forbiddenXPaths>
+<IDXPath>//mds:name[1]/mds:namePart</IDXPath>
+<indexSplitCharacters/>
+<insertTemplates><doc>
+#adv#   <gramGrp><gram type="pos">adverb</gram></gramGrp>
+#ad#    <gramGrp><gram type="pos">adjective</gram></gramGrp>
+#ai#    <gramGrp><gram type="pos">adjective</gram><gram type="subc">invariable</gram></gramGrp>
+#cn#    <gramGrp><gram type="pos">conjunction</gram></gramGrp>
+        <gramGrp><gram type="pos">elative</gram></gramGrp>
+        <gramGrp><gram type="pos">interrogativeAdverb</gram></gramGrp>
+        <gramGrp><gram type="pos">interjection</gram></gramGrp>
+#lv#    <gramGrp><gram type="pos">lightVerbConstruction</gram></gramGrp>
+#n#     <gramGrp><gram type="pos">noun</gram></gramGrp>
+#np#    <gramGrp><gram type="pos">NP</gram></gramGrp>
+#nm#    <gramGrp><gram type="pos">numeral</gram></gramGrp>
+#on#    <gramGrp><gram type="pos">ordNum</gram></gramGrp>
+#pp#    <gramGrp><gram type="pos">personalPronoun</gram></gramGrp>
+        <gramGrp><gram type="pos">pluralNoun</gram></gramGrp>
+#pr#    <gramGrp><gram type="pos">preposition</gram></gramGrp>
+#pn#    <gramGrp><gram type="pos">properNoun</gram></gramGrp>
+#tp#    <gramGrp><gram type="pos">toponym</gram></gramGrp>
+#v#     <gramGrp><gram type="pos">verb</gram></gramGrp>
+
+#ra#    <gramGrp><gram type="arguments">NP + rā</gram></gramGrp>
+#arg#   <gramGrp><gram type="arguments" xml:lang="fa-x-modDMG"/></gramGrp>
+        <gramGrp><gram type="arguments">[Ezafe]</gram></gramGrp>
+        <gramGrp><gram type="usg">only with verbal nouns</gram></gramGrp>
+
+#3#     <form type="inflected" ana="#v_pres_sg_p3"><orth xml:lang="fa-Arab"/><orth xml:lang="fa-x-modDMG"/></form>   {82}
+#fm#    <form type="inflected" ana="#n_f"><orth xml:lang="fa-Arab"/><orth xml:lang="fa-x-modDMG"/></form>   {75}
+#af#    <form type="inflected" ana="#adj_f"><orth xml:lang="fa-Arab"/><orth xml:lang="fa-x-modDMG"/></form>   {75}
+#pl#    <form type="inflected" ana="#n_pl"><orth xml:lang="fa-Arab"/><orth xml:lang="fa-x-modDMG"/></form>   {75}
+
+#b#     <bibl>Alavi p.47</bibl>
+
+#vr#    <form type="variant"><orth xml:lang="fa-Arab"/><orth xml:lang="fa-x-modDMG"/></form>   {65}
+
+#an#    <usg type="dom">anatomy</usg>
+#as#    <usg type="dom">astronomy</usg>
+#bi#    <usg type="dom">biology</usg>
+#bt#    <usg type="dom">botany</usg>
+#cl#    <usg type="dom">calendar</usg>
+#ct#    <usg type="dom">city</usg>
+#co#    <usg type="dom">colour</usg>
+        <usg type="dom">country</usg>
+        <usg type="dom">economics</usg>
+        <usg type="dom">engineering</usg>
+#fd#    <usg type="dom">food</usg>
+#ge#    <usg type="dom">geography</usg>
+        <usg type="dom">grammar</usg>
+#hi#    <usg type="dom">history</usg>
+#it#    <usg type="dom">IT</usg>
+        <usg type="dom">law</usg>
+        <usg type="dom">linguistics</usg>
+#md#    <usg type="dom">medicine</usg>
+        <usg type="dom">military</usg>
+        <usg type="dom">music</usg>
+        <usg type="dom">nautics</usg>
+#pn#    <usg type="dom">plant</usg>
+        <usg type="dom">physics</usg>
+        <usg type="dom">politics</usg>
+        <usg type="dom">psychology</usg>
+#rl#    <usg type="dom">religion</usg>
+        <usg type="dom">science</usg>
+        <usg type="dom">sound</usg>
+#sp#    <usg type="dom">sports</usg>
+        <usg type="dom">tech</usg>
+#zo#    <usg type="dom">zoology</usg>
+
+        <usg type="reg">informal</usg>
+#arc#   <usg type="time">archaic</usg>
+        <usg type="time">old</usg>
+        <usg type="time">neologism</usg>
+
+#hn#    <seg type="hint"/>
+
+        <usg type="val">transitive</usg>
+        <usg type="val">intransitive</usg>
+        <usg type="val">ditransitive</usg>
+        <usg type="val">impersonal</usg>
+        <usg type="constraint">inanimates</usg>
+
+#ct#    <cit type="translation" xml:lang="en"><quote/></cit>   {40}
+#s#     <sense><cit type="translation" xml:lang="en"><quote/></cit><cit type="translation" xml:lang="de"><quote/></cit></sense>
+#df#    <def xml:lang="fa-Arab"/>
+#ar#    <etym><lang>Arabic</lang></etym>
+#fr#    <etym><lang>French</lang></etym>
+
+#x#     <ptr type="example" target=""/>   {31}
+        <xr type="cf" xml:lang="fa-Arab"/>
+        <xr type="antonym"><ref xml:lang="fa-x-modDMG"/></xr>
+        <xr type="source"><ref>H</ref></xr>
+        <xr type="cf"/>
+        <w ana=""/>
+#e#     <entry1/>   {9}
+#mw#multiWordUnit
+ana="#adj_f"
+ana="#adj_pl"
+</doc>
+</insertTemplates>
+<keys>F1=prevEntry
+F2=nextEntry
+F3=formatEntry
+F4=saveEntry,nextEntry
+F5=insertCBInNextEle(quote|orth)
+F6=showTextTemplates
+F7=goToQuickQuery
+F8=insertTemplateString
+F9=selectElement
+F11=createExamplePointer
+
+ALT+I=increaseID
+ALT+V=validateEntry
+ALT+T=transDictLookUp
+
+CTRL+1=goToEditor1
+CTRL+2=goToEditor2
+CTRL+3=goToEditor3
+CTRL+4=p22Entry
+CTRL+5=exampleFromLine
+CTRL+6=insertTransDictData
+CTRL+F3=browseEntry
+CTRL+F5=insertEndTag
+CTRL+B=p2Entry
+CTRL+D=convertDMG2Pers
+CTRL+H=convertPersian2DMG
+CTRL+E=createExampleID
+CTRL+F=goToQuery
+CTRL+G=transDictLookUp
+CTRL+I=createID
+CTRL+L=loadTranslateTable
+CTRL+N=newEntry
+CTRL+P=toggleKeepData
+CTRL+R=target2CB
+CTRL+S=saveEntry
+CTRL+T=toggleReleased
+CTRL+W=navigWebTemplateFromEditor
+
+</keys>
+<keyTranslations>//translation assignments
+//Don't use wide strings here, make use of character references!
+
+e* = ė //e with dot on top
+
+A = ā
+c = ʕ
+C = č
+D = ż
+E = ẹ
+F = ǧ       //djim
+G = ġ
+H = ḥ
+I = ï
+j = š      //shin
+J = ž      //zhe
+O = ọ     //o + Punkt
+P = ẕ     //z + _
+S = ṣ
+T = ṭ
+V = s̠     //s + _
+x = ḫ     //ch
+Z = ẓ
+~ = °
+-- = ˗
+'' = ’
+
+a_ = â
+d_ = ḏ
+h_ = ḫ
+s_ = s̠     //s + _
+t_ = ṯ
+z_ = ẕ
+
+a+ = ã
+' = ’
+
+a# = ậ
+ʕ# = č   //tsche alternative
+e# = ë
+g# = ǧ   //djim alternative
+s# = š   //shin alternative
+y# = ậ
+z# = ž   //zhe alternative
+
+//
+</keyTranslations>
+<lemmaXPath/>
+<mainLangLabel/>
+<morphTemplates>
+</morphTemplates>
+<pointerTemplates><ptr type="example" target="{target}"/></pointerTemplates>
+<queryTemplate/>
+<queryTemplates>
+
+<queryTemplate label="tx_names">
+   declare namespace mds = 'http://www.loc.gov/mods/v3';   
+   collection('{dict}')//mds:mods[mds:name/mds:namePart[text() contains text "{subQuery}" using wildcards]]
+</queryTemplate>
+                                                     
+<queryTemplate label="tx_any">
+   declare namespace mds = 'http://www.loc.gov/mods/v3';   
+   collection('{dict}')//mds:mods[*/node()[text() contains text "{subQuery}" using wildcards]]
+</queryTemplate>
+                                                     
+<queryTemplate label="tx_title">
+   declare namespace mds = 'http://www.loc.gov/mods/v3';   
+   collection('{dict}')//mds:mods[*/*/mds:title[text() contains text "{subQuery}" using wildcards]]
+</queryTemplate>
+                                                     
+</queryTemplates>
+<requestContentType>application/xml</requestContentType>
+<requestTransferEncoding/>
+<respString><fs type="change"><f name="who"><symbol value="{who}"/></f><f name="when"><symbol value="{date}"/></f></fs></respString>
+<resultSelector>/concat(mds:name[1]/mds:namePart[1]/text(),": ",mds:titleInfo[1]/mds:title[1]/text())</resultSelector>
+<schema>
+</schema>
+<schemaSecData>
+</schemaSecData>
+<singleNLElements>bibl,colloc,date,def,entry,etym,fs,gen,gram,mood,
+note,orth,p,per,pos,quote,number,subc,text,tns,usg,user</singleNLElements>
+<statusProt>(status)</statusProt>
+<stemXPath/>
+<tempPath>C:\dicttemp</tempPath>
+<URLtemplate/>
+<urlTemplates/>
+<winKeyboards/>
+<addWeight>true</addWeight>
+<autoKeyTranslation>true</autoKeyTranslation>
+<browseInBrowserForm>false</browseInBrowserForm>
+<browseInMainEditor>true</browseInMainEditor>
+
+<encrypted>false</encrypted>
+<enhancedValidation>false</enhancedValidation>
+<formatXMLData>false</formatXMLData>
+<freqsValidation>false</freqsValidation>
+
+<noDashesIndex>true</noDashesIndex>
+
+<showEditorNoTagsTabsheet>false</showEditorNoTagsTabsheet>
+<showProfileTabsheet>false</showProfileTabsheet></profile>

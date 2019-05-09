@@ -16,47 +16,47 @@ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-
 declare variable $_:enable_trace := false();
 
 declare
+    %perm:check('restvle/dicts', '{$_}')
+function _:checkPermissions($_ as map(*)) {
+  let $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1'),
+      $list := replace($_('path'), '^/restvle/dicts/?([^/]+/([^/]+)).*$', '$2'),
+      $accept_check := if (not(tokenize(request:header('Accept', ''), '[,;]') = ('',
+        'application/vnd.wde.v2+json',
+        'application/hal+json',
+        'application/json',
+        'application/xml',
+        '*/*'))) then
+      error(xs:QName('response-codes:_406'),
+            $api-problem:codes_to_message(406),
+            'Don&apos;t know how to generate '||request:header('Accept', '')||' response.') else ()
+  (: TODO perhaps stop if ($_('method') ne 'GET' and request:header('Accept', '') ne 'application/vnd.wde.v2+json') :)
+  (: dicts and dicts/dict_users always ok, users is not :)
+  return
+  (: if ($dict = ('', 'dict_users') and not($list = ('users'))) then () else :)
+  if ($_('method') ne 'GET' or
+      request:header('Accept', '') eq 'application/vnd.wde.v2+json' or
+      $list = ('users'))       
+  then
+    if (db:exists('dict_users')) then
+      if (not(exists($_('authorization'))) and exists(collection('dict_users')/users/user)) then
+        error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
+      else
+      let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($_('authorization'), '^Basic ', ''))), ':'),
+          $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])]          
+      return if ((not(exists(collection('dict_users')/users/user)) and $dict = ("", "dict_users")) or
+                 exists($user_tag[if ($dict ne "") then @dict = $dict else true()])) then () else
+        error(xs:QName('response-codes:_403'),
+                       'Wrong username and password')
+     else ()
+  else ()
+};
+
+declare
     %rest:GET
     %rest:path('restvle')
 function _:getRoot() {
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/dicts'), <note>all dictionaries</note>)], 1, 1, 1])
-};
-
-declare
-    %rest:GET
-    %rest:path('restvle/dicts/{$dict_name}/entries')
-    %rest:query-param("page", "{$page}", 1)
-    %rest:query-param("pageSize", "{$pageSize}", 25)
-function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integer, $page as xs:integer) {
-  let $entries_ids := try { data-access:get-all-entries($dict_name)!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
-  declare function local:filter($nodes as node()*) as node()* {
-    $nodes/(@xml:id|@ID)
-  };
-]``) else ./(@xml:id|@ID)) }
-      catch err:FODC0002 {
-        error(xs:QName('response-codes:_404'),
-                       'Not found',
-                       $err:additional)
-      },
-      $entries_as_documents := subsequence($entries_ids, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else ())
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_ids), $page])
-};
-
-declare
-  %private
-function _:entryAsDocument($_self as xs:anyURI, $id as attribute(xml:id), $entry as element()?) {
-  json-hal:create_document($_self, (
-    <id>{data($id)}</id>,
-    if (exists($entry)) then <entry>{serialize($entry)}</entry> else ()))
-};
-
-declare
-   %rest:GET
-   %rest:path('restvle/dicts/{$dict_name}/entries/{$id}')
-function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string) {
-  let $entry := data-access:get-entry-by-id($dict_name, $id)
-  return api-problem:or_result(_:entryAsDocument#3, [rest:uri(), $entry/@xml:id, $entry])
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
