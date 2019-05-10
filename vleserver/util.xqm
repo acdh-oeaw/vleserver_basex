@@ -70,7 +70,7 @@ declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName 
                 })
       , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100,
         $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($queries)||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
-    return if (exists($ret/_:error)) then error(xs:QName($ret/_:error[1]/_:code), $ret/_:error[1]/_:description, $ret/_:error) else $ret
+    return if (exists($ret[. instance of node()]/_:error)) then error(xs:QName($ret[. instance of node()]/_:error[1]/_:code), $ret/_:error[1]/_:description, $ret/_:error) else $ret
 };
 
 declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:string) as document-node() {

@@ -82,7 +82,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
                $err:additional) 
         }
-    return data-access:save_new_entry($entry, $dict_name)
+    return api-problem:result(data-access:save_new_entry($entry, $dict_name))
 };
 
 declare

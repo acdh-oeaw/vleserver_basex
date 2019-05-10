@@ -46,7 +46,8 @@ declare function _:or_result($api-function as function(*)*, $parameters as array
 };
 
 declare function _:return_problem($problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
-let $header-elements := map:merge(map{'Content-Type': if (matches(req:header("ACCEPT"), '[+/]json')) then 'application/problem+json' else 'application/problem+xml'}),
+let $accept-header := try { req:header("ACCEPT") } catch basex:http { 'application/problem+xml' },
+    $header-elements := map:merge(map{'Content-Type': if (matches($accept-header, '[+/]json')) then 'application/problem+json' else 'application/problem+xml'}),
     $error-status := if ($problem/rfc7807:status castable as xs:integer) then xs:integer($problem/rfc7807:status) else 400
 return (web:response-header((), $header-elements, map{'message': $problem/rfc7807:title, 'status': $error-status}),
  _:on_accept_to_json($problem)
@@ -92,9 +93,10 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
 
 declare %private function _:on_accept_to_json($problem as element(rfc7807:problem)) as item() {
   let $objects := string-join($problem//*[*[local-name() ne '_']]/local-name(), ' '),
-      $arrays := string-join($problem//*[*[local-name() eq '_']]/local-name(), ' ')
+      $arrays := string-join($problem//*[*[local-name() eq '_']]/local-name(), ' '),
+      $accept-header := try { req:header("ACCEPT") } catch basex:http { 'application/problem+xml' }
   return
-  if (matches(req:header("ACCEPT"), '[+/]json'))
+  if (matches($accept-header, '[+/]json'))
   then json:serialize(<json type="object" objects="{$objects}" arrays="{$arrays}">{$problem/* transform with {delete node @xml:space}}</json>, map {'format': 'direct'})
   else $problem
 };

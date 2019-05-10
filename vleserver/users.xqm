@@ -133,7 +133,7 @@ function _:deleteDictDictNameUser($userName_or_id as xs:string) {
     <problem xmlns="urn:ietf:rfc:7807">
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
        <title>{$api-problem:codes_to_message(204)}</title>
-       <detail>204</detail>
+       <status>204</status>
     </problem>
   ))
 };
