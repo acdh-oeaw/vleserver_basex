@@ -20,7 +20,7 @@ declare %private function _:start-eval-job($query as xs:string, $bindings as map
     let $too-many-jobs := if (count(jobs:list()) >= xs:integer(db:system()//parallel)) then 
                           error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests!') else (),
         $query-is-sane := $dontCheckQuery or _:query-is-sane($query)
-        (: , $log := l:write-log($query, 'DEBUG') :)
+        (:, $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG') :)
         return jobs:eval($query, $bindings, map {
           'cache': true(),
           'id': 'vleserver:'||$jobName||'-'||$subJobNumber||'-'||jobs:current(),
@@ -68,9 +68,10 @@ declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName 
                     <_:additional>{$err:additional}</_:additional>
                   </_:error>
                 })
-      , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100,
-        $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($queries)||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
-    return if (exists($ret[. instance of node()]/_:error)) then error(xs:QName($ret[. instance of node()]/_:error[1]/_:code), $ret/_:error[1]/_:description, $ret/_:error) else $ret
+      , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100
+      , $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($queries)||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
+      (: , $logMore := l:write-log(serialize($ret[. instance of node()]/self::_:error, map{'method': 'xml'})) :)
+    return if (exists($ret[. instance of node()]/self::_:error)) then error(xs:QName($ret[. instance of node()]/self::_:error[1]/_:code), $ret[. instance of node()]/self::_:error[1]/_:description, string-join($ret[. instance of node()]/self::_:error/_:additional, '&#x0a;')) else $ret
 };
 
 declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:string) as document-node() {

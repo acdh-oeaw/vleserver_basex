@@ -39,16 +39,16 @@ declare %private function _:get-skel-if-exists($dict as xs:string) as xs:string?
   util:eval(``[db:list()[. = "`{$dict}`__skel"]]``, (), 'get-ske-if-exists')
 };
 
-declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) {
+declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) as element() {
   let $dict_name := _:get-real-dict($dict_name, $id)
   return util:eval(``[collection("`{$dict_name}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')  
 };
 
-declare %private function _:get-real-dict($dict as xs:string, $id as xs:string) as xs:string {
+declare function _:get-real-dict($dict as xs:string, $id as xs:string) as xs:string {
 let $dicts := _:get-list-of-data-dbs($dict),
     $get-db-for-id-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) 
-      then ``[if (collection("`{$dict}`")//profile[@xml:id = "`{$id}`"]) then "`{$dict}`" else ()]``
+      then ``[if (collection("`{$dict}`")//profile[(@xml:id, @ID) = "`{$id}`"]) then "`{$dict}`" else ()]``
       else ``[
             import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare variable $id external;
@@ -58,7 +58,10 @@ let $dicts := _:get-list-of-data-dbs($dict),
     $found-in-parts := if (exists($get-db-for-id-scripts)) then util:evals($get-db-for-id-scripts, map {
               'id': $id
             }, 'get-db-for-id-script', true()) else ()
-return $found-in-parts
+return if (exists($found-in-parts)) then $found-in-parts
+       else error(xs:QName('response-codes:_404'),
+                           'Not found',
+                           'ID '||$id||' not found')
 };
 
 (: this may throw FODC0002 if $dict||'__prof' does not exist :)
@@ -90,48 +93,90 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, 
   return if (count($results) > 25) then util:dehydrate($results) else $results
 };
 
-declare function _:save_new_entry($data as element(), $dict as xs:string) as element(rfc-7807:problem) {
+declare function _:create_new_entry($data as element(), $dict as xs:string) as element(json) {
   let $id := $data/(@xml:id, @ID),
       $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
       $dataType := _:get_data_type($data),
-      $dicts := if ($db-exists) then $dict
-                else if ($dataType = 'profile') then $dict||'__prof'
-                else _:get-list-of-data-dbs($dict),
-    (: TODO: There should be some heuristic to decide whether the new entry should go into a new database or not. :)
-      $target-collection := _:get-collection-name-for-insert-data($dict, $dataType)
+      $dicts := if ($dataType = 'profile') then $dict||'__prof'      
+                else if ($db-exists) then $dict
+                else _:get-list-of-data-dbs($dict),  
     (: iterate over all databases for the current dictionary and look for ID duplicates :)
-    let $check_new_node_has_id := if (exists($id)) then true()
-        else error(xs:QName('response-codes:_422'),
-                  '@xml:id or @ID missing on data node',
-                  'Element '||$data/local-name()||' needs to have either an xml:id attribute or an ID attribute.'),
-        $collection-with-existing-id-scripts := for $dict in $dicts
+      $collection-with-existing-id-scripts := for $dict in $dicts
         return ``[collection("`{$dict}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]/db:name(.)]``,
         $log := _:write-log("acc:add-entry-todb "||$collection-with-existing-id-scripts[1], "DEBUG"),
         $collection-with-existing-id := util:evals(
             $collection-with-existing-id-scripts, (),
             'existing-ids', true()
         ),
-        $check_new_node_has_unique_id := if (not(exists($collection-with-existing-id))) then true()
-        else error(xs:QName('response-codes:_422'),
+      $check_new_node_has_unique_id := if (not(exists($collection-with-existing-id))) then true()
+        else error(xs:QName('response-codes:_409'),
                   'Duplicate @xml:id or @ID',
                    $id||" already exists in collection '"||string-join(distinct-values($collection-with-existing-id), ',')||"'"),                  
-        $add-entry-todb-script := ``[ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
+     
+       (: TODO: There should be some heuristic to decide whether the new entry should go into a new database or not. :)
+       $target-collection := _:get-collection-name-for-insert-data($dict, $dataType),
+       $add-entry-todb-script := ``[ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
             import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
             declare variable $data external;
             (_:insert-data(collection("`{$target-collection}`"), $data, "`{$dataType}`"),
-            update:output(
-            <problem xmlns="urn:ietf:rfc:7807">
-                <type>https://tools.ietf.org/html/rfc7231#section-6</type>
-                <title>{$api-problem:codes_to_message(204)}</title>
-                <status>204</status>
-            </problem>
+            update:output(<json type='object'>
+              <sid>{data($data/(@ID, @xml:id))}</sid>
+              <lemma>TODO</lemma>
+              <entry>{serialize($data, map {'method': 'xml'})}</entry>
+            </json>
             ))
           ]``,
           $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG')
-          return util:eval($add-entry-todb-script, map {
+          return (
+          if ($dataType = 'profile') then
+          _:create-new-data-db(document{$data}) else "",
+          util:eval($add-entry-todb-script, map {
             'data': $data
-          }, 'add-entry-todb', true())
+          }, 'add-entry-todb', true()))[2]
+};
+
+declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string) as element(json) {
+  let $entryToReplace := _:find_entry_as_dbname_pre($dict, $id)
+  return _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntry)
+};
+
+declare %private function _:find_entry_as_dbname_pre($dict_name as xs:string, $id as xs:string) as xs:anyAtomicType+ {
+util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+    let $dict_name := data-access:get-real-dict("`{$dict_name}`", "`{$id}`"),
+        $entry := collection($dict_name)//*[(@xml:id, @ID) = "`{$id}`"] 
+    return ($dict_name, db:node-pre($entry))
+    ]``, (), 'find-entry-for-delete', true())  
+};
+
+declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre as xs:integer, $newEntry as element()) as element(json) {
+  util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
+    declare variable $newEntry as element() external;
+    replace node db:open-pre("`{$db-name}`", `{$pre}`) with $newEntry,
+    update:output(<json type='object'>
+      <sid>{data($newEntry/(@xml:id, @ID))}</sid>
+      <lemma></lemma>
+      <entry>{serialize($newEntry, map{'method': 'xml'})}</entry>
+    </json>
+  )
+  ]``, map {'newEntry': $newEntry}, 'replace-entry-by-pre', true())  
+};
+
+declare function _:delete_entry($dict as xs:string, $id as xs:string) as element(rfc-7807:problem) {
+  let $entryToDelete := _:find_entry_as_dbname_pre($dict, $id)
+  return _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2])  
+};
+
+declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre as xs:integer) as element(rfc-7807:problem) {
+  util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
+    delete node db:open-pre("`{$db-name}`", `{$pre}`),
+    update:output(<problem xmlns="urn:ietf:rfc:7807">
+       <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+       <title>{$api-problem:codes_to_message(204)}</title>
+       <status>204</status>
+    </problem>
+  )
+  ]``, (), 'delete-entry-by-pre', true())
 };
 
 declare %updating function _:insert-data($c as document-node()*, $data as element(), $dataType as xs:string) {
@@ -141,7 +186,7 @@ declare %updating function _:insert-data($c as document-node()*, $data as elemen
         _:get-parent-node-for-element($c, "_")
       }
     (: , $log := l:write-log('wde:insert-data doc '||base-uri($c)||' index '||$index, 'DEBUG') :)
-  return if ($parentNode instance of document-node()) then replace node $parentNode/* with $data
+  return if ($parentNode instance of document-node() and exists($parentNode/*)) then replace node $parentNode/* with $data
     else insert node $data into if(empty($parentNode)) then _:get-parent-node-for-element($c, "_") else $parentNode
 };
 
@@ -161,8 +206,8 @@ declare %private function _:get_data_type($data as element()) as xs:string {
 declare %private function _:get-collection-name-for-insert-data($dict as xs:string, $dataType as xs:string) as xs:string {
     let $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),        
         $profile := if ($dataType = 'profile') then document {} else _:get-profile($dict),
-        $dicts := if ($db-exists) then $dict
-                  else if ($dataType = 'profile') then $dict||'__prof'
+        $dicts := if ($dataType = 'profile') then $dict||'__prof'
+                  else if ($db-exists) then $dict
                   else _:get-list-of-data-dbs-from-profile($profile),
        (: $log := _:write-log('acc:get-collection-name-for-insert-data count(acc:count-current-items($dicts[last()], $dataType)/*) >= acc:get-split-every($profile): '
                            ||acc:count-current-items($dicts[last()], $dataType)||' >= '||acc:get-split-every($profile), 'DEBUG'), :)
@@ -199,8 +244,19 @@ declare function _:get-parent-node-for-element($c as document-node()*, $dataType
 };
 
 declare %private function _:create-new-data-db($profile as document-node()) as xs:string {
-  let $current-dict-parts := _:get-list-of-data-dbs-from-profile($profile),
-      $new-db-name := data($profile/profile/tableName/@generate-db-prefix)||format-integer(count($current-dict-parts), '000'),
+  let $check-profile-contains-valid-dictname := 
+        if ((exists($profile/profile/tableName/@generate-db-prefix) and
+             exists($profile/profile/tableName/@find-dbs)) or
+            exists($profile/profile/tableName/text())) then ()
+        else error(xs:QName('response-codes:_422'),
+                   'Profile does not contain a valid name for the data DBs',
+                   'Need a "<tableName>somename</tableName>" or "<tableName generate-db-prefix="somename" find-dbs="somename\d+">somename</tableName>".&#x0a;'||
+                   'Got "'||serialize($profile/profile/tableName, map{'method': 'xml'})||'".'),
+      $current-dict-parts := _:get-list-of-data-dbs-from-profile($profile),
+      $new-db-name := if (exists($profile/profile/tableName/@generate-db-prefix) and
+                          exists($profile/profile/tableName/@find-dbs))
+                      then data($profile/profile/tableName/@generate-db-prefix)||format-integer(count($current-dict-parts), '000')
+                      else $profile/profile/tableName/text(),
       $log := _:write-log('Trying to create '||$new-db-name, 'DEBUG'),
       (: TODO: read different options from profiles. :)
       $index-options := map:merge((map {}, $_:default_index_options)),

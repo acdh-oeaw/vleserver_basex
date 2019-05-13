@@ -49,6 +49,11 @@ declare
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
 function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) {
+  let $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response) 
+  return api-problem:or_result(data-access:create_new_entry#2, [$entry, $dict_name], 201, ())
+};
+
+declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) as element()+ {
   let $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
       else error(xs:QName('response-codes:_404'), 
          $api-problem:codes_to_message(404),
@@ -81,8 +86,22 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
                'Need some well formed XML. '||
                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
                $err:additional) 
-        }
-    return api-problem:result(data-access:save_new_entry($entry, $dict_name))
+        },
+      $check_new_node_has_id := if (exists($entry/(@xml:id, @ID))) then true()
+        else error(xs:QName('response-codes:_422'),
+                  '@xml:id or @ID missing on data node',
+                  'Element '||$entry/local-name()||' needs to have either an xml:id attribute or an ID attribute.')   
+  return $entry 
+};
+
+declare
+    %rest:PUT('{$userData}')
+    %rest:path('restvle/dicts/{$dict_name}/entries/{$id}')
+    %rest:header-param("Content-Type", "{$content-type}", "")
+    %rest:header-param("Accept", "{$wanted-response}", "")
+function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) {
+  let $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response) 
+  return api-problem:or_result(data-access:change_entry#3, [$entry, $dict_name, $id], 200, ())
 };
 
 declare
@@ -91,6 +110,13 @@ declare
 function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string) {
   let $entry := data-access:get-entry-by-id($dict_name, $id)
   return api-problem:or_result(_:entryAsDocument#3, [rest:uri(), $entry/@xml:id, $entry])
+};
+
+declare
+  %rest:DELETE
+  %rest:path('restvle/dicts/{$dict_name}/entries/{$id}')
+function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string) {
+  api-problem:or_result(data-access:delete_entry#2, [$dict_name, $id])
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
