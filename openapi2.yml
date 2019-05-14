@@ -476,25 +476,25 @@ paths:
           description: Unsupported Media Type
         '422':
           description: Unprocessable Entity
-    delete:
-      tags:
-        - entries
-      description: Warnung! Dangerous! Deletes every entry except the system entries < 699 from the dictionary.
-      produces:
-        - application/vnd.wde.v2+json
-        - application/hal+json
-        - application/json
-      responses:
-        '204':
-          description: No Content
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden
-        '406':
-          description: Not Acceptable
-        '415':
-          description: Unsupported Media Type
+#    delete:
+#      tags:
+#        - entries
+#      description: Warnung! Dangerous! Deletes every entry except the system entries < 699 from the dictionary.
+#      produces:
+#        - application/vnd.wde.v2+json
+#        - application/hal+json
+#        - application/json
+#      responses:
+#        '204':
+#          description: No Content
+#        '401':
+#          description: Unauthorized
+#        '403':
+#          description: Forbidden
+#        '406':
+#          description: Not Acceptable
+#        '415':
+#          description: Unsupported Media Type
     patch:
       tags:
         - entries
@@ -558,8 +558,6 @@ paths:
           description: Not Found
         '406':
           description: Not Acceptable
-        '415':
-          description: Unsupported Media Type
     patch:
       tags:
         - entries

@@ -2,6 +2,7 @@ xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
+import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'elementTypes.xqm';
 
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
 declare namespace mds = "http://www.loc.gov/mods/v3";
@@ -80,14 +81,7 @@ return $found-in-parts
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, $dt as xs:string?) {
   let $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'),
-      $all-entries := ($c//tei:cit[@type = 'example'], 
-                       $c//tei:teiHeader,
-                       $c/profile,
-                       $c//tei:TEI,
-                       $c//tei:form[@type = 'lemma'],
-                       $c//mds:mods,
-                       $c//tei:entry,
-                       $c//tei:entryFree),
+      $all-entries := types:get_all_entries($c),
       $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())]
     , $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG')
   return if (count($results) > 25) then util:dehydrate($results) else $results
@@ -96,7 +90,7 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, 
 declare function _:create_new_entry($data as element(), $dict as xs:string) as element(json) {
   let $id := $data/(@xml:id, @ID),
       $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
-      $dataType := _:get_data_type($data),
+      $dataType := types:get_data_type($data),
       $dicts := if ($dataType = 'profile') then $dict||'__prof'      
                 else if ($db-exists) then $dict
                 else _:get-list-of-data-dbs($dict),  
@@ -181,26 +175,13 @@ declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre a
 
 declare %updating function _:insert-data($c as document-node()*, $data as element(), $dataType as xs:string) {
   let $parentNode := try {
-        _:get-parent-node-for-element($c, $dataType)
+        types:get-parent-node-for-element($c, $dataType)
       } catch err:XPTY0004 (: multi part dict type :) {
-        _:get-parent-node-for-element($c, "_")
+        types:get-parent-node-for-element($c, "_")
       }
     (: , $log := l:write-log('wde:insert-data doc '||base-uri($c)||' index '||$index, 'DEBUG') :)
   return if ($parentNode instance of document-node() and exists($parentNode/*)) then replace node $parentNode/* with $data
-    else insert node $data into if(empty($parentNode)) then _:get-parent-node-for-element($c, "_") else $parentNode
-};
-
-declare %private function _:get_data_type($data as element()) as xs:string {
-  typeswitch ($data)
-    case element(mds:mods) return 'mods'
-    case element(tei:entry) return 'entry'
-    case element(tei:TEI) return 'TEI'
-    case element(profile) return 'profile'
-    case element(tei:header) return 'header'
-    case element(tei:cit) return 'example'
-    case element(tei:entryFree) return 'entryFree'
-    case element(_) return '_'
-    default return error(xs:QName('_:error'), 'Unknown data type')
+    else insert node $data into if(empty($parentNode)) then types:get-parent-node-for-element($c, "_") else $parentNode
 };
 
 declare %private function _:get-collection-name-for-insert-data($dict as xs:string, $dataType as xs:string) as xs:string {
@@ -221,26 +202,11 @@ declare %private function _:get-split-every($profile as document-node()) as xs:i
 };
 
 declare %private function _:count-current-items($dict as xs:string?, $dataType as xs:string) as xs:integer {
-  let $count-current-script := ``[
-    import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-    let $ret := count(_:get-parent-node-for-element(collection("`{$dict}`"), "`{$dataType}`")/*)
-    return if ($ret > 0) then $ret else count(_:get-parent-node-for-element(collection("`{$dict}`"), "_")/*)
+  let $count-current-script := ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+    let $ret := count(types:get-parent-node-for-element(collection("`{$dict}`"), "`{$dataType}`")/*)
+    return if ($ret > 0) then $ret else count(types:get-parent-node-for-element(collection("`{$dict}`"), "_")/*)
   ]``
   return if (empty($dict)) then 0 else util:eval($count-current-script, (), 'count-current-items', true())
-};
-
-declare function _:get-parent-node-for-element($c as document-node()*, $dataType as xs:string) as node()* {
-    switch($dataType)
-        case "mods" return $c/mds:modsCollection
-        case "TEI" return $c/tei:teiCorpus
-        case "profile" return $c
-        case "header" return $c/tei:TEI
-        case "example"  return $c/tei:TEI/tei:text/tei:body/tei:div[@type='examples']
-        case "cit"  return $c/tei:TEI/tei:text/tei:body/tei:div[@type='examples']
-        case "entry"  return $c/tei:TEI/tei:text/tei:body/tei:div[@type='entries']
-        case "entryFree"  return $c/tei:TEI/tei:text/tei:body/tei:div[@type='entries']
-        case "_" return $c/*:_
-        default return $c/tei:TEI/tei:text/tei:body
 };
 
 declare %private function _:create-new-data-db($profile as document-node()) as xs:string {

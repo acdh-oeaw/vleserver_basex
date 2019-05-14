@@ -1,0 +1,21 @@
+<entry xmlns="http://www.tei-c.org/ns/1.0" numID="9" xml:id="{{xmlID}}">
+   <form type="lemma">
+      <orth xml:lang="fa-Arab">-</orth>
+      <orth xml:lang="fa-x-modDMG">-</orth>
+   </form>
+
+   <gramGrp>
+      <gram type="pos"/>
+   </gramGrp>
+
+   <sense>
+      <cit type="translation" xml:lang="en">
+         <quote>{{translation_en}}</quote>
+      </cit>
+
+      <cit type="translation" xml:lang="de">
+         <quote>{{translation_de}}</quote>
+      </cit>
+   </sense>
+
+</entry>

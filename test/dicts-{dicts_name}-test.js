@@ -119,7 +119,7 @@ describe('tests for /dicts/{dicts_name}', function() {
 
         xit('should respond 406 for "Not Acceptable"', function() {
             var response = request('get', baseURI + '/dicts/animlaborisdolore', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
             });
 
@@ -227,7 +227,7 @@ describe('tests for /dicts/{dicts_name}', function() {
 
         xit('should respond 406 for "Not Acceptable"', function() {
             var response = request('delete', baseURI + '/dicts/aliquipcommodoid', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
             });
 
