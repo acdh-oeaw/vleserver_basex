@@ -1,0 +1,119 @@
+   <mods xmlns="http://www.loc.gov/mods/v3" xmlns:jb80="http://www.oeaw.ac.at/jb80" ID="{{id}}">
+      <typeOfResource>text</typeOfResource>
+      <genre authority="local">book</genre>
+      <name type="personal">
+         <namePart>{{author}}</namePart> <!--Melville, James -->
+         <role>
+            <roleTerm type="code" authority="marcrelator">aut</roleTerm>
+         </role>
+      </name>
+      <name type="personal">
+         <namePart>{{translator}}</namePart> <!-- Seebohm, Hans U. -->
+         <role>
+            <roleTerm type="code" authority="marcrelator">trl</roleTerm>
+         </role>
+      </name>
+      <titleInfo>
+         <title>Sayonara für eine Sängerin</title>
+         <subTitle>Ein Polizeiroman aus Japan</subTitle>
+      </titleInfo>
+      <originInfo>
+         <dateIssued keyDate="yes">1987</dateIssued>
+         <publisher>Ullstein</publisher>
+         <place>
+            <placeTerm type="text">Berlin</placeTerm>
+         </place>
+      </originInfo>
+      <relatedItem type="series">
+         <titleInfo>
+            <title>Ullstein Krimi</title>
+         </titleInfo>
+         <part>
+            <detail type="volume">
+               <number>10440</number>
+            </detail>
+         </part>
+      </relatedItem>
+      <relatedItem type="original">
+         <titleInfo>
+            <title>Sayonara, sweet amaryllis</title>
+         </titleInfo>
+      </relatedItem>
+      <physicalDescription>
+         <extent unit="page">160</extent>
+      </physicalDescription>
+      <subject usage="primary">
+         <topic>Literatur</topic>
+      </subject>
+      <subject>
+         <topic>Thema</topic>
+      </subject>
+      <subject usage="primary">
+         <topic>Einzelwerk</topic>
+      </subject>
+      <subject>
+         <topic>Form</topic>
+      </subject>
+      <subject usage="primary">
+         <topic>Japan-Prosa</topic>
+      </subject>
+      <subject>
+         <topic>Thema</topic>
+         <topic>Kunst und Kultur</topic>
+         <topic>Japan als Gegenstand nicht-jap. Kunst</topic>
+      </subject>
+      <subject usage="primary">
+         <topic>Übersetzung</topic>
+      </subject>
+      <subject>
+         <topic>Form</topic>
+      </subject>
+      <subject displayLabel="internal">
+         <topic>über Literaturverzeichnis/Bibliographie</topic>
+      </subject>
+      <subject displayLabel="internal">
+         <topic>8889</topic>
+      </subject>
+      <subject displayLabel="Stichworte">
+         <topic>Kriminalliteratur</topic>
+      </subject>
+      <recordInfo>
+         <recordIdentifier>0001373</recordIdentifier>
+         <recordCreationDate>19.03.1991</recordCreationDate>
+      </recordInfo>
+      <extension>
+         <LIDOS-Dokument xmlns="">
+            <Dok-Nummer>0001373</Dok-Nummer>
+            <Verfasser>Melville, James</Verfasser>
+            <beteiligte_Personen>Seebohm, Hans U./ [Übers.]</beteiligte_Personen>
+            <Titel>Sayonara für eine Sängerin</Titel>
+            <Zusatz_zum_Titel>Ein Polizeiroman aus Japan</Zusatz_zum_Titel>
+            <Reihe_-_Serie_-_Band>Ullstein Krimi ; 10440</Reihe_-_Serie_-_Band>
+            <Originaltitel>Sayonara, sweet amaryllis</Originaltitel>
+            <Jahr>1987</Jahr>
+            <Deskriptoren>Japan-Prosa</Deskriptoren>
+            <Deskriptoren>Übersetzung</Deskriptoren>
+            <Deskriptoren>Einzelwerk</Deskriptoren>
+            <Deskriptoren>über Literaturverzeichnis/Bibliographie</Deskriptoren>
+            <Deskriptoren>8889</Deskriptoren>
+            <Erfassungsdatum>19.03.1991</Erfassungsdatum>
+            <Erscheinungsverm.__Zählung_d._Zs-Quelle>Berlin : Ullstein, 1987</Erscheinungsverm.__Zählung_d._Zs-Quelle>
+            <Verfasserangabe>[Aus dem Engl. von Hans U. Seebohm]</Verfasserangabe>
+            <Kollationsvermerk>160 S</Kollationsvermerk>
+            <Verwaltungsvermerk>Frankfurter Buchmesse 1990</Verwaltungsvermerk>
+            <PSW_Personenschlagwort>Kriminalliteratur;</PSW_Personenschlagwort>
+         </LIDOS-Dokument>
+      </extension>
+      <extension>
+         <jb80:data xmlns="http://www.oeaw.ac.at/jb80">
+            <titleInfo node-pre="761952" context="mods">Sayonara für eine Sängerin. Ein Polizeiroman aus Japan</titleInfo>
+            <titleInfo node-pre="761970" context="relatedItem_series">Ullstein Krimi</titleInfo>
+            <titleInfo node-pre="761980" context="relatedItem_original">Sayonara, sweet amaryllis</titleInfo>
+            <namePart node-pre="312083">James Melville</namePart>
+            <namePart node-pre="312092">Hans U. Seebohm</namePart>
+         </jb80:data>
+      </extension>
+      <extension>
+         <jb80:history xmlns="http://www.tei-c.org/ns/1.0" xml:space="preserve"><fs type="change"><f name="who"><symbol value="bscheid"/></f><f name="when"><symbol value="2018_03_02"/></f></fs><fs type="change"><f name="who"><symbol value="simar"/></f><f name="when"><symbol value="2018_05_24"/></f></fs><fs type="change"><f name="who"><symbol value="simar"/></f><f name="when"><symbol value="2018_06_25"/></f></fs><fs type="change"><f name="who"><symbol value="simar"/></f><f name="when"><symbol value="2018_07_27"/></f></fs><fs type="change"><f name="who"><symbol value="bscheid"/></f><f name="when"><symbol value="2019_02_21"/></f></fs><fs type="change"><f name="who"><symbol value="simar"/></f><f name="when"><symbol value="2019_02_21"/></f></fs><fs type="change"><f name="who"><symbol value="admin"/></f><f name="when"><symbol value="2019_03_21"/></f></fs><fs type="change"><f name="who"><symbol value="admin"/></f><f name="when"><symbol value="2019_03_26"/></f></fs><fs type="change"><f name="who"><symbol value="admin"/></f><f name="when"><symbol value="2019_03_29"/></f></fs></jb80:history>
+      </extension>
+    </mods>

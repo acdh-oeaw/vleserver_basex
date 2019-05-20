@@ -38,6 +38,12 @@ declare function _:get-parent-node-for-element($c as document-node()*, $dataType
         default return $c/tei:TEI/tei:text/tei:body
 };
 
+declare function _:get_parent_node_for_change_log($e as element()) {
+  typeswitch ($e)  
+    case element(mds:mods) return ($e/mds:extension/*:history, $e/mds:extension)[1]
+    default return $e
+};
+
 declare function _:get_all_entries($c as document-node()*) as element()* {
   ($c//tei:cit[@type = 'example'], 
    $c//tei:teiHeader,

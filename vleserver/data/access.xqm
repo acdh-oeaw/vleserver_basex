@@ -3,6 +3,7 @@ xquery version "3.1";
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'elementTypes.xqm';
+import module namespace chg = "https://www.oeaw.ac.at/acdh/tools/vle/data/changes" at 'changes.xqm';
 
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
 declare namespace mds = "http://www.loc.gov/mods/v3";
@@ -87,7 +88,7 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, 
   return if (count($results) > 25) then util:dehydrate($results) else $results
 };
 
-declare function _:create_new_entry($data as element(), $dict as xs:string) as element(json) {
+declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element(json) {
   let $id := $data/(@xml:id, @ID),
       $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
       $dataType := types:get_data_type($data),
@@ -109,15 +110,17 @@ declare function _:create_new_entry($data as element(), $dict as xs:string) as e
      
        (: TODO: There should be some heuristic to decide whether the new entry should go into a new database or not. :)
        $target-collection := _:get-collection-name-for-insert-data($dict, $dataType),
+       $data-with-change := if ($dataType = 'profile') then $data transform with { chg:add-change-record-to-profile(.) }
+                            else $data transform with { chg:add-change-record(., .//*:fs[@type = 'change'], $status, $owner, $changingUser) },
        $add-entry-todb-script := ``[ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
             import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
-            declare variable $data external;
-            (_:insert-data(collection("`{$target-collection}`"), $data, "`{$dataType}`"),
+            declare variable $data-with-change external;
+            (_:insert-data(collection("`{$target-collection}`"), $data-with-change, "`{$dataType}`"),
             update:output(<json type='object'>
-              <sid>{data($data/(@ID, @xml:id))}</sid>
+              <sid>{data($data-with-change/(@ID, @xml:id))}</sid>
               <lemma>TODO</lemma>
-              <entry>{serialize($data, map {'method': 'xml'})}</entry>
+              <entry>{serialize($data-with-change, map {'method': 'xml'})}</entry>
             </json>
             ))
           ]``,
@@ -126,20 +129,23 @@ declare function _:create_new_entry($data as element(), $dict as xs:string) as e
           if ($dataType = 'profile') then
           _:create-new-data-db(document{$data}) else "",
           util:eval($add-entry-todb-script, map {
-            'data': $data
+            'data-with-change': $data-with-change
           }, 'add-entry-todb', true()))[2]
 };
 
-declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string) as element(json) {
-  let $entryToReplace := _:find_entry_as_dbname_pre($dict, $id)
-  return _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntry)
+declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element(json) {
+  let $entryToReplace := _:find_entry_as_dbname_pre($dict, $id),
+      $newEntryWithChange := if (types:get_data_type($newEntry) = 'profile') then $newEntry transform with { chg:add-change-record-to-profile(.) }
+                             else $newEntry transform with { chg:add-change-record(., $entryToReplace[1], $entryToReplace[2], $status, $owner, $changingUser) }
+  return (chg:save-entry-in-history($dict, $entryToReplace[1], $entryToReplace[2]),
+          _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntryWithChange))
 };
 
 declare %private function _:find_entry_as_dbname_pre($dict_name as xs:string, $id as xs:string) as xs:anyAtomicType+ {
 util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     let $dict_name := data-access:get-real-dict("`{$dict_name}`", "`{$id}`"),
         $entry := collection($dict_name)//*[(@xml:id, @ID) = "`{$id}`"] 
-    return ($dict_name, db:node-pre($entry))
+    return ($dict_name, db:node-pre($entry), $entry//*:fs[@type='change']/*[@name='owner']/*/@value/data())
     ]``, (), 'find-entry-for-delete', true())  
 };
 
@@ -156,9 +162,10 @@ declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre 
   ]``, map {'newEntry': $newEntry}, 'replace-entry-by-pre', true())  
 };
 
-declare function _:delete_entry($dict as xs:string, $id as xs:string) as element(rfc-7807:problem) {
+declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) as element(rfc-7807:problem) {
   let $entryToDelete := _:find_entry_as_dbname_pre($dict, $id)
-  return _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2])  
+  return (chg:save-entry-in-history-before-deletion($dict, $entryToDelete[1], $entryToDelete[2], $changingUser),
+          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))
 };
 
 declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre as xs:integer) as element(rfc-7807:problem) {

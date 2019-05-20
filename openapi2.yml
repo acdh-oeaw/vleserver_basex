@@ -45,7 +45,7 @@ paths:
           description: Not Acceptable
         '415':
           description: Unsupported Media Type
-  '/dicts/{dict_name}/entries/{entries_id}/changes/{changes_id}':
+  '/dicts/{dict_name}/entries/{entries_id}/changes/{changes_timestamp}':
     parameters:
      - name: dict_name
        in: path
@@ -63,8 +63,8 @@ paths:
       description: Read only.
       parameters:
         - in: path
-          name: changes_id
-          description: URL parameter changes_id
+          name: changes_timestamp
+          description: "Timstamp of a particular saved entry before the change"
           type: string
           required: true
           minimum: 0
@@ -541,8 +541,18 @@ paths:
           description: URL parameter entries_id
           type: string
           required: true
-          minimum: 0
+          minimum: 1
           maximum: 1
+        - in: query
+          name: lock
+          description: Whether to lock the entry for editing it and how long in seconds.
+                       For true the maximum duration allowed by the server is used.
+          type: string
+          pattern: ($|\d+|true)
+          allowEmptyValue: true
+          required: false
+          minimum: 0
+          maximum: 1 
       produces:
         - application/vnd.wde.v2+json
         - application/hal+json
@@ -862,6 +872,9 @@ definitions:
       status:
         type: string
         description: Status of the entry. E. g. released.
+      owner:
+        type: string
+        description: The user that owns the entry.
       locked:
         type: string
         description: The user that currently edits the entry.
