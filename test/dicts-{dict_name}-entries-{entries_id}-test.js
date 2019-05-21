@@ -296,6 +296,14 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                     'auth': dictuserauth,
                     'time': true
             })
+            .then(function(testEntryCreated){
+                return request('get', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, {
+                    'qs': {'lock': 1},
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+            });
         });
         it('should respond 200 for "OK"', function() {
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/'+ entryID, { 
@@ -390,15 +398,29 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        xit('should respond 422 for "Unprocessable Entity"', function() {
-            var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/etDuisdoloripsum', { 
-                'body': {"sid":"dolore dolor nisi","lemma":"cillum ea amet eiusmod","entry":"dolor non"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
+        describe('should respond 422 for "Unprocessable Entity"', function() {
+            it('when the lock is not held (anymore)', function(){
+                return later(1000)
+                    .then(function(){
+                    var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, { 
+                        'body': {
+                            "sid": entryID,
+                            "lemma":"cillum ea amet eiusmod",
+                            "entry": compiledEntryTemplate({
+                                'xmlID': entryID,
+                                'translation_en': 'changed',
+                                'translation_de': 'verändert',
+                                })
+                        },
+                        'auth': dictuserauth,
+                        'headers': {"Accept":"application/vnd.wde.v2+json"},
+                        'time': true
+                    });
 
-            expect(response).to.have.status(422);
-            return chakram.wait();
+                    expect(response).to.have.status(422);
+                    return chakram.wait();
+                });
+            });
         });
 
         afterEach('Remove test entry', function(){

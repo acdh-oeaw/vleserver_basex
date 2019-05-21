@@ -123,8 +123,8 @@ declare function _:create_new_entry($data as element(), $dict as xs:string, $sta
               <entry>{serialize($data-with-change, map {'method': 'xml'})}</entry>
             </json>
             ))
-          ]``,
-          $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG')
+          ]``
+        (: , $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG') :)
           return (
           if ($dataType = 'profile') then
           _:create-new-data-db(document{$data}) else "",

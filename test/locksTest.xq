@@ -22,4 +22,5 @@ document {<locks>
   <lock id="saamah_001" user="charly" dt="2018-09-11T15:06:39"/>
   <lock id="id_2282" user="charly" dt="2018-09-12T18:18:27"/>
 </locks> } transform with {lck:_lock_entry(., 'testUser', 'someID', $test)})
-transform with {lck:_remove_expired_locks(.)}
+transform with {lck:_remove_expired_locks(.)},
+lck:get_user_locking_entry('enimmollitirure', 'test_01')
