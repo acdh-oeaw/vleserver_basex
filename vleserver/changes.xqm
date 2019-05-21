@@ -40,7 +40,7 @@ declare
     %rest:path('restvle/dicts/{$dict_name}/entries/{$id}/changes/{$change_timestamp}')
 function _:getDictDictNameEntryIDChange($dict_name as xs:string, $id as xs:string, $change_timestamp as xs:string) {
   let $entry := data-changes:get-change-by-id-and-dt($dict_name, $id, $change_timestamp),
-      $checkIfExists := if (exists($entry)) then true
+      $checkIfExists := if (exists($entry)) then true()
        else error(xs:QName('response-codes:_404'),
                            'Not found',
                            'ID '||$id||' timestamp '||$change_timestamp||' not found')

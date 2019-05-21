@@ -39,7 +39,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integ
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $id as attribute(xml:id), $entry as element()?, $isLockedBy as xs:string?) {
+function _:entryAsDocument($_self as xs:anyURI, $id as attribute(), $entry as element()?, $isLockedBy as xs:string?) {
   json-hal:create_document($_self, (
     <id>{data($id)}</id>,
     <sid>{data($id)}</sid>,
