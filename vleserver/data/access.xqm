@@ -53,8 +53,8 @@ let $dicts := _:get-list-of-data-dbs($dict),
       then ``[if (collection("`{$dict}`")//profile[(@xml:id, @ID) = "`{$id}`"]) then "`{$dict}`" else ()]``
       else ``[
             import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-            declare variable $id external;
-            let $orig := _:do-get-index-data(collection("`{$dict}`"), $id, ())
+            declare variable $id as xs:string external;
+            let $orig := db:attribute("`{$dict}`", $id)[local-name() = ('id', 'ID')]
             return if ($orig) then "`{$dict}`" else ()
             ]``,
     $found-in-parts := if (exists($get-db-for-id-scripts)) then util:evals($get-db-for-id-scripts, map {
@@ -81,11 +81,14 @@ return $found-in-parts
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, $dt as xs:string?) {
-  let (:$log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
-      $all-entries := types:get_all_entries($c),
-      $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())]
+  let $start-time := prof:current-ms(),
+    (:, $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
+      $all-entries := types:get_all_entries($c, $id, $dt),
+      $results := $all-entries,
+      $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'),
+      $ret := if (count($results) > 25) then util:dehydrate($results) else $results
     (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)
-  return if (count($results) > 25) then util:dehydrate($results) else $results
+  return $ret
 };
 
 declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element(json) {
