@@ -298,7 +298,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             })
             .then(function(testEntryCreated){
                 return request('get', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, {
-                    'qs': {'lock': 1},
+                    'qs': {'lock': 2},
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': dictuserauth,
                     'time': true
@@ -338,9 +338,13 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        xit('should respond 401 for "Unauthorized"', function() {
+        it('should respond 401 for "Unauthorized"', function() {
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/esse', { 
-                'body': {"sid":"eu minim voluptate elit ut","lemma":"ea nulla","entry":"voluptate dolor"},
+                'body': {
+                    "sid":"eu minim voluptate elit ut",
+                    "lemma":"ea nulla",
+                    "entry":"voluptate dolor"
+                },
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
@@ -350,10 +354,15 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        xit('should respond 403 for "Forbidden"', function() {
+        it('should respond 403 for "Forbidden"', function() {
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/utDuisLoremenimullamco', { 
-                'body': {"sid":"dolor ut Excepteur consectetur Ut","lemma":"officia nulla d","entry":"dolor dolore minim id ex"},
+                'body': {
+                    "sid":"dolor ut Excepteur consectetur Ut",
+                    "lemma":"officia nulla d",
+                    "entry":"dolor dolore minim id ex"
+                },
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth':{'user':'nonexisting', 'pass': 'nonsense'},
                 'time': true
             });
 
@@ -374,10 +383,15 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        xit('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 406 for "Not Acceptable"', function() {
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/deseruntenimeu', { 
-                'body': {"sid":"voluptate est","lemma":"labore sint","entry":"occaecat nisi aliqua"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'body': {
+                    "sid":"voluptate est",
+                    "lemma":"labore sint",
+                    "entry":"occaecat nisi aliqua"
+                },
+                'headers': {"Accept":"application/vnd.wde.v8+json"},
+                'auth': dictuserauth,
                 'time': true
             });
 
@@ -386,10 +400,12 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        xit('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/sintidauteexoccaecat', { 
-                'body': {"sid":"non in occaecat","lemma":"in incididunt","entry":"laborum Ut nulla"},
+        it('should respond 415 for "Unsupported Media Type"', function() {
+            var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/sintidauteexoccaecat', {
+                'json': false, 
+                'body': "sid non in occaecat lemma in incididunt entry laborum Ut nulla",
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
                 'time': true
             });
 
@@ -399,8 +415,23 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
 
 
         describe('should respond 422 for "Unprocessable Entity"', function() {
+            it('when entry is no well formed XML', function(){
+                var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, { 
+                    'body': {
+                        "sid":entryID,
+                        "lemma":"labore sint",
+                        "entry":"occaecat nisi aliqua"
+                    },
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+    
+                expect(response).to.have.status(422);
+                return chakram.wait();
+            });
             it('when the lock is not held (anymore)', function(){
-                return later(1000)
+                return later(2000)
                     .then(function(){
                     var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, { 
                         'body': {
@@ -433,9 +464,35 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
     });
     
     describe('tests for delete', function() {
-        xit('should respond 204 for "No Content"', function() {
-            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/insitofficiadeserunt', { 
+        var entryID = 'insitofficiadeserunt';
+        beforeEach('Add a test entry', function(){
+            return request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+                    'body': {
+                        "sid":entryID,
+                        "lemma":"",
+                        "entry": compiledEntryTemplate({
+                            'xmlID': entryID,
+                            'translation_en': 'test',
+                            'translation_de': 'Test',
+                            })
+                    },
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},
+                    'auth': dictuserauth,
+                    'time': true
+            })
+            .then(function(testEntryCreated){
+                return request('get', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, {
+                    'qs': {'lock': 2},
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+            });
+        });
+        it('should respond 204 for "No Content"', function() {
+            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
                 'time': true
             });
 
@@ -444,8 +501,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        xit('should respond 401 for "Unauthorized"', function() {
-            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/invelit', { 
+        it('should respond 401 for "Unauthorized"', function() {
+            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
             });
@@ -455,9 +512,10 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        xit('should respond 403 for "Forbidden"', function() {
-            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/ametlaboreExcepteurminim', { 
+        it('should respond 403 for "Forbidden"', function() {
+            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth':{'user':'nonexisting', 'pass': 'nonsense'},
                 'time': true
             });
 
@@ -465,37 +523,39 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
+        // 404 is not possible because you would need a lock for a non existing entry.
+        // Trying to get this lock will return 404
 
-        xit('should respond 404 for "Not Found"', function() {
-            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/proidentlaboriscupidatat', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(404);
-            return chakram.wait();
-        });
-
-
-        xit('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 406 for "Not Acceptable"', function() {
             var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/incididuntExcepteursedullamco', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'headers': {"Accept":"application/vnd.wde.v8+json"},
+                'auth': dictuserauth,
                 'time': true
             });
 
             expect(response).to.have.status(406);
             return chakram.wait();
         });
+        
+        it('should respond 422 for "Unprocessable Entity"', function(){
+            return later(2000)
+                .then(function(){
+                var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, {
+                    'auth': dictuserauth,
+                    'headers': {"Accept":"application/vnd.wde.v2+json"},
+                    'time': true
+                });
 
-
-        xit('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/esseexercitationsuntculpa', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
+                expect(response).to.have.status(422);
+                return chakram.wait();
             });
-
-            expect(response).to.have.status(415);
-            return chakram.wait();
+        });        
+        afterEach('Remove test entry', function(){
+            return request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
+                'time': true
+            })
         });
     
     });   

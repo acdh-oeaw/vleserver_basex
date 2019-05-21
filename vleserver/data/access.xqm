@@ -31,9 +31,9 @@ declare %private function _:get-list-of-data-dbs-from-profile($profile as docume
 };
 
 declare %private function _:get-list-of-data-dbs($dict as xs:string) as xs:string* {
-  let $log := _:write-log('acc:get-list-of-data-dbs $dict := '||$dict, 'DEBUG'),
+  let (: $log := _:write-log('acc:get-list-of-data-dbs $dict := '||$dict, 'DEBUG'), :)
       $ret := ($dict||'__prof', _:get-list-of-data-dbs-from-profile(_:get-profile($dict)), _:get-skel-if-exists($dict))
-    , $logRet := _:write-log('acc:get-list-of-data-dbs return '||string-join($ret, '; '), 'DEBUG')
+      (: , $logRet := _:write-log('acc:get-list-of-data-dbs return '||string-join($ret, '; '), 'DEBUG') :)
   return $ret
 };
 
@@ -81,10 +81,10 @@ return $found-in-parts
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, $dt as xs:string?) {
-  let $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'),
+  let (:$log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
       $all-entries := types:get_all_entries($c),
       $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())]
-    , $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG')
+    (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)
   return if (count($results) > 25) then util:dehydrate($results) else $results
 };
 

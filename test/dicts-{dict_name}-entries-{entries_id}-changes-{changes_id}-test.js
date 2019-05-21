@@ -62,7 +62,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         expect(testEntryTemplate).to.contain('>{{author}}<');
         expect(testEntryTemplate).to.contain('>{{translator}}<');
         compiledModsEntryTemplate = Handlebars.compile(testModsEntryTemplate);
-        testModsEntryTemplate = ompiledModsEntryTemplate({
+        testModsEntryTemplate = compiledModsEntryTemplate({
             'id': 'testID',
             'author': 'me, I',
             'translator': 'myself, me'

@@ -9,11 +9,27 @@ declare namespace tei = "http://www.tei-c.org/ns/1.0";
 
 declare variable $_:user external := 'user doing changes not set!';
 
+declare function _:get-pre-and-dt-for-changes-by-id($db-base-name as xs:string, $id as xs:string) as element(_)* {
+  let $hist-db-name := $db-base-name||'__hist'
+  return util:eval(``[collection("`{$hist-db-name}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]!<_><p>{db:node-pre(.)}</p><dt>{./@dt/data()}</dt></_>]``, (), 'get-pre-and-dt-for-changes-by-id')  
+};
+
+declare function _:get-change-by-pre($db-base-name as xs:string, $pres as xs:integer*) as element()* {
+  let $hist-db-name := $db-base-name||'__hist'
+  return util:eval(``[`{'('||string-join($pres, ',')||')'}`!db:open-pre("`{$hist-db-name}`", `{.}`)]``, (), 'get-change-by-pre')  
+};
+
+
+declare function _:get-change-by-id-and-dt($db-base-name as xs:string, $id as xs:string, $dt as xs:string) as element(_)? {
+  let $hist-db-name := $db-base-name||'__hist'
+  return util:eval(``[collection("`{$hist-db-name}`")//*[(@xml:id = "`{$id}`" or @ID = "`{$id}`") and @dt = "`{$dt}`"]!<_><p>{db:node-pre(.)}</p><dt>{./@dt/data()}</dt><entry>{.}</entry></_>]``, (), 'get-change-by-id-and-dt')  
+};
+
+
 declare function _:save-entry-in-history($db-base-name as xs:string, $db-name as xs:string, $pre as xs:integer) {
   util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
     _:save-entry-in-history("`{$db-base-name}`", db:open-pre("`{$db-name}`", `{$pre}`))]``, (), 'save-entry-in-history_3', true())
 };
-
 
 declare function _:save-entry-in-history-before-deletion($db-base-name as xs:string, $db-name as xs:string, $pre as xs:integer, $changingUser as xs:string) {
   util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';

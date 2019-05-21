@@ -667,12 +667,10 @@ paths:
           description: Unauthorized
         '403':
           description: Forbidden
-        '404':
-          description: Not Found
         '406':
           description: Not Acceptable
-        '415':
-          description: Unsupported Media Type
+        '422':
+          description: You don't own the lock for the entry to delete
   '/dicts/{dict_name}/users':
     parameters:
      - name: dict_name

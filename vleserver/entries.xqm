@@ -157,7 +157,13 @@ declare
   %rest:path('restvle/dicts/{$dict_name}/entries/{$id}')
   %rest:header-param('Authorization', '{$auth_header}', "")
 function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string, $auth_header as xs:string) {
-  api-problem:or_result(data-access:delete_entry#3, [$dict_name, $id, _:getUserNameFromAuthorization($auth_header)])
+  let $userName := _:getUserNameFromAuthorization($auth_header),
+      $lockedBy := lcks:get_user_locking_entry($dict_name, $id),
+      $checkLockedByCurrentUser := if ($userName = $lockedBy) then true()
+        else error(xs:QName('response-codes:_422'),
+                   'You don&apos;t own the lock for this entry',
+                   'Entry is currently locked by "'||$lockedBy||'"') 
+  return api-problem:or_result(data-access:delete_entry#3, [$dict_name, $id, $userName])
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
