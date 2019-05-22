@@ -13,7 +13,7 @@ declare namespace rfc-7807 = "urn:ietf:rfc:7807";
 declare variable $_:basePath as xs:string := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:selfName as xs:string := tokenize(static-base-uri(), '/')[last()];
 declare variable $_:default_split_every as xs:integer := 60000;
-declare variable $_:enable_trace := true();
+declare variable $_:enable_trace := false();
 declare variable $_:default_index_options := map{'textindex': true(), 
                                                  'attrindex': true(),
                                                  'ftindex': true(), 'casesens': false(), 'diacritics': false(), 'language': 'en',
@@ -83,8 +83,8 @@ return $found-in-parts
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, $dt as xs:string?) {
   let $start-time := prof:current-ms(),
     (:, $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
-      $all-entries := types:get_all_entries($c, $id, $dt),
-      $results := $all-entries,
+      $all-entries := types:get_all_entries($c),
+      $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())],
       $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'),
       $ret := if (count($results) > 25) then util:dehydrate($results) else $results
     (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)
@@ -120,6 +120,7 @@ declare function _:create_new_entry($data as element(), $dict as xs:string, $sta
             declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
             declare variable $data-with-change external;
             (_:insert-data(collection("`{$target-collection}`"), $data-with-change, "`{$dataType}`"),
+            db:optimize("`{$target-collection}`"),
             update:output(<json type='object'>
               <sid>{data($data-with-change/(@ID, @xml:id))}</sid>
               <lemma>TODO</lemma>
@@ -156,6 +157,7 @@ declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre 
   util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
     declare variable $newEntry as element() external;
     replace node db:open-pre("`{$db-name}`", `{$pre}`) with $newEntry,
+    db:optimize("`{$db-name}`"),
     update:output(<json type='object'>
       <sid>{data($newEntry/(@xml:id, @ID))}</sid>
       <lemma></lemma>
@@ -174,6 +176,7 @@ declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingU
 declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre as xs:integer) as element(rfc-7807:problem) {
   util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
     delete node db:open-pre("`{$db-name}`", `{$pre}`),
+    db:optimize("`{$db-name}`"),
     update:output(<problem xmlns="urn:ietf:rfc:7807">
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
        <title>{$api-problem:codes_to_message(204)}</title>

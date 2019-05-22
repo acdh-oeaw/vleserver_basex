@@ -23,7 +23,7 @@ declare
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
-  let $dicts := (util:eval(``[db:list()[ends-with(., '__prof')]!replace(., '__prof', '')]``, (), 'get-list-of-profile'), 'dict_users'),
+  let $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
       $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(rest:uri()||'/'||.), <name>{.}</name>)
   return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page])
 };
@@ -34,17 +34,33 @@ declare
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
 function _:createDict($data, $content-type as xs:string, $wanted-response as xs:string) {
-  if ($wanted-response = "application/vnd.wde.v2+json") then
-    if ($content-type = 'application/json') then
-      (: in this case $data is an element(json) :)
-      if (exists($data/json/name)) then
-        if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users')) then (
-          _:check_global_super_user(),
-          util:eval(``[
-declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+  let $checkResponse := if ($wanted-response = "application/vnd.wde.v2+json") then true()
+        else error(xs:QName('response-codes:_403'),
+         'Only wde.v2 aware clients allowed',
+         'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
+         'Accept was :'||$wanted-response),  
+      $checkContentType := if ($content-type = 'application/json') then true()
+        else error(xs:QName('response-codes:_415'),
+         'Content-Type needs to be application/json',
+         'Content-Type was: '||$content-type),      
+      (: $data is an element(json) :)
+      $checkNameIsSupplied := if (exists($data/json/name)) then true()      
+        else error(xs:QName('response-codes:_422'),
+         'Wrong JSON object',
+         'Need a { "name": "some_name" } object.&#x0a;'||
+         'JSON was: '||serialize($data, map{'method': 'json'})),
+      $checkDictUsersAlreadyExists := if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users') or
+                                          $data/json/name = 'dict_users') then true()
+        else error(xs:QName('response-codes:_422'),
+         'User directory does not exist',
+         'You need to create the special dict_users first')
+      return (_:check_global_super_user(),
+          util:eval(``[declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 if (db:exists("`{$data/json/name}`__prof")) then
   error(xs:QName('response-codes:_409'),
         'Dictionary "`{$data/json/name}`" already exists')
+else if ("`{$data/json/name}`" = 'dict_users') then
+  db:create("dict_users", <users/>, "dict_users.xml")
 else
   db:create("`{$data/json/name}`__prof", <empty/>, "`{$data/json/name}`.xml")
 ]``, (), 'try-create-dict', true()),
@@ -54,33 +70,14 @@ else
           <title>{$api-problem:codes_to_message(201)}</title>
           <status>201</status>
         </problem>))
-        else if ($data/json/name ne "dict_users")
-        then error(xs:QName('response-codes:_422'),
-                   'User directory does not exist',
-                   'You need to create the special dict_users first')
-        else util:eval(``[db:create("dict_users",                                    
-<users/>, "dict_users.xml")]``,
-                       (), 'create_dict_users', true())
-      else error(xs:QName('response-codes:_422'),
-               'Wrong JSON object',
-               'Need a { "name": "some_name" } object.&#x0a;'||
-               'JSON was: '||serialize($data, map{'method': 'json'}))
-    else 
-      error(xs:QName('response-codes:_415'),
-            'Content-Type needs to be application/json',
-            'Content-Type was: '||$content-type)
- else
-   error(xs:QName('response-codes:_403'),
-         'Only wde.v2 aware clients allowed',
-         'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
-         'Accept was :'||$wanted-response)
 };
 
 declare function _:check_global_super_user() as empty-sequence() {
   util:eval(``[ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
   let $name_pw := tokenize("`{convert:binary-to-string(xs:base64Binary(replace(request:header('Authorization', ''), '^Basic ', '')))}`", ':'),
-      $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2]) and 
-                                                       @type="su" and @dict = "dict_users"]          
+      $user_tag := try { collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2]) and 
+                                                       @type="su" and @dict = "dict_users"] }
+                   catch err:FODC0002 { (: Until dict_users is created everyone is superuser :) true() }          
       return if (exists($user_tag)) then () else
         error(xs:QName('response-codes:_403'),
                        'Only global super users may create dictionaries.') ]``, (), 'check-global-super-user')
@@ -120,6 +117,9 @@ function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string
   return if ($auth_header = '') then
     error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
   else if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = $dict_name and @type='su'])) then
+  if ($dict_name = 'dict_users' and exists(db:list()[ends-with(., '__prof')])) then
+    error(xs:QName('response-codes:_422'), 'You cannot delete dict_users if other dictionaries exist')
+  else
   (: Draft: need to look up all the dbs in profile. :)
   for $db in db:list()[matches(., '^'||$dict_name)]
   return (

@@ -10,6 +10,7 @@ import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
+import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
 declare namespace http = "http://expath.org/ns/http-client";
@@ -48,7 +49,7 @@ function _:entryAsDocument($_self as xs:anyURI, $id as attribute(), $entry as el
     <status>{$entry//*:fs[@type='change']/*[@name='status']/*/@value/data/()}</status> else (),
     if (exists($entry//*:fs[@type='change']/*[@name='owner'])) then
     <owner>{$entry//*:fs[@type='change']/*[@name='owner']/*/@value/data/()}</owner> else (),
-    if (exists($isLockedBy)) then <locked>{}</locked> else (),
+    if (exists($isLockedBy)) then <locked>{$isLockedBy}</locked> else (),
     if (exists($entry)) then <type>{types:get_data_type($entry)}</type> else (),
     if (exists($entry)) then <entry>{serialize($entry)}</entry> else ()))
 };
@@ -64,7 +65,12 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
       $status := $userData/json/status/text(),
       $owner := $userData/json/owner/text()
-  return api-problem:or_result(data-access:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, ())
+  return api-problem:or_result(_:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, ())
+};
+
+declare %private function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
+  data-access:create_new_entry($data, $dict, $status, $owner, $changingUser),
+  plugins:after_created($data, $dict, $data/(@xml:id, @ID), $status, $owner, $changingUser) 
 };
 
 declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) as element()+ {
@@ -130,7 +136,12 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for this entry',
                    'Entry is currently locked by "'||$lockedBy||'"') 
-  return api-problem:or_result(data-access:change_entry#6, [$entry, $dict_name, $id, $status, $owner, $userName], 200, ())
+  return api-problem:or_result(_:change_entry#6, [$entry, $dict_name, $id, $status, $owner, $userName], 200, ())
+};
+
+declare %private function _:change_entry($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
+  data-access:change_entry($data, $dict, $id, $status, $owner, $changingUser),
+  plugins:after_updated($data, $dict, $id, $status, $owner, $changingUser)
 };
 
 declare
@@ -148,8 +159,9 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
                    $api-problem:codes_to_message(403),
                    'Only wde.v2 clients may request locking'),
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
-      $entry := data-access:get-entry-by-id($dict_name, $id)
-  return api-problem:or_result(_:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))])
+      $entry := data-access:get-entry-by-id($dict_name, $id),
+      $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
+  return api-problem:or_result(_:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, $lockedBy])
 };
 
 declare
@@ -163,7 +175,12 @@ function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string, $a
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for this entry',
                    'Entry is currently locked by "'||$lockedBy||'"') 
-  return api-problem:or_result(data-access:delete_entry#3, [$dict_name, $id, $userName])
+  return api-problem:or_result(_:delete_entry#3, [$dict_name, $id, $userName])
+};
+
+declare %private function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) {
+  data-access:delete_entry($dict, $id, $changingUser),
+  plugins:after_deleted($dict, $id, $changingUser)
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
