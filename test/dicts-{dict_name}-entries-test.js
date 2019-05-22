@@ -43,13 +43,20 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     });
 
     beforeEach(function(){
-        return request('post', baseURI + '/dicts/dict_users/users', { 
+        return request('post', baseURI + '/dicts', {
             'headers': {"Accept":"application/vnd.wde.v2+json",
                         "Content-Type":"application/json"},
-            'body': superuser,
+            'body': {'name': 'dict_users'},
             'time': true
-        })
-        .then(function(userCreateResponse) {
+            })
+            .then(function(dictUsersCreated){
+                return request('post', baseURI + '/dicts/dict_users/users', { 
+                'headers': {"Accept":"application/vnd.wde.v2+json",
+                            "Content-Type":"application/json"},
+                'body': superuser,
+                'time': true
+            })
+            .then(function(userCreateResponse) {
             newSuperUserID = userCreateResponse.body.id;
             return request('post', baseURI + '/dicts/dict_users/users', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json",
@@ -67,6 +74,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     'time': true
                 })
             });
+        });
         });
     });
     describe('tests for get', function() {
@@ -105,24 +113,14 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 406 for "Not Acceptable"', function() {
             var response = request('get', baseURI+'/dicts/inmollit/entries', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'headers': {"Accept":"application/vnd.wde.v8+json"},
+                'auth': dictuserauth,
                 'time': true
             });
 
             expect(response).to.have.status(406);
-            return chakram.wait();
-        });
-
-
-        xit('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('get', baseURI+'/dicts/elitiruretemporreprehenderit/entries', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(415);
             return chakram.wait();
         });
     
@@ -255,16 +253,23 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
         });
         afterEach('Remove the test profile', function(){
+            return request('get', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'qs': {'lock': 2},
+                'auth': dictuserauth
+            })
+            .then(function(){
             return request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'auth': dictuserauth
             });
         });
+        });
     });
     
     // Perhaps not needed at all: Warnung! Dangerous! Deletes every entry except the system entries < 699 from the dictionary.
     // describe('tests for delete', function() {
-    //     xit('should respond 204 for "No Content"', function() {
+    //     it('should respond 204 for "No Content"', function() {
     //         var response = request('delete', baseURI+'/dicts/pariatur/entries', { 
     //             'headers': {"Accept":"application/vnd.wde.v2+json"},
     //             'time': true
@@ -275,7 +280,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     //     });
 
 
-    //     xit('should respond 401 for "Unauthorized"', function() {
+    //     it('should respond 401 for "Unauthorized"', function() {
     //         var response = request('delete', baseURI+'/dicts/irureinfugiatculpaelit/entries', { 
     //             'headers': {"Accept":"application/vnd.wde.v2+json"},
     //             'time': true
@@ -286,7 +291,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     //     });
 
 
-    //     xit('should respond 403 for "Forbidden"', function() {
+    //     it('should respond 403 for "Forbidden"', function() {
     //         var response = request('delete', baseURI+'/dicts/quisconsequatveniamametlaborum/entries', { 
     //             'headers': {"Accept":"application/vnd.wde.v2+json"},
     //             'time': true
@@ -297,7 +302,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     //     });
 
 
-    //     xit('should respond 406 for "Not Acceptable"', function() {
+    //     it('should respond 406 for "Not Acceptable"', function() {
     //         var response = request('delete', baseURI+'/dicts/velit/entries', { 
     //             'headers': {"Accept":"application/vnd.wde.v2+json"},
     //             'time': true
@@ -308,7 +313,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     //     });
 
 
-    //     xit('should respond 415 for "Unsupported Media Type"', function() {
+    //     it('should respond 415 for "Unsupported Media Type"', function() {
     //         var response = request('delete', baseURI+'/dicts/autenonnulla/entries', { 
     //             'headers': {"Accept":"application/vnd.wde.v2+json"},
     //             'time': true
@@ -320,8 +325,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     
     // });
     
-    describe('tests for patch', function() {
-        xit('should respond 200 for "OK"', function() {
+    xdescribe('tests for patch', function() {
+        it('should respond 200 for "OK"', function() {
             var response = request('patch', baseURI+'/dicts/nostrudsit/entries', { 
                 'body': {"sid":"est velit dolore","lemma":"eiusmod aliquip proident","entry":"esse"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -333,7 +338,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 400 for "Client Error"', function() {
+        it('should respond 400 for "Client Error"', function() {
             var response = request('patch', baseURI+'/dicts/eiusmodconsequ/entries', { 
                 'body': {"sid":"nostrud quis consequa","lemma":"ullamco qui dolore ipsum","entry":"consequat consectetur"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -345,7 +350,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 401 for "Unauthorized"', function() {
+        it('should respond 401 for "Unauthorized"', function() {
             var response = request('patch', baseURI+'/dicts/ametineuUt/entries', { 
                 'body': {"sid":"ut ut consectetur ad aliquip","lemma":"laborum proident","entry":"do nostrud qui"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -357,7 +362,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 403 for "Forbidden"', function() {
+        it('should respond 403 for "Forbidden"', function() {
             var response = request('patch', baseURI+'/dicts/aute/entries', { 
                 'body': {"sid":"incididunt veniam aute sint ex","lemma":"irure","entry":"ut in qui et Ut"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -369,7 +374,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 406 for "Not Acceptable"', function() {
             var response = request('patch', baseURI+'/dicts/s/entries', { 
                 'body': {"sid":"co","lemma":"ut","entry":"magna sed"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -381,7 +386,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 415 for "Unsupported Media Type"', function() {
+        it('should respond 415 for "Unsupported Media Type"', function() {
             var response = request('patch', baseURI+'/dicts/dolorecommodo/entries', { 
                 'body': {"sid":"reprehenderit sint","lemma":"dolor labore aliqua voluptate","entry":"sit in"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -393,7 +398,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 422 for "Unprocessable Entity"', function() {
+        it('should respond 422 for "Unprocessable Entity"', function() {
             var response = request('patch', baseURI+'/dicts/magna/entries', { 
                 'body': {"sid":"do adipisicing elit est","lemma":"sunt in exercitation","entry":"proident consectetur cillum ex"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -405,7 +410,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
     
     });   
-    afterEach(function(){       
+    afterEach(function(){
         return request('delete', baseURI + '/dicts/' + dictuser.table, { 
             'headers': {"Accept":"application/vnd.wde.v2+json"},
             'auth': dictuserauth,
@@ -418,7 +423,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'time': true
             })
             .then(function(){
-                return request('delete', baseURI + '/dicts/dict_users/users/' + newSuperUserID, { 
+                return request('delete', baseURI + '/dicts/dict_users', { 
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': superuserauth,
                 'time': true

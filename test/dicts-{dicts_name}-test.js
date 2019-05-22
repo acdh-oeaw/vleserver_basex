@@ -18,14 +18,22 @@ describe('tests for /dicts/{dicts_name}', function() {
         superuserauth = {"user":superuser.userID, "pass":superuser.pw},
         newSuperUserID;
     beforeEach(function(){
-        return request('post', baseURI + '/dicts/dict_users/users', { 
+        return request('post', baseURI + '/dicts', {
             'headers': {"Accept":"application/vnd.wde.v2+json",
                         "Content-Type":"application/json"},
-            'body': superuser,
+            'body': {'name': 'dict_users'},
             'time': true
-        })
-        .then(function(userCreateResponse) {
-            newSuperUserID = userCreateResponse.body.id;
+            })
+            .then(function(dictUsersCreated){
+            return request('post', baseURI + '/dicts/dict_users/users', { 
+                'headers': {"Accept":"application/vnd.wde.v2+json",
+                            "Content-Type":"application/json"},
+                'body': superuser,
+                'time': true
+                })
+                .then(function(userCreateResponse) {
+                    newSuperUserID = userCreateResponse.body.id;
+                });
         });
     });
 
@@ -255,7 +263,7 @@ describe('tests for /dicts/{dicts_name}', function() {
     
     });
     afterEach(function(){
-        return request('delete', baseURI + '/dicts/dict_users/users/' + newSuperUserID, { 
+        return request('delete', baseURI + '/dicts/dict_users', { 
             'headers': {"Accept":"application/vnd.wde.v2+json"},
             'auth': superuserauth,
             'time': true

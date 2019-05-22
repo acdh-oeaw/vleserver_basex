@@ -12,7 +12,7 @@ describe('WDE REST API', function() {
     this.timeout(20000);
     describe('Diictionary listing and creation', require('./test/dicts-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Diictionary management', require('./test/dicts-{dicts_name}-test').curry(baseURI, basexAdminUser, basexAdminPW));
-    describe('User management', require('./test/dicts-{dict_name}-users-test').curry(baseURI, basexAdminUser, basexAdminPW));
+    xdescribe('User management', require('./test/dicts-{dict_name}-users-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary data creation', require('./test/dicts-{dict_name}-entries-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary data usage', require('./test/dicts-{dict_name}-entries-{entries_id}-test').curry(baseURI, basexAdminUser, basexAdminPW));
 })

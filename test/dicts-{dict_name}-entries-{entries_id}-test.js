@@ -58,6 +58,13 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
     });
 
     beforeEach('Set up dictionary and users', function(){
+        return request('post', baseURI + '/dicts', {
+        'headers': {"Accept":"application/vnd.wde.v2+json",
+                    "Content-Type":"application/json"},
+        'body': {'name': 'dict_users'},
+        'time': true
+        })
+        .then(function(dictUsersCreated){
         return request('post', baseURI + '/dicts/dict_users/users', { 
             'headers': {"Accept":"application/vnd.wde.v2+json",
                         "Content-Type":"application/json"},
@@ -93,7 +100,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                             'time': true
                             });                    
                     });            
-            });
+            });            
+        });
         });
     });
     describe('tests for get', function() {
@@ -173,11 +181,19 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
         afterEach('Remove test entry', function(){
+            return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'qs': {'lock': 2},
+                'auth': dictuserauth,
+                'time': true
+            })
+            .then(function(){
             return request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'auth': dictuserauth,
                 'time': true
             })
+        });
         });
     });
     
@@ -455,11 +471,19 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
         afterEach('Remove test entry', function(){
+            return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'qs': {'lock': 2},
+                'auth': dictuserauth,
+                'time': true
+            })
+            .then(function(){
             return request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'auth': dictuserauth,
                 'time': true
-            })
+            });
+        });
         });   
     });
     
@@ -551,15 +575,30 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             });
         });        
         afterEach('Remove test entry', function(){
+            return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'qs': {'lock': 2},
+                'auth': dictuserauth,
+                'time': true
+            })
+            .then(function(){
             return request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'auth': dictuserauth,
                 'time': true
-            })
+            });
+            });
         });
     
     });   
-    afterEach('Tear down dictionary and usesrs', function(){       
+    afterEach('Tear down dictionary and usesrs', function(){
+        return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', { 
+            'headers': {"Accept":"application/vnd.wde.v2+json"},
+            'qs': {'lock': 2},
+            'auth': dictuserauth,
+            'time': true
+        })
+        .then(function(){       
         return request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', { 
             'headers': {"Accept":"application/vnd.wde.v2+json"},
             'auth': dictuserauth,
@@ -578,7 +617,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                     'time': true
                 })
                 .then(function(){
-                    return request('delete', baseURI + '/dicts/dict_users/users/' + newSuperUserID, { 
+                    return request('delete', baseURI + '/dicts/dict_users', { 
                         'headers': {"Accept":"application/vnd.wde.v2+json"},
                         'auth': superuserauth,
                     'time': true
@@ -586,6 +625,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                 });
             });
         });
+    });
     });
 });
 };
