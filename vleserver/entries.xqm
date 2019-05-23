@@ -24,17 +24,29 @@ declare
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
 function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integer, $page as xs:integer) {
-  let $entries_ids := try { data-access:get-all-entries($dict_name)!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
-  declare function local:filter($nodes as node()*) as node()* {
-    $nodes/(@xml:id|@ID)
-  };
-]``) else ./(@xml:id|@ID)) }
+  let $nodes_or_dryed := try { data-access:get-all-entries($dict_name) }
       catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
                        'Not found',
                        $err:additional)
       },
-      $entries_as_documents := subsequence($entries_ids, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else (), lcks:get_user_locking_entry($dict_name, .))
+      $counts := $nodes_or_dryed!(if (. instance of element(util:dryed)) then xs:integer(./@count) else 1),
+      $start-end-pos := for $i at $p in (1, $counts) let $start-pos := sum(($i, (1, $counts)[position() < $p]))
+        return <_>
+        <s>{$start-pos}</s>
+        <e>{if (exists($counts[$p])) then $start-pos + $counts[$p] - 1 else 0}</e>
+        <nd>{$nodes_or_dryed[$p]}</nd>
+        </_>,
+      $from := (($page - 1) * $pageSize) + 1,
+      $relevant_nodes_or_dryed := $start-end-pos[xs:integer(./e) >= $from and xs:integer(./s) <= $from+$pageSize]/nd/*,
+      $entries_ids := $relevant_nodes_or_dryed!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
+  declare function local:filter($nodes as node()*) as node()* {
+    $nodes/(@xml:id|@ID)
+  };
+]``) else ./(@xml:id|@ID)),
+      $entries_as_documents := (: FIXME: This now will not crash with out of memory but is fundamentally wrong.
+      Start needs to be recalculated based on what was skipped when hydrating the result! :)
+      subsequence($entries_ids, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else (), lcks:get_user_locking_entry($dict_name, .))
   return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_ids), $page])
 };
 

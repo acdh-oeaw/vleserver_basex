@@ -108,12 +108,12 @@ declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:stri
 declare function _:dehydrate($nodes as node()*) as element(_:dryed)* {
   for $nodes_per_db in $nodes
   group by $db_name := db:name($nodes_per_db)
-  return <_:dryed db_name="{$db_name}"
+  return <_:dryed db_name="{$db_name}" count="{count($nodes_per_db)}"
            pres="{string-join(db:node-pre($nodes_per_db), ' ')}"
   />
 };
 
-declare function _:hydrate($dryed as element(_:dryed)) as node()* {
+declare function _:hydrate($dryed as element(_:dryed)+) as node()* {
   let $queries := $dryed!``[tokenize("`{data(./@pres)}`")!db:open-pre("`{./@db_name}`",  xs:integer(.))]``
   return _:evals($queries, (), 'util:hydrate', false())
 };
@@ -122,7 +122,7 @@ declare function _:hydrate($dryed as element(_:dryed)) as node()* {
 (: $filter_code is a XQuery function
    declare function filter($nodes as node()*) as node()* {()};
 :)
-declare function _:hydrate($dryed as element(_:dryed), $filter_code as xs:string) as node()* {
+declare function _:hydrate($dryed as element(_:dryed)+, $filter_code as xs:string) as node()* {
   let $queries := $dryed!``[`{$filter_code}`
     let $nodes := tokenize("`{data(./@pres)}`")!db:open-pre("`{./@db_name}`",  xs:integer(.))
     return local:filter($nodes)
