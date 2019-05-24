@@ -17,6 +17,7 @@ declare function _:get_data_type($data as element()) as xs:string {
     case element(tei:header) return 'header'
     case element(tei:cit) return 'example'
     case element(tei:entryFree) return 'entryFree'
+    case element(tei:xenoData) return 'xenoData'
     case element(_) return '_'
     default return error(xs:QName('_:error'), 'Unknown data type')
 };

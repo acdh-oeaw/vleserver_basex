@@ -22,12 +22,12 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
       $_last := xs:anyURI($_self||'?page='||$last_page||'&amp;pageSize='||$page_size),
       $_next := if ($page + 1 <= $last_page) then xs:anyURI($_self||'?page='||$page + 1||'&amp;pageSize='||$page_size)
   return
-   <json type='object' objects='__links __self __first __last __next __embedded'>
+   <json type='object' objects='__links self first last next __embedded'>
        <__links>
-           <__self>{_:create_link_object($_self_with_parameters)}</__self>
-           <__first>{_:create_link_object($_first)}</__first>
-           <__last>{_:create_link_object($_last)}</__last>
-           { if ($_next) then <__next>{_:create_link_object($_next)}</__next> else () }
+           <self>{_:create_link_object($_self_with_parameters)}</self>
+           <first>{_:create_link_object($_first)}</first>
+           <last>{_:create_link_object($_last)}</last>
+           { if ($_next) then <next>{_:create_link_object($_next)}</next> else () }
        </__links>
        <__embedded> {
            element {$_embedded_name} {
@@ -46,7 +46,7 @@ declare function _:create_document($_self as xs:anyURI, $data as element()+) {
   <json type='object'>
       {$data}
       <__links type='object'>
-          <__self type='object'>{_:create_link_object($_self)}</__self>
+          <self type='object'>{_:create_link_object($_self)}</self>
       </__links>
   </json>
 };

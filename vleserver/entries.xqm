@@ -38,16 +38,15 @@ function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integ
         <nd>{$nodes_or_dryed[$p]}</nd>
         </_>,
       $from := (($page - 1) * $pageSize) + 1,
-      $relevant_nodes_or_dryed := $start-end-pos[xs:integer(./e) >= $from and xs:integer(./s) <= $from+$pageSize]/nd/*,
-      $entries_ids := $relevant_nodes_or_dryed!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
+      $relevant_nodes_or_dryed := $start-end-pos[xs:integer(./e) >= $from and xs:integer(./s) <= $from+$pageSize],
+      $entries_ids := $relevant_nodes_or_dryed/nd/*!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
   declare function local:filter($nodes as node()*) as node()* {
     $nodes/(@xml:id|@ID)
   };
 ]``) else ./(@xml:id|@ID)),
-      $entries_as_documents := (: FIXME: This now will not crash with out of memory but is fundamentally wrong.
-      Start needs to be recalculated based on what was skipped when hydrating the result! :)
-      subsequence($entries_ids, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else (), lcks:get_user_locking_entry($dict_name, .))
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_ids), $page])
+      $from_relevant_nodes := $from - (xs:integer($relevant_nodes_or_dryed[1]/s) - 1),
+      $entries_as_documents := subsequence($entries_ids, $from_relevant_nodes, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else (), lcks:get_user_locking_entry($dict_name, .))
+  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, xs:integer($start-end-pos[last()]/s) - 1, $page])
 };
 
 declare
