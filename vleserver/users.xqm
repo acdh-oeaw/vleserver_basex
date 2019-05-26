@@ -27,7 +27,8 @@ function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
                        'Not found',
                        $err:additional)
       },
-      $entries_as_documents := subsequence($users, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, .)
+      (: FIXME: get the ids right. For $u at $p in $users where $p >= (($page - 1) * $pageSize) + 1 and $p <= (($page - 1) * $pageSize) + $pageSize ... :)
+      $entries_as_documents := subsequence($users, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||./position())} catch basex:http {xs:anyURI('urn:local')}, .)
   return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users), $page])
 };
 
@@ -35,7 +36,8 @@ declare
   %private
 function _:userAsDocument($_self as xs:anyURI, $user as element()?) {
   json-hal:create_document($_self, (
-    <id>{data($user/@name)}</id>,
+    <id>{$user/position()}</id>,
+    <userID>{data($user/@name)}</userID>,
     <dict>{data($user/@dict)}</dict>,
     <type>{data($user/@type)}</type>,
     (: Compatibility stuff, delete when possible :)
