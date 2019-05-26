@@ -161,8 +161,10 @@ declare
     %rest:query-param("lock", "{$lock}")
     %rest:header-param("Accept", "{$wanted-response}", "")
     %rest:header-param('Authorization', '{$auth_header}', "")
-function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $wanted-response as xs:string, $auth_header as xs:string) {
-  let $lockDuration := if ($lock castable as xs:integer) then xs:dayTimeDuration('PT'||$lock||'S') 
+function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string) {
+  let $lockAsDuration := xs:dayTimeDuration('PT'||$lock||'S'),
+      $lockDuration := if ($lock castable as xs:integer) then 
+                         if ($lockAsDuration > $lcks:maxLockTime) then $lcks:maxLockTime else $lockAsDuration
                        else if ($lock = 'true') then $lcks:maxLockTime
                        else (),
       $checkLockingAllowed := if (not(exists($lockDuration)) or $wanted-response = 'application/vnd.wde.v2+json') then true()
