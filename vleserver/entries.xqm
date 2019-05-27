@@ -80,8 +80,9 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
 };
 
 declare %private function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
-  data-access:create_new_entry($data, $dict, $status, $owner, $changingUser),
-  plugins:after_created($data, $dict, $data/(@xml:id, @ID), $status, $owner, $changingUser) 
+  let $savedEntry := data-access:create_new_entry($data, $dict, $status, $owner, $changingUser),
+      $run_plugins := plugins:after_created($savedEntry, $dict, $savedEntry/(@xml:id, @ID), $status, $owner, $changingUser)
+  return _:entryAsDocument(rest:uri()||'/'||$savedEntry/(@ID, @xml:id), $savedEntry/(@ID, @xml:id), $savedEntry, ())          
 };
 
 declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) as element()+ {
@@ -151,8 +152,9 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
 };
 
 declare %private function _:change_entry($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
-  data-access:change_entry($data, $dict, $id, $status, $owner, $changingUser),
-  plugins:after_updated($data, $dict, $id, $status, $owner, $changingUser)
+  let $savedEntry := data-access:change_entry($data, $dict, $id, $status, $owner, $changingUser),
+      $run_plugins := plugins:after_updated($savedEntry, $dict, $id, $status, $owner, $changingUser)
+  return _:entryAsDocument(rest:uri(), $savedEntry/(@ID, @xml:id), $savedEntry, lcks:get_user_locking_entry($dict, $savedEntry/(@ID, @xml:id)))
 };
 
 declare

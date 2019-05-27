@@ -91,7 +91,7 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, 
   return $ret
 };
 
-declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element(json) {
+declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element() {
   let $id := $data/(@xml:id, @ID),
       $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
       $dataType := types:get_data_type($data),
@@ -115,18 +115,11 @@ declare function _:create_new_entry($data as element(), $dict as xs:string, $sta
        $target-collection := _:get-collection-name-for-insert-data($dict, $dataType),
        $data-with-change := if ($dataType = 'profile') then $data transform with { chg:add-change-record-to-profile(.) }
                             else $data transform with { chg:add-change-record(., .//*:fs[@type = 'change'], $status, $owner, $changingUser) },
-       $add-entry-todb-script := ``[ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
-            import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-            declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+       $add-entry-todb-script := ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare variable $data-with-change external;
             (_:insert-data(collection("`{$target-collection}`"), $data-with-change, "`{$dataType}`"),
             db:optimize("`{$target-collection}`"),
-            update:output(<json type='object'>
-              <sid>{data($data-with-change/(@ID, @xml:id))}</sid>
-              <lemma>TODO</lemma>
-              <entry>{serialize($data-with-change, map {'method': 'xml'})}</entry>
-            </json>
-            ))
+            update:output($data-with-change))
           ]``
         (: , $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG') :)
           return (
@@ -137,7 +130,7 @@ declare function _:create_new_entry($data as element(), $dict as xs:string, $sta
           }, 'add-entry-todb', true()))[2]
 };
 
-declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element(json) {
+declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element() {
   let $entryToReplace := _:find_entry_as_dbname_pre($dict, $id),
       $newEntryWithChange := if (types:get_data_type($newEntry) = 'profile') then $newEntry transform with { chg:add-change-record-to-profile(.) }
                              else $newEntry transform with { chg:add-change-record(., $entryToReplace[1], $entryToReplace[2], $status, $owner, $changingUser) }
@@ -153,17 +146,11 @@ util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/
     ]``, (), 'find-entry-for-delete', true())  
 };
 
-declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre as xs:integer, $newEntry as element()) as element(json) {
-  util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
-    declare variable $newEntry as element() external;
+declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre as xs:integer, $newEntry as element()) as element() {
+  util:eval(``[declare variable $newEntry as element() external;
     replace node db:open-pre("`{$db-name}`", `{$pre}`) with $newEntry,
     db:optimize("`{$db-name}`"),
-    update:output(<json type='object'>
-      <sid>{data($newEntry/(@xml:id, @ID))}</sid>
-      <lemma></lemma>
-      <entry>{serialize($newEntry, map{'method': 'xml'})}</entry>
-    </json>
-  )
+    update:output($newEntry)
   ]``, map {'newEntry': $newEntry}, 'replace-entry-by-pre', true())  
 };
 
