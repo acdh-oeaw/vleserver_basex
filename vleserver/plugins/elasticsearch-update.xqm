@@ -1,15 +1,68 @@
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/elasticsearch-update';
+import module namespace elasicsearch-export = "https://www.oeaw.ac.at/acdh/dboe_tei_modelling/xquery/elasticsearchExport" at "../../../dboe_tei_modelling/xquery/elasticsearchExport.xqm";
+
+declare variable $_:index-name := 'dboe';
+declare variable $_:elasticsearch-bulk-href := 'http://localhost:9200/_bulk';
+declare variable $_:xslt := 'entry-to-ag5-fields.xsl';
+declare variable $_:log-elasticsearch-results := true();
 
 declare function _:after_created($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
-  file:write(file:resolve-path(string-join(('created', $dict, $id, $status, $owner, $changingUser), '-')||'.xml', file:base-dir()), $data)
+  _:write-log(_:sendToElasticasearch((_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data))))
 };
 
 declare function _:after_updated($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
-  file:write(file:resolve-path(string-join(('updated', $dict, $id, $status, $owner, $changingUser), '-')||'.xml', file:base-dir()), $data)
+  _:write-log(_:sendToElasticasearch((_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data))))
 };
 
 declare function _:after_deleted($dict as xs:string, $id as xs:string, $changingUser as xs:string) as empty-sequence() {
-  file:write(file:resolve-path(string-join(('deleted', $dict, $id, $changingUser), '-')||'.xml', file:base-dir()), <deleted/>)
+  error(xs:QName('_:error'), 'Not implemented')
+};
+
+declare function _:createNDJsonDataHeader($id as xs:string) as xs:string{
+  json:serialize(
+        <json type="object">
+          <index type="object">
+            <__index>{$_:index-name}</__index>
+            <__type>_doc</__type>
+            <__id>{$id}</__id>
+          </index>
+        </json>,
+  map {'indent': 'no'})
+};
+
+declare function _:createNDJsonDataBody($data as element()) as xs:string {
+  let $enhanced-data := elasicsearch-export:addStringsAsAttributeWithoutDiacritics($data),
+      $siglen := $data//*:listPlace/@corresp,
+      $siglen-to-polygone := parse-json(serialize(doc('helper_json/sigle-polygone.json'), map {'method': 'json'})),
+      $json-as-xquery-maps := map:merge((
+        elasicsearch-export:get-sigle-polygone($siglen, $siglen-to-polygone)
+      , if ($siglen[.='this:QDB']) then () else elasicsearch-export:try-get-qdb-polygone($enhanced-data, $siglen-to-polygone)
+      , elasicsearch-export:serializeXMLasBadgerfishJSON($enhanced-data)
+      , elasicsearch-export:extractDataUsingXSLT($enhanced-data, $_:xslt, false())
+      ))
+       (: , prof:sleep(1000)  :)
+       (: , elasicsearch-export:serializeXMLasBadgerfishJSON($enhanced-data):)
+  return serialize($json-as-xquery-maps, map {"method": "json", "indent": "no"})
+};
+
+declare function _:sendToElasticasearch($ndjsons as xs:string*) {
+let $response := http:send-request(<http:request method="post">
+      <http:body media-type='application/x-ndjson'>{string-join($ndjsons, '&#x0a;')||'&#x0a;'}</http:body>
+    </http:request>, $_:elasticsearch-bulk-href)
+return $response
+};
+
+declare function _:write-log($seq as item()+) as empty-sequence() {
+let $e := $seq[. instance of node()],
+    $ns := namespace-uri(<_:_/>),
+    $logID := if (string-length($ns) > 30) then '...'||substring(namespace-uri(<_:_/>), string-length($ns) - 27, 28) else $ns,
+    $message := $logID||': '||$e/@status||': '||string-join(($e/@message, $e/*:header[@name = 'Warning']/@value), ' ')||' '||
+  (if (contains($e/*:body/@media-type, 'application/json')) then
+    serialize(<json type='object'>{if (exists($e/items/_[1]/*)) then $e/items/_[1]/* else $e[2]/*}</json>, map{'method': 'json', 'indent': false()})
+  else if ($e[2]) then serialize($e[2], map{'method': 'xml', 'indent': false()})
+  else $seq[2]
+  )
+return if ($_:log-elasticsearch-results) then admin:write-log($message, 'INFO') else ()
 };
