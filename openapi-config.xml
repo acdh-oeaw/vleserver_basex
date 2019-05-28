@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="https://lab.sub.uni-goettingen.de/restxqopenapi">
+  <info>
+  <termsOfService>https://example.com/terms-of-use</termsOfService>
+  <contact>
+      <email>info@example.com</email>
+  </contact>
+  </info>
+  <servers>
+    <server url="http://localhost:8984/restvle">Local development server</server>
+    <server url="https://example.com/restvle">Production server</server>
+  </servers>
+  <tags>
+    <tag name="public" method="exclusive">
+        The public part of the API. No authentication and world-readable
+        unless the dictionary is restriced or Accept is application/vnd.wde.v2+json
+        <function name="_:getRoot"/>
+        <function name="_:getDicts"/>
+        <function name="_:getDictDictNameDictUsers"/>
+        <function name="_:getDictDictName"/>
+        <function name="_:getDictDictNameEntries"/>
+        <function name="_:getDictDictNameEntry"/>
+    </tag>
+  </tags>
+</config>

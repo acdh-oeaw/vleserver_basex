@@ -1,0 +1,25 @@
+<meta xmlns="http://exist-db.org/xquery/repo">
+    <description>API Problem and JSON HAL based API for editing dictionary like XML datasets</description>
+    <author>Omar Siam</author>
+    <website>https://www.oeaw.ac.at/acdh/tools/vle/</website>
+    <status>development</status>
+    <license ref="https://spdx.org/licenses/">MIT</license>
+    <copyright>true</copyright>
+    <type>application</type>
+    <target>vleserver</target>
+    <changelog>
+      <change version="0.3.0">
+        <ul xmlns="http://www.w3.org/1999/xhtml">
+          <li class="feat">Features
+            <ul style="margin-left: 15px;">
+              <li>User management for using well known dictionary finished</li>
+              <li>GET, POST (create), DELETE of dictionaries finished</li>
+              <li>GET, PUT (update), POST (create), DELETE of dictionary entries finished</li>
+              <li>Access control implemented</li>
+              <li>Locking for editing implemented</li>
+            </ul>
+          </li>
+        </ul>
+      </change>
+  </changelog>
+</meta>

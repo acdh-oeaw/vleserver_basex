@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://expath.org/ns/pkg"
+  name="https://www.oeaw.ac.at/acdh/tools/vle"
+  abbrev="vleserver_basex"
+  version="0.3.0"
+  spec="1.0"
+  xml:id="vleserver">
+  <title>API Problem and JSON HAL based API for editing dictionary like XML datasets</title>
+  <dependency processor="http://basex.org" semver-min="9.2"/>
+  <xquery>
+    <namespace>https://www.oeaw.ac.at/acdh/tools/vle</namespace>
+    <file>vleserver.xqm</file>
+  </xquery>
+</package>
