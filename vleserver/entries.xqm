@@ -1,3 +1,6 @@
+(:~
+ : API Problem and JSON HAL based API for editing dictionary like XML datasets.
+ :)
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/entries';
@@ -14,15 +17,30 @@ import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
 declare namespace http = "http://expath.org/ns/http-client";
+declare namespace test = "http://exist-db.org/xquery/xqsuite";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 
 declare variable $_:enable_trace := false();
 
+(:~
+ : A list of all entries for a particular dictionary. TODO: Limit by query.
+ :
+ : This will be the URI to search for a particular entry by numerous filter
+ : an search options.
+ : @param $dict_name Name of an existing dictionary
+ : @param $pageSize Number of entries to return per request
+ : @param $page The page page to return based on the given pageSize
+ : @return A JSON HAL based list of entry URIs.
+ :)
 declare
     %rest:GET
-    %rest:path('restvle/dicts/{$dict_name}/entries')
+    %rest:path('/restvle/dicts/{$dict_name}/entries')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
+    %rest:produces('application/json')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')   
+    %rest:produces('application/problem+xml')
 function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integer, $page as xs:integer) {
   let $nodes_or_dryed := try { data-access:get-all-entries($dict_name) }
       catch err:FODC0002 {
@@ -65,12 +83,31 @@ function _:entryAsDocument($_self as xs:anyURI, $id as attribute(), $entry as el
     if (exists($entry)) then <entry>{serialize($entry)}</entry> else ()))
 };
 
+(:~
+ : Creates a new dictionary entry.
+ : @param $userData JSON describing the new entry.
+ : @param $content-type Required to be application/json else returns 415.
+ : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
+ : @param $auth_header Required for getting the user for the changelog
+ : @error 403 if Accept is not application/vnd.wde.v2+json
+ : @error 415 if Content-Type is not application/json
+ : @error 422 if the supplied JSON is incorrect 
+ : @return 201 Created
+ :)
 declare
     %rest:POST('{$userData}')
-    %rest:path('restvle/dicts/{$dict_name}/entries')
+    %rest:path('/restvle/dicts/{$dict_name}/entries')
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
-    %rest:header-param('Authorization', '{$auth_header}', "")
+    %rest:header-param('Authorization', '{$auth_header}')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')
+    %test:arg("userData", '{
+  "sid": "The internal ID. May be empty string.",
+  "lemma": "A lemma. May be empty string.",
+  "entry": "The entry as XML fragment."
+}')
 function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
   let $userName := _:getUserNameFromAuthorization($auth_header),
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
@@ -132,13 +169,38 @@ declare %private function _:getUserNameFromAuthorization($auth_header as xs:stri
   return $name_pw[1]
 };
 
+
+(:~
+ : Change a dictionary entry.
+ :
+ : The entry is saved in the changelog db before it is changed .
+ : The authorized user has to won the lock to do this.
+ : Otherwise a 422 error is returned.
+ : @param $userData JSON describing the changed entry.
+ : @param $id The @xml:id or @ID of the entry to be changed.
+ : @param $content-type Required to be application/json else returns 415.
+ : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
+ : @param $auth_header Required for getting the user for the changelog.
+ : @error 403 if Accept is not application/vnd.wde.v2+json
+ : @error 415 if Content-Type is not application/json
+ : @error 422 if the supplied JSON is incorrect 
+ : @return The changed entry. Including the changelog entry the server generated.
+ :)
 declare
     %rest:PUT('{$userData}')
-    %rest:path('restvle/dicts/{$dict_name}/entries/{$id}')
+    %rest:path('/restvle/dicts/{$dict_name}/entries/{$id}')
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
     %rest:header-param('Authorization', '{$auth_header}', "")
-function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')
+    %test:arg("userData", '{
+  "sid": "The internal ID. May be empty string.",
+  "lemma": "A lemma. May be empty string.",
+  "entry": "The entry as XML fragment."
+}')
+function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
   let $userName := _:getUserNameFromAuthorization($auth_header),
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
       $status := $userData/json/status/text(),
@@ -157,12 +219,33 @@ declare %private function _:change_entry($data as element(), $dict as xs:string,
   return _:entryAsDocument(rest:uri(), $savedEntry/(@ID, @xml:id), $savedEntry, lcks:get_user_locking_entry($dict, $savedEntry/(@ID, @xml:id)))
 };
 
+
+(:~
+ : Get a particular entry from a dictionary.
+ :
+ : To later save the changed entry it has to be locked using the lock parameter
+ : @param $dict_name Name of an existing dictionary.
+ : @param $id The @xml:id or @ID of the entry to be changed.
+ : @param $lock Whether to lock the entry for later saving it.
+ :
+ : Can be a time in seconds that tells how long the entry should be
+ : locked. Can be true for the maximum amount of time allowed.
+ : After at most that timeout the entry needs to be locked again using
+ : this function.
+ : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
+ : @param $auth_header Required for locking the entry otherwise unused.
+ : @return A JSON HAL document containing the entry XML and further extracted data.
+ :)
 declare
     %rest:GET
-    %rest:path('restvle/dicts/{$dict_name}/entries/{$id}')
+    %rest:path('/restvle/dicts/{$dict_name}/entries/{$id}')
     %rest:query-param("lock", "{$lock}")
     %rest:header-param("Accept", "{$wanted-response}", "")
     %rest:header-param('Authorization', '{$auth_header}', "")
+    %rest:produces('application/json')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')
 function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string) {
   let $lockDuration := if ($lock castable as xs:integer) then
                          let $lockAsDuration := xs:dayTimeDuration('PT'||$lock||'S') 
@@ -179,9 +262,20 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
   return api-problem:or_result(_:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, $lockedBy])
 };
 
+(:~
+ : Remove an entry.
+ : 
+ : The entry is saved in the changelog db before it is removed.
+ : The authorized user has to won the lock to do this.
+ : Otherwise a 422 error is returned.
+ : @param $dict_name Name of an existing dictionary
+ : @param $id The @xml:id or @ID of the entry to be deleted.
+ : @param $auth_header Required for getting the user for the changelog.
+ : @return 204 No Content
+ :)
 declare
   %rest:DELETE
-  %rest:path('restvle/dicts/{$dict_name}/entries/{$id}')
+  %rest:path('/restvle/dicts/{$dict_name}/entries/{$id}')
   %rest:header-param('Authorization', '{$auth_header}', "")
 function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string, $auth_header as xs:string) {
   let $userName := _:getUserNameFromAuthorization($auth_header),

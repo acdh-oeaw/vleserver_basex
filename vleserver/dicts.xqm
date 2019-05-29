@@ -1,3 +1,6 @@
+(:~
+ : API Problem and JSON HAL based API for editing dictionary like XML datasets.
+ :)
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/dicts';
@@ -13,27 +16,53 @@ import module namespace functx = "http://www.functx.com";
 
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+declare namespace test = "http://exist-db.org/xquery/xqsuite";
 declare namespace perm = "http://basex.org/modules/perm";
 
 declare variable $_:enable_trace := false();
 
+(:~
+ : A list of all dictionaries available on this server.
+ : @param $pageSize Number of entries to return per request
+ : @param $page The page page to return based on the given pageSize
+ : @return A JSON HAL based list of dictionaries. If pageSize is 10 or less the
+ :         individual entries are included.
+ :)
 declare
     %rest:GET
-    %rest:path('restvle/dicts')
+    %rest:path('/restvle/dicts')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
+    %rest:produces('application/json')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')   
+    %rest:produces('application/problem+xml')
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
   let $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
       $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(rest:uri()||'/'||.), <name>{.}</name>)
   return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page])
 };
 
+(:~
+ : Creates a new dictionary.
+ : @param $data JSON describing the new dictionary.
+ : @param $content-type Required to be application/json else returns 415.
+ : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
+ : @error 403 if Accept is not application/vnd.wde.v2+json
+ : @error 415 if Content-Type is not application/json
+ : @error 422 if the supplied JSON is incorrect 
+ : @return 201 Created
+ :)
 declare
     %rest:POST('{$data}') 
-    %rest:path('restvle/dicts')
+    %rest:path('/restvle/dicts')
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
-function _:createDict($data, $content-type as xs:string, $wanted-response as xs:string) {
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')
+    %test:arg("data", '{ "name": "some_name" }')
+function _:createDict($data, $content-type as xs:string, $wanted-response as xs:string) as item()+ {
   let $checkResponse := if ($wanted-response = "application/vnd.wde.v2+json") then true()
         else error(xs:QName('response-codes:_403'),
          'Only wde.v2 aware clients allowed',
@@ -83,12 +112,20 @@ declare function _:check_global_super_user() as empty-sequence() {
                        'Only global super users may create dictionaries.') ]``, (), 'check-global-super-user')
 };
 
+(:~
+ : A list of all connecting URIs for a particular dictionary.
+ : @param $dict_name Name of an existing dictionary
+ : @return A JSON HAL based list of connecting URIs.
+ :)
 (: Get dict_name -> ganzes dict, RFC 7233, Accept-Ranges: bytes, bytes für eine bestimmte Menge entries? :)
-
 declare
     %rest:GET
-    %rest:path('restvle/dicts/{$dict_name}')
-function _:getDictDictName($dict_name as xs:string) {
+    %rest:path('/restvle/dicts/{$dict_name}')
+    %rest:produces('application/json')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')    
+function _:getDictDictName($dict_name as xs:string) as item()+ {
   if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-exists')) then 
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
@@ -98,17 +135,32 @@ function _:getDictDictName($dict_name as xs:string) {
                  $api-problem:codes_to_message(404))
 };
 
+
+(:~
+ : A list of all connecting URIs for the special dict_users dictionary.
+ : @return A JSON HAL based list of connecting URIs. (/users)
+ :)
 declare
     %rest:GET
-    %rest:path('restvle/dicts/dict_users')
+    %rest:path('/restvle/dicts/dict_users')
 function _:getDictDictNameDictUsers() {
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1])  
 };
 
+(:~
+ : Remove a dictionary.
+ : 
+ : Removes all the databases making up a dictionary including the changes history.
+ : Basically any dictionary starting with $dict_name is deleted.
+ : Also all users entries for this dictionary are removed.
+ : Can also remove dict_users if it is the last remaining dictionary
+ : @param $dict_name Name of an existing dictionary
+ : @return 204 No Content
+ :)
 declare
     %rest:DELETE
-    %rest:path('restvle/dicts/{$dict_name}')
+    %rest:path('/restvle/dicts/{$dict_name}')
     %rest:header-param('Authorization', '{$auth_header}', '')
     %updating
 (: This function is meant to have a global write lock. :)

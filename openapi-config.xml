@@ -7,10 +7,28 @@
   </contact>
   </info>
   <servers>
-    <server url="http://localhost:8984/restvle">Local development server</server>
-    <server url="https://example.com/restvle">Production server</server>
+    <server url="http://localhost:8984/">Local development server</server>
+    <server url="https://example.com/">Production server</server>
   </servers>
   <tags>
+    <tag name="dicts" method="exclusive">
+        Query and manipulate dictionaries and the special users "dictionary".
+        See dict.xqm.
+        <function name="_:getDicts"/>
+        <function name="_:createDict"/>
+        <function name="_:getDictDictName"/>
+        <function name="_:deleteDictDictName"/>
+        <function name="_:getDictDictNameDictUsers"/>
+    </tag>
+    <tag name="entries" method="exclusive">
+        Query and manipulate entries in the dictionary.
+        See entries.xqm
+        <function name="_:getDictDictNameEntries"/>
+        <function name="_:createEntry"/>
+        <function name="_:changeEntry"/>
+        <function name="_:getDictDictNameEntry"/>
+        <function name="_:deleteDictDictNameEntry"/>
+    </tag>
     <tag name="public" method="exclusive">
         The public part of the API. No authentication and world-readable
         unless the dictionary is restriced or Accept is application/vnd.wde.v2+json
@@ -21,5 +39,32 @@
         <function name="_:getDictDictNameEntries"/>
         <function name="_:getDictDictNameEntry"/>
     </tag>
+    <tag name="users" method="exclusive">
+        Manipulate the users and user rights for a dictionary. Can also be used by global admin users to manipulate users for any table when used with "dict_users".
+        See users.xqm
+        <function name="_:getDictDictUserUsers"/>
+        <function name="_:createUser"/>
+        <function name="_:getDictDictNameUser"/>
+        <function name="_:deleteDictDictNameUser"/>
+    </tag>
+    <tag name="internal" method="exclusive">
+        Override the default behavior.
+        <function name="_:getDictDictUserEntries404"/>
+        <function name="_:getDictDictUserEntry404"/>
+    </tag>
   </tags>
+  <components>
+    <securitySchemes>
+      <securityScheme name="httpBasicWithSHA256Pws">
+        This service uses HTTP Basic authentication.
+        To somewhat protect the Passwords their SHA256 hash is created when set by VLE.
+        There may be unhashed passwords on the server for test purpose.
+        <type>http</type>
+        <scheme>basic</scheme>
+      </securityScheme>
+    </securitySchemes>
+  </components>
+  <security>
+    <SecurityRequirement name="httpBasicWithSHA256Pws"/>
+  </security>
 </config>

@@ -1,3 +1,6 @@
+(:~
+ : API Problem and JSON HAL based API for editing dictionary like XML datasets.
+ :)
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle';
@@ -9,6 +12,7 @@ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
+import module namespace openapi="https://lab.sub.uni-goettingen.de/restxqopenapi" at "../3rd-party/openapi/content/openapi.xqm";
 
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
@@ -16,8 +20,8 @@ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-
 declare variable $_:enable_trace := false();
 
 declare
-    %perm:check('restvle/dicts', '{$_}')
-function _:checkPermissions($_ as map(*)) {
+    %perm:check('/restvle/dicts', '{$_}')
+function _:checkPermissions($_ as map(*)){
   let $dict := replace($_('path'), '^/restvle/dicts/?([^/]*).*$', '$1'),
       $list := replace($_('path'), '^/restvle/dicts/?([^/]+/([^/]+)).*$', '$2'),
       $accept_check := if (not(tokenize(request:header('Accept', ''), '[,;]') = ('',
@@ -51,14 +55,30 @@ function _:checkPermissions($_ as map(*)) {
   else ()
 };
 
+(:~
+ : A static collection showing valid next URLs.
+ : @return A JSON HAL based list of documents. If pageSize is 10 or less the
+ :         individual entries are included.
+ :)
 declare
     %rest:GET
-    %rest:path('restvle')
-function _:getRoot() {
+    %rest:path('/restvle')
+    %rest:produces('application/json')
+    (: %rest:produces('application/problem+json') :)   
+    (: %rest:produces('application/problem+xml') :)
+function _:getRoot() as item()+ {
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/dicts'), <note>all dictionaries</note>)], 1, 1, 1])
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
+};
+
+declare
+    %rest:path('/restvle/openapi.json')
+    %rest:produces('application/json')
+    %output:media-type('application/json')
+function _:getOpenapiJSON() as item()+ {
+  openapi:json(file:parent(file:base-dir()))
 };

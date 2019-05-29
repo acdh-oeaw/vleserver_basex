@@ -1,3 +1,6 @@
+(:~
+ : API Problem and JSON HAL based API for editing dictionary like XML datasets.
+ :)
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/users';
@@ -17,7 +20,7 @@ declare variable $_:enable_trace := false();
 
 declare
     %rest:GET
-    %rest:path('restvle/dicts/dict_users/users')
+    %rest:path('/restvle/dicts/dict_users/users')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
 function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
@@ -49,7 +52,7 @@ function _:userAsDocument($_self as xs:anyURI, $user as element()?) {
 
 declare
     %rest:POST('{$userData}')
-    %rest:path('restvle/dicts/dict_users/users')
+    %rest:path('/restvle/dicts/dict_users/users')
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
 function _:createUser($userData, $content-type as xs:string, $wanted-response as xs:string) {
@@ -113,7 +116,7 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
 
 declare
    %rest:GET
-   %rest:path('restvle/dicts/dict_users/users/{$userName_or_id}')
+   %rest:path('/restvle/dicts/dict_users/users/{$userName_or_id}')
 function _:getDictDictNameUser($userName_or_id as xs:string) {
   let $users := if ($userName_or_id castable as xs:integer) then util:eval(``[collection("dict_users")/users/user[`{$userName_or_id}`]]``, (), 'get-users')
                 else util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
@@ -123,7 +126,7 @@ function _:getDictDictNameUser($userName_or_id as xs:string) {
 
 declare
   %rest:DELETE
-  %rest:path('restvle/dicts/dict_users/users/{$userName_or_id}')
+  %rest:path('/restvle/dicts/dict_users/users/{$userName_or_id}')
   %updating
 (: write locks dict_users :)
 function _:deleteDictDictNameUser($userName_or_id as xs:string) {
@@ -140,21 +143,30 @@ function _:deleteDictDictNameUser($userName_or_id as xs:string) {
   ))
 };
 
+(:~
+ : Disables these methods for dict_users.
+ : @return Unconditionally returns.
+ :)
 declare
     %rest:GET
     %rest:POST
-    %rest:path('restvle/dicts/dict_users/entries')
+    %rest:path('/restvle/dicts/dict_users/entries')
 function _:getDictDictUserEntries404() {
   error(xs:QName('response-codes:_404'),
                        'Not found')  
 };
 
+(:~
+ : Disables these methods for dict_users.
+ : @param $_ ignored
+ : @return Unconditionally returns 404.
+ :)
 declare
     %rest:GET
     %rest:PUT
     %rest:DELETE
-    %rest:path('restvle/dicts/dict_users/entries/{$_}')
-function _:getDictDictUserEntriey404($_) {
+    %rest:path('/restvle/dicts/dict_users/entries/{$_}')
+function _:getDictDictUserEntry404($_) {
   error(xs:QName('response-codes:_404'),
                        'Not found')  
 };
