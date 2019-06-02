@@ -2,6 +2,7 @@ xquery version "3.1";
 
 module namespace _ = "https://tools.ietf.org/html/rfc7807";
 import module namespace req = "http://exquery.org/ns/request";
+import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 
 declare namespace rfc7807 = "urn:ietf:rfc:7807";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
@@ -89,7 +90,7 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
                     <instance>{namespace-uri-from-QName(xs:QName($code))}/{local-name-from-QName(xs:QName($code))}</instance>
                     <status>{$status-code}</status>
                     {if ($_:enable_trace) then <trace xml:space="preserve">{replace(replace($additional, '^.*Stopped at ', '', 's'), ':\n.*($|(\n\nStack Trace:(\n)))', '$3')}</trace> else ()}
-                </problem>, ())  
+                </problem>, map{"Access-Control-Allow-Origin": "*"})  
 };
 
 declare %private function _:on_accept_to_json($problem as element(rfc7807:problem)) as item() {
