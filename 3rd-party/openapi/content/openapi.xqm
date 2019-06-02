@@ -420,11 +420,11 @@ as map(*) {
 declare function openapi:security-requirement-object($config as element(openapi:config))
 as map(*)? {
   $config/openapi:security[1] ! map {
-    "security": map:merge((
+    "security": array {(
     ./openapi:SecurityRequirement ! map {
       string(./@name): [(: list of scope names for "oauth2" or "openIdConnect" :)]
     }
-  ))
+  )}
   }
 };
 
