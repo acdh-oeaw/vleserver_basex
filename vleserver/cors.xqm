@@ -25,6 +25,7 @@ function _:cors_options_response($path as xs:string, $requested-method as xs:str
       <http:header name="Access-Control-Allow-Origin" value="*"/>
       <http:header name="Access-Control-Allow-Methods" value="{string-join($requested-method, ', ')}"/>
       {if (exists($requested-headers)) then <http:header name="Access-Control-Allow-Headers" value="{string-join($requested-headers, ', ')}"/> else ()}
+      <http:header name="Access-Control-Max-Age" value="300"/>
     </http:response>
   </rest:response>
 };
