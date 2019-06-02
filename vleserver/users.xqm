@@ -10,19 +10,28 @@ import module namespace req = "http://exquery.org/ns/request";
 import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json-hal-00' at 'json-hal.xqm';
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+declare namespace test = "http://exist-db.org/xquery/xqsuite";
 
 declare variable $_:enable_trace := false();
 
+(:~
+ : List users.
+ :)
 declare
     %rest:GET
     %rest:path('/restvle/dicts/dict_users/users')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
+    %rest:produces('application/json')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')   
+    %rest:produces('application/problem+xml')
 function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
   let $users := try { util:eval(``[collection("dict_users")/users/user]``, (), 'get-users') }
       catch err:FODC0002 {
@@ -32,7 +41,7 @@ function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
       },
       (: FIXME: get the ids right. For $u at $p in $users where $p >= (($page - 1) * $pageSize) + 1 and $p <= (($page - 1) * $pageSize) + $pageSize ... :)
       $entries_as_documents := subsequence($users, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||./position())} catch basex:http {xs:anyURI('urn:local')}, .)
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users), $page])
+  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users), $page], cors:header(()))
 };
 
 declare
@@ -50,11 +59,26 @@ function _:userAsDocument($_self as xs:anyURI, $user as element()?) {
     <writeown>{if ($user/@type = 'su') then 'n' else 'y'}</writeown>))
 };
 
+(:~
+ : Create a user.
+ :)
 declare
     %rest:POST('{$userData}')
     %rest:path('/restvle/dicts/dict_users/users')
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')
+    %test:arg("userData", '{
+  "id": "The internal ID. When creating a new user this will be filled in automatically.",
+  "userID": "The user id or username.",
+  "pw": "The password for that user and that table.",
+  "read": "Whether the user has read access.",
+  "write": "Whether the user has write access.",
+  "writeown": "Whether the user may change entries that dont belong to her.",
+  "table": "A table name. Will only be returned on administrative queries on the special dict_users storage."
+}')
 function _:createUser($userData, $content-type as xs:string, $wanted-response as xs:string) {
   if ($wanted-response = "application/vnd.wde.v2+json") then
     if ($content-type = 'application/json') then
@@ -87,7 +111,7 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
         return api-problem:or_result(util:eval#4, [``[
             insert node `{serialize($userTag)}` as last into collection('dict_users')/users,            
             update:output(`{serialize($userData)}` transform with {(replace node ./id with element {'id'} {count(collection('dict_users')/users/*) + 1}, delete node ./pw)})
-        ]``, (), 'write-new-user', true()])
+        ]``, (), 'write-new-user', true()], cors:header(()))
         else error(xs:QName('response-codes:_422'),
                    'User directory does not exist',
                    'You need to create the special dict_users first')
@@ -117,13 +141,19 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
 declare
    %rest:GET
    %rest:path('/restvle/dicts/dict_users/users/{$userName_or_id}')
+   %rest:produces('application/json')
+   %rest:produces('application/vnd.wde.v2+json')
+   %rest:produces('application/problem+json')   
+   %rest:produces('application/problem+xml')
 function _:getDictDictNameUser($userName_or_id as xs:string) {
   let $users := if ($userName_or_id castable as xs:integer) then util:eval(``[collection("dict_users")/users/user[`{$userName_or_id}`]]``, (), 'get-users')
                 else util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
   return if (not(exists($users))) then error(xs:QName('response-codes:_404'), $api-problem:codes_to_message(404))
-         else api-problem:or_result(_:userAsDocument#2, [rest:uri(), $users])
+         else api-problem:or_result(_:userAsDocument#2, [rest:uri(), $users], cors:header(()))
 };
-
+(:~
+ : Remove a user.
+ :)
 declare
   %rest:DELETE
   %rest:path('/restvle/dicts/dict_users/users/{$userName_or_id}')
@@ -139,7 +169,7 @@ function _:deleteDictDictNameUser($userName_or_id as xs:string) {
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
        <title>{$api-problem:codes_to_message(204)}</title>
        <status>204</status>
-    </problem>
+    </problem>, cors:header(())
   ))
 };
 

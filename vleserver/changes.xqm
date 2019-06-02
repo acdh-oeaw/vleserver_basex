@@ -7,6 +7,7 @@ module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/changes';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json-hal-00' at 'json-hal.xqm';
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
+import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace data-changes = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
 
@@ -32,7 +33,7 @@ declare
 function _:getDictDictNameEntryIDChanges($dict_name as xs:string, $id as xs:string, $pageSize as xs:integer, $page as xs:integer) {
   let $entries_pres := data-changes:get-pre-and-dt-for-changes-by-id($dict_name, $id),
       $entries_as_documents := subsequence($entries_pres, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(./dt))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-changes:get-change-by-pre($dict_name, ./p) else ())
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_pres), $page])
+  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_pres), $page], cors:header(()))
 };
 
 declare
@@ -59,5 +60,5 @@ function _:getDictDictNameEntryIDChange($dict_name as xs:string, $id as xs:strin
        else error(xs:QName('response-codes:_404'),
                            'Not found',
                            'ID '||$id||' timestamp '||$change_timestamp||' not found')
-  return api-problem:or_result(_:entryAsDocument#3, [rest:uri(), $entry, $entry/entry/*])
+  return api-problem:or_result(_:entryAsDocument#3, [rest:uri(), $entry, $entry/entry/*], cors:header(()))
 };

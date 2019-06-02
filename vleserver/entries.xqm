@@ -10,6 +10,7 @@ import module namespace req = "http://exquery.org/ns/request";
 import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json-hal-00' at 'json-hal.xqm';
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
@@ -64,7 +65,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integ
 ]``) else ./(@xml:id|@ID)),
       $from_relevant_nodes := $from - (xs:integer($relevant_nodes_or_dryed[1]/s) - 1),
       $entries_as_documents := subsequence($entries_ids, $from_relevant_nodes, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else (), lcks:get_user_locking_entry($dict_name, .))
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, xs:integer($start-end-pos[last()]/s) - 1, $page])
+  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, xs:integer($start-end-pos[last()]/s) - 1, $page], cors:header(()))
 };
 
 declare
@@ -113,7 +114,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
       $status := $userData/json/status/text(),
       $owner := $userData/json/owner/text()
-  return api-problem:or_result(_:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, ())
+  return api-problem:or_result(_:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, cors:header(()))
 };
 
 declare %private function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
@@ -210,7 +211,7 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for this entry',
                    'Entry is currently locked by "'||$lockedBy||'"') 
-  return api-problem:or_result(_:change_entry#6, [$entry, $dict_name, $id, $status, $owner, $userName], 200, ())
+  return api-problem:or_result(_:change_entry#6, [$entry, $dict_name, $id, $status, $owner, $userName], 200, cors:header(()))
 };
 
 declare %private function _:change_entry($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
@@ -259,7 +260,7 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return api-problem:or_result(_:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, $lockedBy])
+  return api-problem:or_result(_:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, $lockedBy], cors:header(()))
 };
 
 (:~
@@ -284,7 +285,7 @@ function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string, $a
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for this entry',
                    'Entry is currently locked by "'||$lockedBy||'"') 
-  return api-problem:or_result(_:delete_entry#3, [$dict_name, $id, $userName])
+  return api-problem:or_result(_:delete_entry#3, [$dict_name, $id, $userName], cors:header(()))
 };
 
 declare %private function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) {

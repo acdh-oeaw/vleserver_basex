@@ -129,3 +129,22 @@ declare function _:hydrate($dryed as element(_:dryed)+, $filter_code as xs:strin
   ]``
   return _:evals($queries, (), 'util:hydrate', false())
 };
+
+declare function _:get-public-scheme-and-hostname() as xs:string {
+  let $forwarded-hostname := if (contains(request:header('X-Forwarded-Host'), ',')) 
+                               then substring-before(request:header('X-Forwarded-Host'), ',')
+                               else request:header('X-Forwarded-Host'),
+      $urlScheme := if ((lower-case(request:header('X-Forwarded-Proto')) = 'https') or 
+                        (lower-case(request:header('Front-End-Https')) = 'on')) then 'https' else 'http',
+      $port := if ($urlScheme eq 'http' and request:port() ne 80) then ':'||request:port()
+               else if ($urlScheme eq 'https' and not(request:port() eq 80 or request:port() eq 443)) then ':'||request:port()
+               else ''
+  return $urlScheme||'://'||($forwarded-hostname, request:hostname())[1]||$port
+};
+
+declare function _:get-base-uri-public() as xs:string {
+  (: FIXME: this is to naive. Works for ProxyPass / to /exist/apps/cr-xq-mets/project
+     but probably not for /x/y/z/ to /exist/apps/cr-xq-mets/project. Especially check the get module. :)
+  let $xForwardBasedPath := (request:header('X-Forwarded-Request-Uri'), request:path())[1]
+  return _:get-public-scheme-and-hostname()||$xForwardBasedPath
+};

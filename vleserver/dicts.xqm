@@ -10,6 +10,7 @@ import module namespace req = "http://exquery.org/ns/request";
 import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json-hal-00' at 'json-hal.xqm';
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 import module namespace functx = "http://www.functx.com";
@@ -40,7 +41,7 @@ declare
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
   let $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
       $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(rest:uri()||'/'||.), <name>{.}</name>)
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page])
+  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page], cors:header(()))
 };
 
 (:~
@@ -98,7 +99,7 @@ else
           <type>https://tools.ietf.org/html/rfc7231#section-6</type>
           <title>{$api-problem:codes_to_message(201)}</title>
           <status>201</status>
-        </problem>))
+        </problem>, cors:header(())))
 };
 
 declare function _:check_global_super_user() as empty-sequence() {
@@ -145,7 +146,7 @@ declare
     %rest:path('/restvle/dicts/dict_users')
 function _:getDictDictNameDictUsers() {
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
-    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1])  
+    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1], cors:header(()))  
 };
 
 (:~
@@ -182,7 +183,7 @@ function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
        <title>{$api-problem:codes_to_message(204)}</title>
        <status>204</status>
-    </problem>
+    </problem>, cors:header(())
   )))
   else  (: User is no system superuser :)
     error(xs:QName('response-codes:_403'),

@@ -37,7 +37,7 @@ function _:checkPermissions($_ as map(*)){
   (: dicts and dicts/dict_users always ok, users is not :)
   return
   (: if ($dict = ('', 'dict_users') and not($list = ('users'))) then () else :)
-  if ($_('method') ne 'GET' or
+  if (not($_('method') = ('GET', 'OPTIONS')) or
       request:header('Accept', '') eq 'application/vnd.wde.v2+json' or
       $list = ('users'))       
   then
