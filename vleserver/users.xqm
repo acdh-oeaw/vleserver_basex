@@ -97,7 +97,11 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
               error(xs:QName('response-codes:_422'),
                    'There has to be a dict_users user first!',
                    'You need to create a user for dict_users first.') else (),
-            $type := switch (string-join($userData/json/(read, write, writeown), ''))
+            (: The three rights cannot be expressed any shorter else they will
+               appear in document order not ordered as expressed here. :)
+            $type := switch (string-join(($userData/json/read,
+                                          $userData/json/write,
+                                          $userData/json/writeown), ''))
                        case 'yyn' return 'su'
                        case 'yyy' return ()
                        case 'ynn' return 'ro'
