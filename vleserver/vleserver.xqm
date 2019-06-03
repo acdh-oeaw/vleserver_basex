@@ -59,6 +59,10 @@ function _:checkPermissions($_ as map(*)){
 
 (:~
  : A static collection showing valid next URLs.
+ :
+ : Please note that a client sending Accept application/vnd.wde.v2+json
+ : is required to provide credentials. Use application/json or
+ : application/hal+json for unrestricted read access.
  : @return A JSON HAL based list of documents. If pageSize is 10 or less the
  :         individual entries are included.
  :)

@@ -28,6 +28,9 @@ declare variable $_:enable_trace := false();
  :
  : This will be the URI to search for a particular entry by numerous filter
  : an search options.
+ : Please note that a client sending Accept application/vnd.wde.v2+json
+ : is required to provide credentials. Use application/json or
+ : application/hal+json for unrestricted read access.
  : @param $dict_name Name of an existing dictionary
  : @param $pageSize Number of entries to return per request
  : @param $page The page page to return based on the given pageSize
@@ -225,7 +228,12 @@ declare %private function _:change_entry($data as element(), $dict as xs:string,
 (:~
  : Get a particular entry from a dictionary.
  :
- : To later save the changed entry it has to be locked using the lock parameter
+ : Please note that a client sending Accept application/vnd.wde.v2+json
+ : is required to provide credentials. Use application/json or
+ : application/hal+json for unrestricted read access.
+ : To later save the changed entry it has to be locked using the lock parameter.
+ : This parameter can only be used by clients that accept
+ : application/vnd.wde.v2+json thus credentials are required
  : @param $dict_name Name of an existing dictionary.
  : @param $id The @xml:id or @ID of the entry to be changed.
  : @param $lock Whether to lock the entry for later saving it.

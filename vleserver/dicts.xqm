@@ -24,6 +24,10 @@ declare variable $_:enable_trace := false();
 
 (:~
  : A list of all dictionaries available on this server.
+ :
+ : Please note that a client sending Accept application/vnd.wde.v2+json
+ : is required to provide credentials. Use application/json or
+ : application/hal+json for unrestricted read access.
  : @param $pageSize Number of entries to return per request
  : @param $page The page page to return based on the given pageSize
  : @return A JSON HAL based list of dictionaries. If pageSize is 10 or less the
@@ -116,6 +120,10 @@ declare function _:check_global_super_user() as empty-sequence() {
 
 (:~
  : A list of all connecting URIs for a particular dictionary.
+ :
+ : Please note that a client sending Accept application/vnd.wde.v2+json
+ : is required to provide credentials. Use application/json or
+ : application/hal+json for unrestricted read access.
  : @param $dict_name Name of an existing dictionary
  : @return A JSON HAL based list of connecting URIs.
  :)
@@ -132,7 +140,7 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
   if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-exists')) then 
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
-    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1])
+    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
   else
   error(xs:QName('response-codes:_404'),
                  $api-problem:codes_to_message(404))
