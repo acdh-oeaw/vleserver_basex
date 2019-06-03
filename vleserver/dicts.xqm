@@ -35,6 +35,7 @@ declare
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
     %rest:produces('application/json')
+    %rest:produces('application/hal+json')
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')   
     %rest:produces('application/problem+xml')
@@ -123,6 +124,7 @@ declare
     %rest:GET
     %rest:path('/restvle/dicts/{$dict_name}')
     %rest:produces('application/json')
+    %rest:produces('application/hal+json')
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')    
@@ -144,6 +146,11 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
 declare
     %rest:GET
     %rest:path('/restvle/dicts/dict_users')
+    %rest:produces('application/json')
+    %rest:produces('application/hal+json')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')  
 function _:getDictDictNameDictUsers() {
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1], cors:header(()))  

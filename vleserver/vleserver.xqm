@@ -10,6 +10,7 @@ import module namespace req = "http://exquery.org/ns/request";
 import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json-hal-00' at 'json-hal.xqm';
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 import module namespace openapi="https://lab.sub.uni-goettingen.de/restxqopenapi" at "../3rd-party/openapi/content/openapi.xqm";
@@ -65,11 +66,12 @@ declare
     %rest:GET
     %rest:path('/restvle')
     %rest:produces('application/json')
-    (: %rest:produces('application/problem+json') :)   
-    (: %rest:produces('application/problem+xml') :)
+    %rest:produces('application/hal+json')
+    %rest:produces('application/problem+json')   
+    %rest:produces('application/problem+xml')
 function _:getRoot() as item()+ {
   api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
-    json-hal:create_document(xs:anyURI(rest:uri()||'/dicts'), <note>all dictionaries</note>)], 1, 1, 1])
+    json-hal:create_document(xs:anyURI(rest:uri()||'/dicts'), <note>all dictionaries</note>)], 1, 1, 1], cors:header(()))
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {

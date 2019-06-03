@@ -29,6 +29,7 @@ declare
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
     %rest:produces('application/json')
+    %rest:produces('application/hal+json')
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')   
     %rest:produces('application/problem+xml')
@@ -146,6 +147,7 @@ declare
    %rest:GET
    %rest:path('/restvle/dicts/dict_users/users/{$userName_or_id}')
    %rest:produces('application/json')
+   %rest:produces('application/hal+json')
    %rest:produces('application/vnd.wde.v2+json')
    %rest:produces('application/problem+json')   
    %rest:produces('application/problem+xml')
