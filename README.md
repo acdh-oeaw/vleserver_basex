@@ -14,3 +14,8 @@
 
 * https://basex-dboe.herkules.arz.oeaw.ac.at/openapi
 * https://dboe-webtest.herkules.arz.oeaw.ac.at/openapi
+
+## Redmine service issues
+
+* https://redmine.acdh.oeaw.ac.at/issues/7821
+* https://redmine.acdh.oeaw.ac.at/issues/6401
