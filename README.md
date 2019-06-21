@@ -8,6 +8,7 @@
 ## Endpoint examples
 
 * https://basex-dboe.herkules.arz.oeaw.ac.at/restvle
+* https://dboe-webtest.herkules.arz.oeaw.ac.at/restvle/dicts
 
 ## Rendered openapi documentation
 
