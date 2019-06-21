@@ -7,9 +7,10 @@
 
 ## Endpoint examples
 
-* https://basex-dboe.herkules.arz.oeaw.ac.at/restvle
-* https://dboe-webtest.herkules.arz.oeaw.ac.at/restvle/dicts
+* https://basex-dboe.herkules.arz.oeaw.ac.at/restvle : DBÖ production
+* https://dboe-webtest.herkules.arz.oeaw.ac.at/restvle : DBÖ development
 
 ## Rendered openapi documentation
 
 * https://basex-dboe.herkules.arz.oeaw.ac.at/openapi
+* https://dboe-webtest.herkules.arz.oeaw.ac.at/openapi
