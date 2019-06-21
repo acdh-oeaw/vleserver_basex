@@ -9,6 +9,6 @@
 
 * https://basex-dboe.herkules.arz.oeaw.ac.at/restvle
 
-## Rendered openapi documentatio
+## Rendered openapi documentation
 
 * https://basex-dboe.herkules.arz.oeaw.ac.at/openapi
