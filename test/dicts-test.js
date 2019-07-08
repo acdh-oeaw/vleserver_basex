@@ -28,13 +28,13 @@ describe('tests for /dicts', function() {
             expect(response).to.have.header("content-type", "application/json;charset=utf-8");
             expect(response).to.comprise.of.json({
                 "_links": {
-                    "_self": {
+                    "self": {
                         "href": "/restvle/dicts?pageSize=25"
                     },
-                    "_first": {
+                    "first": {
                         "href": "/restvle/dicts?page=1&pageSize=25"
                     },
-                    "_last": {
+                    "last": {
                         "href": "/restvle/dicts?page=0&pageSize=25"
                     }
                 },
@@ -99,13 +99,17 @@ describe('tests for /dicts', function() {
             });
         });
 
-        it('should respond 406 for "Not Acceptable"', function() {
+        // Accept will now select a particular function the %rest:produces that mime type.
+        // Else the less useful 404 No function found that matches the request. is returned.
+        // So 406 can not occur anymore.
+        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
             var response = request('get', baseURI + '/dicts', { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
             });
 
-            expect(response).to.have.status(406);
+            expect(response).to.have.status(404);
+            expect(response).to.have.json('No function found that matches the request.')
             return chakram.wait();
         });
          
@@ -221,14 +225,15 @@ describe('tests for /dicts', function() {
         });
 
 
-        it('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
             var response = request('post', baseURI + '/dicts', { 
                 'body': {"name":"anim labore pariatur"},
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
             });
 
-            expect(response).to.have.status(406);
+            expect(response).to.have.status(404);
+            expect(response).to.have.json('No function found that matches the request.')
             return chakram.wait();
         });
 

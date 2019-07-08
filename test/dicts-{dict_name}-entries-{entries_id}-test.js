@@ -169,14 +169,15 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        it('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
             var response = request('get', baseURI+'/dicts/'+dictuser.table+'/entries/ut', { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'auth': dictuserauth,
                 'time': true
             });
 
-            expect(response).to.have.status(406);
+            expect(response).to.have.status(404);
+            expect(response).to.have.json('No function found that matches the request.')
             return chakram.wait();
         });
 
@@ -399,7 +400,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
 
-        it('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/deseruntenimeu', { 
                 'body': {
                     "sid":"voluptate est",
@@ -411,7 +412,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                 'time': true
             });
 
-            expect(response).to.have.status(406);
+            expect(response).to.have.status(404);
+            expect(response).to.have.json('No function found that matches the request.')
             return chakram.wait();
         });
 

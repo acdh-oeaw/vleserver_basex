@@ -124,27 +124,19 @@ describe('tests for /dicts/{dicts_name}', function() {
             return chakram.wait();
         });
 
-
-        xit('should respond 406 for "Not Acceptable"', function() {
-            var response = request('get', baseURI + '/dicts/animlaborisdolore', { 
-                'headers': {"Accept":"application/vnd.wde.v8+json"},
+        it('should respond 404 "No function found that matches the request." for wrong accept', function () {
+            var response = request('get', baseURI + '/dicts/animlaborisdolore', {
+                'headers': { "Accept": "application/vnd.wde.v8+json" },
                 'time': true
             });
 
-            expect(response).to.have.status(406);
+            expect(response).to.have.status(404);
+            expect(response).to.have.json('No function found that matches the request.')
             return chakram.wait();
         });
 
+        // 415 is used for rejecting a body, so makes no sense here
 
-        xit('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('get', baseURI + '/dicts/sitqui', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(415);
-            return chakram.wait();
-        });
         afterEach(function() {
             return request('delete', baseURI + '/dicts/' + dictuser.table, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -233,7 +225,7 @@ describe('tests for /dicts/{dicts_name}', function() {
 
         // 404 for delete is not possible, it is always 403
 
-        xit('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 406 for "Not Acceptable"', function() {
             var response = request('delete', baseURI + '/dicts/aliquipcommodoid', { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
@@ -243,16 +235,8 @@ describe('tests for /dicts/{dicts_name}', function() {
             return chakram.wait();
         });
 
+        // 415 is used for rejecting a body, so makes no sense here
 
-        xit('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('delete', baseURI + '/dicts/consecteturnulla', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(415);
-            return chakram.wait();
-        });
         afterEach('Remove test user', function(){
             return request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},

@@ -29,8 +29,8 @@ declare %updating function _:_remove_expired_locks($db as document-node()) {
 declare function _:get_user_locking_entry($db-base-name as xs:string, $id as xs:string) as xs:string? {
   let $lcks-db-name := $db-base-name||'__lcks',
       $log := _:write-log(``[looking for "`{$id}`" in "`{$lcks-db-name}`"]``, 'DEBUG'),
-      $ret := util:eval(``[try {collection("`{$lcks-db-name}`")//lock[@id = "`{$id}`" and xs:dateTime(@dt) > current-dateTime()][last()]/@user/data()}
-                           catch err:FODC0002 {()}]``, (), 'get_user_locking_entry')
+      $ret := xs:string(util:eval(``[try {collection("`{$lcks-db-name}`")//lock[@id = "`{$id}`" and xs:dateTime(@dt) > current-dateTime()][last()]/@user/data()}
+                           catch err:FODC0002 {()}]``, (), 'get_user_locking_entry'))
     , $retLog := _:write-log(``[returned "`{$ret}`"]``, 'DEBUG')
   return $ret
 };

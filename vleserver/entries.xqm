@@ -124,7 +124,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
 declare %private function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
   let $savedEntry := data-access:create_new_entry($data, $dict, $status, $owner, $changingUser),
       $run_plugins := plugins:after_created($savedEntry, $dict, $savedEntry/(@xml:id, @ID), $status, $owner, $changingUser)
-  return _:entryAsDocument(rest:uri()||'/'||$savedEntry/(@ID, @xml:id), $savedEntry/(@ID, @xml:id), $savedEntry, ())          
+  return _:entryAsDocument(xs:anyURI(rest:uri()||'/'||$savedEntry/(@ID, @xml:id)), $savedEntry/(@ID, @xml:id), $savedEntry, ())          
 };
 
 declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) as element()+ {

@@ -41,7 +41,7 @@ declare
     %rest:produces('application/json')
     %rest:produces('application/hal+json')
     %rest:produces('application/vnd.wde.v2+json')
-    %rest:produces('application/problem+json')   
+    %rest:produces('application/problem+json')
     %rest:produces('application/problem+xml')
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
   let $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
@@ -97,7 +97,7 @@ if (db:exists("`{$data/json/name}`__prof")) then
 else if ("`{$data/json/name}`" = 'dict_users') then
   db:create("dict_users", <users/>, "dict_users.xml")
 else
-  db:create("`{$data/json/name}`__prof", <profile xml:id="dictProfile"/>, "`{$data/json/name}`.xml")
+  db:create("`{$data/json/name}`__prof", <profile/>, "`{$data/json/name}`.xml")
 ]``, (), 'try-create-dict', true()),
         api-problem:result(
         <problem xmlns="urn:ietf:rfc:7807">

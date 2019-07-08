@@ -112,15 +112,14 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             return chakram.wait();
         });
 
-
-        it('should respond 406 for "Not Acceptable"', function() {
-            var response = request('get', baseURI+'/dicts/inmollit/entries', { 
+        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+            var response = request('get', baseURI + '/dicts/inmollit/entries', { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
-                'auth': dictuserauth,
                 'time': true
             });
 
-            expect(response).to.have.status(406);
+            expect(response).to.have.status(404);
+            expect(response).to.have.json('No function found that matches the request.')
             return chakram.wait();
         });
     
@@ -128,16 +127,17 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     
     describe('tests for post', function() {
         it('should respond 201 for "Created"', function() {
-            var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+            var config = { 
                 'body': {
-                    "sid":"dictProfile",
-                    "lemma":"",
-                    "entry": compiledProfileTemplate({'dictName': dictuser.table})
+                    "sid": "dictProfile",
+                    "lemma": "",
+                    "entry": compiledProfileTemplate({ 'dictName': dictuser.table })
                 },
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'headers': { "Accept": "application/vnd.wde.v2+json" },
                 'auth': dictuserauth,
                 'time': true
-            });
+            },
+                response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
 
             expect(response).to.have.status(201);
             return chakram.wait();
@@ -189,7 +189,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        it('should respond 406 for "Not Acceptable"', function() {
+        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
             var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
                 'body': {
                     "sid":"irure",
@@ -201,7 +201,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'time': true
             });
 
-            expect(response).to.have.status(406);
+            expect(response).to.have.status(404);
+            expect(response).to.have.json('No function found that matches the request.')
             return chakram.wait();
         });
 
