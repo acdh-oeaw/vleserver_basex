@@ -6,7 +6,7 @@ stages:
 
 build-develop:
   except:
-      - master
+#      - master
       - tags
   stage: build
   tags:
@@ -40,7 +40,7 @@ build-develop:
 #
 installation:
   except:
-      - master
+#      - master
       - tags
   stage: test
   tags:
