@@ -1,0 +1,100 @@
+
+stages:
+  - build
+  - test
+  - deploy
+
+build-develop:
+  except:
+      - master
+      - tags
+  stage: build
+  tags:
+      - BaseX-9.2
+  variables:
+     GIT_STRATEGY: clone
+     GIT_CLONE_PATH: $CI_BUILDS_DIR/vleserver_basex
+     HOME: /home/gitlab-runner
+  script:
+    - pwd
+    - cd $GIT_CLONE_PATH
+    - npm install
+#    - ant test
+#  artifacts:
+#    paths:
+#      - build/*.xar
+#      - test/
+
+#build-master:
+#  only:
+#      - master
+#  stage: build
+#  script:
+#    - cp master.build.properties local.build.properties
+#    - npm install
+#    - ant test
+#  artifacts:
+#    paths:
+#      - build/*.xar
+#      - test/
+#
+installation:
+  except:
+      - master
+      - tags
+  stage: test
+  tags:
+      - BaseX-9.2
+  variables:
+     GIT_CLONE_PATH: $CI_BUILDS_DIR/vleserver_basex
+     HOME: /home/gitlab-runner
+  script:
+    - cd $GIT_CLONE_PATH
+    - npm install
+    - node_modules/.bin/mocha test.js
+    - cd $CI_BUILDS_DIR
+    - git clone https://gitlab.com/acdh-oeaw/openapi4restxq.git --branch master_basex
+    - cd openapi4restxq
+    - yarn install
+    - |
+      patch -p0 <<EOF
+      --- resources/swagger-ui-dist/index.html        2019-05-28 16:35:33.341000000 +0200
+      +++ index.html  2019-05-28 17:48:45.573077200 +0200
+      @@ -41,3 +41,3 @@
+             const ui = SwaggerUIBundle({
+      -        url: "https://petstore.swagger.io/v2/swagger.json",
+      +        url: "/vleserver/openapi.json",
+               dom_id: '#swagger-ui',
+      EOF
+    - mkdir screenshots-actual
+    - mkdir screenshots-diff
+    - cd screenshots-actual
+    - chromium-browser --headless --disable-gpu --no-sandbox --screenshot --window-size=1280,1696 --virtual-time-budget=10000 http://localhost:8984/openapi
+    - mv screenshot.png vleserver_basex.png
+    - diffpng --output ../screenshots-diff/vleserver_basex vleserver_basex.png ../screenshots/vleserver_basex.png
+  artifacts:
+    when: on_failure
+    expire_in: 1 day
+    paths:
+      - $GIT_CLONE_PATH/screenshots-actual
+      - $GIT_CLONE_PATH/screenshots-diff
+
+clean-testbench:
+  stage: deploy
+  tags:
+      - BaseX-9.2
+  variables:
+     GIT_CLONE_PATH: $CI_BUILDS_DIR/vleserver_basex
+  script:
+      - rm -rf $GIT_CLONE_PATH*
+      - mkdir -p $GIT_CLONE_PATH
+#upload:
+#  only:
+#      - master
+#      - develop
+#  except:
+#      - tags
+#  stage: deploy
+#  script:
+#    - FILENAME=$(ls build/*.xar)
+#    - curl -u ci:${EXIST_UPLOAD_PW} -X POST -F file=@${FILENAME} https://ci.de.dariah.eu/exist-upload
