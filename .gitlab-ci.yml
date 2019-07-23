@@ -66,6 +66,7 @@ installation:
       +        url: "/vleserver/openapi.json",
                dom_id: '#swagger-ui',
       EOF
+    - cd $GIT_CLONE_PATH
     - mkdir screenshots-actual
     - mkdir screenshots-diff
     - cd screenshots-actual
@@ -87,6 +88,7 @@ clean-testbench:
      GIT_CLONE_PATH: $CI_BUILDS_DIR/vleserver_basex
   script:
       - rm -rf $GIT_CLONE_PATH*
+      - rm -rf $CI_BUILDS_DIR/openapi4restxq
       - mkdir -p $GIT_CLONE_PATH
 #upload:
 #  only:
