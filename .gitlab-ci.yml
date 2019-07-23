@@ -53,7 +53,7 @@ installation:
     - npm install
     - node_modules/.bin/mocha test.js
     - cd $CI_BUILDS_DIR
-    - git clone https://gitlab.com/acdh-oeaw/openapi4restxq.git --branch master_basex
+    - git clone https://$OPENAPI_USER:$OPENAPI_PW@gitlab.com/acdh-oeaw/openapi4restxq.git --branch master_basex
     - cd openapi4restxq
     - yarn install
     - |
