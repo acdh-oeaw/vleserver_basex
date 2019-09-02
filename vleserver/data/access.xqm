@@ -80,12 +80,28 @@ let $dicts := _:get-list-of-data-dbs($dict),
 return $found-in-parts
 };
 
-declare function _:do-get-index-data($c as document-node()*, $id as xs:string?, $dt as xs:string?) {
+(: this may throw FODC0002 if $dict||'__prof' does not exist :)
+declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+) {
+let $dicts := _:get-list-of-data-dbs($dict),
+    $ids_sequence := ``[("`{string-join($ids, '","')}`")]``,
+    $get-all-entries-scripts := for $dict in $dicts
+    return if (ends-with($dict, '__prof')) then ``[collection("`{$dict}`")//profile[@xml:id = `{$ids_sequence}`]]``
+      else ``[
+            import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+            _:do-get-index-data(collection("`{$dict}`"), `{$ids_sequence}`, ())
+            ]``,
+    $log_scripts :=  _:write-log($get-all-entries-scripts[1]||"&#x0a;"||$get-all-entries-scripts[2], "INFO"),
+    $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, (),    
+    'get-all-entries-script', true()) else ()
+return $found-in-parts
+};
+
+declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?) {
   let $start-time := prof:current-ms(),
     (:, $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
       $all-entries := types:get_all_entries($c),
       $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())],
-      $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'),
+      (: $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'), :)
       $ret := if (count($results) > 25) then util:dehydrate($results) else $results
     (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)
   return $ret

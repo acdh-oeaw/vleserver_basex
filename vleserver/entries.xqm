@@ -28,27 +28,50 @@ declare variable $_:enable_trace := false();
  :
  : This will be the URI to search for a particular entry by numerous filter
  : an search options.
+ : Search option are defined as queryTemplates in profiles. They can be used as
+ : name=value query parameters.
  : Please note that a client sending Accept application/vnd.wde.v2+json
  : is required to provide credentials. Use application/json or
  : application/hal+json for unrestricted read access.
  : @param $dict_name Name of an existing dictionary
  : @param $pageSize Number of entries to return per request
  : @param $page The page page to return based on the given pageSize
+ : @param $id Filter by ids starting with this string
+ : @param $ids Return entries matching exactly the ids provided as a comma separated list
+ : @param $q XPath or XQuery to exeute as filter (only admins for this dict)
+ : @param $sort XPath or XQuery to execute for sorting the filtered results (only admins for this dict)
  : @return A JSON HAL based list of entry URIs.
  :)
 declare
     %rest:GET
     %rest:path('/restvle/dicts/{$dict_name}/entries')
+    %rest:header-param('Authorization', '{$auth_header}', "")
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
+    %rest:query-param("id", "{$id}")
+    %rest:query-param("ids", "{$ids}")
+    %rest:query-param("q", "{$q}")
+    %rest:query-param("sort", "{$sort}")
+    %test:arg("page", 1)
+    %test:arg("pageSize", 10)
     %rest:produces('application/json')
     %rest:produces('application/hal+json')
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')   
     %rest:produces('application/problem+xml')
-function _:getDictDictNameEntries($dict_name as xs:string, $pageSize as xs:integer, $page as xs:integer) {
-  let $nodes_or_dryed := try { data-access:get-all-entries($dict_name) }
-      catch err:FODC0002 {
+function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:string,
+                                  $pageSize as xs:integer, $page as xs:integer,
+                                  $id as xs:string?, $ids as xs:string?,
+                                  $q as xs:string?, $sort as xs:string?) {
+  let $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
+      else error(xs:QName('response-codes:_404'), 
+         $api-problem:codes_to_message(404),
+         'Dictionary '||$dict_name||' does not exist'),
+      $userName := _:getUserNameFromAuthorization($auth_header),
+      $nodes_or_dryed := try {
+        if ($ids) then data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+        else data-access:get-all-entries($dict_name) 
+      } catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
                        'Not found',
                        $err:additional)

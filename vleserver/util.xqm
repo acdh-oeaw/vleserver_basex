@@ -71,7 +71,7 @@ declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName 
       , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100
       , $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($queries)||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
       (: , $logMore := l:write-log(serialize($ret[. instance of node()]/self::_:error, map{'method': 'xml'})) :)
-    return if (exists($ret[. instance of node()]/self::_:error)) then error(xs:QName($ret[. instance of node()]/self::_:error[1]/_:code), $ret[. instance of node()]/self::_:error[1]/_:description, string-join($ret[. instance of node()]/self::_:error/_:additional, '&#x0a;')) else $ret
+    return if (exists($ret[. instance of node()]/self::_:error)) then error(xs:QName(($ret[. instance of node()]/self::_:error)[1]/_:code), ($ret[. instance of node()]/self::_:error)[1]/_:description, string-join($ret[. instance of node()]/self::_:error/_:additional, '&#x0a;')) else $ret
 };
 
 declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:string) as document-node() {
