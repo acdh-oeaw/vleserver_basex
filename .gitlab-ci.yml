@@ -53,7 +53,7 @@ installation:
     - mkdir screenshots-diff
     - cd screenshots-actual
     - '# wait a little for BaseX to pick up the changes'
-    - sleep 0.5
+    - sleep 1
     - chromium-browser --headless --disable-gpu --no-sandbox --screenshot --window-size=1280,1696 --virtual-time-budget=10000 http://localhost:8984/openapi
     - mv screenshot.png vleserver_basex.png
     - diffpng --output ../screenshots-diff/vleserver_basex vleserver_basex.png ../screenshots/vleserver_basex.png
