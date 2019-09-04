@@ -70,6 +70,9 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $userName := _:getUserNameFromAuthorization($auth_header),
       $nodes_or_dryed := try {
         if ($ids) then data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+        else if ($id) then
+          if (ends-with($id, '*')) then data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
+          else data-access:get-entries-by-ids($dict_name, $id)
         else data-access:get-all-entries($dict_name) 
       } catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
@@ -83,6 +86,8 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         <e>{if (exists($counts[$p])) then $start-pos + $counts[$p] - 1 else 0}</e>
         <nd>{$nodes_or_dryed[$p]}</nd>
         </_>,
+      $total_items := xs:integer($start-end-pos[last()]/s) - 1,
+      $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
       $relevant_nodes_or_dryed := $start-end-pos[xs:integer(./e) >= $from and xs:integer(./s) <= $from+$pageSize],
       $entries_ids := $relevant_nodes_or_dryed/nd/*!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
@@ -91,8 +96,11 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
   };
 ]``) else ./(@xml:id|@ID)),
       $from_relevant_nodes := $from - (xs:integer($relevant_nodes_or_dryed[1]/s) - 1),
-      $entries_as_documents := subsequence($entries_ids, $from_relevant_nodes, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(.))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-access:get-entry-by-id($dict_name, .) else (), lcks:get_user_locking_entry($dict_name, .))
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, xs:integer($start-end-pos[last()]/s) - 1, $page], cors:header(()))
+      $relevant_ids := subsequence($entries_ids, $from_relevant_nodes, $pageSize),
+      $xml_snippets := if ($pageSize <= 10) then data-access:get-entries-by-ids($dict_name, $relevant_ids) else (),
+      $entries_as_documents := for $id in $relevant_ids
+        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $xml_snippets[(@xml:id, @ID) = data($id)], lcks:get_user_locking_entry($dict_name, $id))
+  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, $total_items, $page], cors:header(()))
 };
 
 declare

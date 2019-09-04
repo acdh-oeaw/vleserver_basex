@@ -42,28 +42,43 @@ declare %private function _:get-skel-if-exists($dict as xs:string) as xs:string?
 };
 
 declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) as element() {
-  let $dict_name := _:get-real-dict($dict_name, $id)
+  let $dict_name := _:get-real-dicts($dict_name, $id)
   return util:eval(``[collection("`{$dict_name}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')  
 };
 
-declare function _:get-real-dict($dict as xs:string, $id as xs:string) as xs:string {
+declare function _:get-real-dicts($dict as xs:string, $ids as xs:string+) as xs:string+ {
 let $dicts := _:get-list-of-data-dbs($dict),
+    $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $get-db-for-id-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) 
-      then ``[if (collection("`{$dict}`")//profile[(@xml:id, @ID) = "`{$id}`"]) then "`{$dict}`" else ()]``
+      then ``[if (collection("`{$dict}`")//profile[(@xml:id, @ID) = `{$ids_seq}`]) then <d>{collection("`{$dict}`")//profile/(@xml:id, @ID)}`{$dict}`</d> else ()]``
       else ``[
-            import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-            declare variable $id as xs:string external;
-            let $orig := db:attribute("`{$dict}`", $id)[local-name() = ('id', 'ID')]
+            let $orig := db:attribute("`{$dict}`", `{$ids_seq}`)[local-name() = ('id', 'ID')]
             return if ($orig) then "`{$dict}`" else ()
             ]``,
-    $found-in-parts := if (exists($get-db-for-id-scripts)) then util:evals($get-db-for-id-scripts, map {
-              'id': $id
-            }, 'get-db-for-id-script', true()) else ()
+    $found-in-parts := if (exists($get-db-for-id-scripts)) then util:evals($get-db-for-id-scripts,
+            (), 'get-db-for-id-script', true()) else ()
 return if (exists($found-in-parts)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
-                           'ID '||$id||' not found')
+                           'IDs '||$ids_seq||' not found')
+};
+
+declare function _:get-real-dicts-id-starting-with($dict as xs:string, $id_start as xs:string) as xs:string+ {
+  let $dicts := _:get-list-of-data-dbs($dict),
+      $get-db-for-id-scripts := for $dict in $dicts
+    return if (ends-with($dict, '__prof')) 
+      then ``[if (collection("`{$dict}`")//profile[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")]) then <d>{collection("`{$dict}`")//profile/(@xml:id, @ID)}`{$dict}`</d> else ()]``
+      else ``[
+            let $orig := index:attributes("`{$dict}`", "`{$id_start}`")
+            return if ($orig) then "`{$dict}`" else ()
+            ]``,
+    $found-in-parts := if (exists($get-db-for-id-scripts)) then util:evals($get-db-for-id-scripts,
+            (), 'get-db-for-id-script', true()) else ()
+return if (exists($found-in-parts)) then $found-in-parts
+       else error(xs:QName('response-codes:_404'),
+                           'Not found',
+                           'IDs starting with '||$id_start||' not found')
 };
 
 (: this may throw FODC0002 if $dict||'__prof' does not exist :)
@@ -83,13 +98,30 @@ return $found-in-parts
 (: this may throw FODC0002 if $dict||'__prof' does not exist :)
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+) {
 let $dicts := _:get-list-of-data-dbs($dict),
-    $ids_sequence := ``[("`{string-join($ids, '","')}`")]``,
+    $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then ``[collection("`{$dict}`")//profile[@xml:id = `{$ids_sequence}`]]``
-      else ``[
-            import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-            _:do-get-index-data(collection("`{$dict}`"), `{$ids_sequence}`, ())
-            ]``,
+    return if (ends-with($dict, '__prof')) then ``[collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`]]``
+      else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+        let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
+            $ret := if (count($results) > 25) then util:dehydrate($results) else $results
+        return $ret]``,
+    $log_scripts :=  _:write-log($get-all-entries-scripts[1]||"&#x0a;"||$get-all-entries-scripts[2], "INFO"),
+    $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, (),    
+    'get-all-entries-script', true()) else ()
+return if (exists($found-in-parts)) then $found-in-parts
+       else error(xs:QName('response-codes:_404'),
+                           'Not found',
+                           'IDs '||$ids_seq||' not found')
+};
+
+declare function _:get-entries-by-id-starting-with($dict_name as xs:string, $id_start as xs:string) {
+let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
+    $get-all-entries-scripts := for $dict in $dicts
+    return if (ends-with($dict, '__prof')) then ``[collection("`{$dict}`")//profile[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")]]``
+      else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+        let $results := collection("`{$dict}`")//*[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")],
+            $ret := if (count($results) > 25) then util:dehydrate($results) else $results
+        return $ret]``,
     $log_scripts :=  _:write-log($get-all-entries-scripts[1]||"&#x0a;"||$get-all-entries-scripts[2], "INFO"),
     $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, (),    
     'get-all-entries-script', true()) else ()
@@ -156,7 +188,7 @@ declare function _:change_entry($newEntry as element(), $dict as xs:string, $id 
 
 declare %private function _:find_entry_as_dbname_pre($dict_name as xs:string, $id as xs:string) as xs:anyAtomicType+ {
 util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-    let $dict_name := data-access:get-real-dict("`{$dict_name}`", "`{$id}`"),
+    let $dict_name := data-access:get-real-dicts("`{$dict_name}`", "`{$id}`"),
         $entry := collection($dict_name)//*[(@xml:id, @ID) = "`{$id}`"] 
     return ($dict_name, db:node-pre($entry), $entry//*:fs[@type='change']/*[@name='owner']/*/@value/data())
     ]``, (), 'find-entry-for-delete', true())  

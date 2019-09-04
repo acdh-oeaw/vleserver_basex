@@ -53,5 +53,5 @@ declare function _:get_all_entries($c as document-node()*) as element()* {
    $c//tei:form[@type = 'lemma'],
    $c//mds:mods,
    $c//tei:entry,
-   $c//tei:entryFree)
+   $c//tei:entryFree)[@ID or @xml:id]
 };
