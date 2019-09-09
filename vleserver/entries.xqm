@@ -79,6 +79,9 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
                        'Not found',
                        $err:additional)
       },
+      $additional_parameters := if ($ids) then map {'ids': $ids}
+        else if ($id) then map {"id": $id}
+        else map {},
       $counts := $nodes_or_dryed!(if (. instance of element(util:dryed)) then xs:integer(./@count) else 1),
       $start-end-pos := for $i at $p in (1, $counts) let $start-pos := sum(($i, (1, $counts)[position() < $p]))
         return <_>
@@ -100,7 +103,12 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $xml_snippets := if ($pageSize <= 10) then data-access:get-entries-by-ids($dict_name, $relevant_ids) else (),
       $entries_as_documents := for $id in $relevant_ids
         return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $xml_snippets[(@xml:id, @ID) = data($id)], lcks:get_user_locking_entry($dict_name, $id))
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, $total_items, $page], cors:header(()))
+  return api-problem:or_result(
+    json-hal:create_document_list#7, [
+      rest:uri(), 'entries', array{$entries_as_documents}, $pageSize,
+      $total_items, $page, $additional_parameters
+    ], cors:header(())
+  )
 };
 
 declare

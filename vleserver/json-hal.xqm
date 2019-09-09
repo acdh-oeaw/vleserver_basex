@@ -14,13 +14,18 @@ declare function _:create_link_object($href as xs:anyURI) as element()+ {
 };
 
 declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as xs:string, $_embedded as array(element(json)), $page_size as xs:integer, $total_items as xs:integer, $page as xs:integer) as element(json) {
-  let $_self_with_parameters := if ($page = 1) 
-        then xs:anyURI($_self||'?pageSize='||$page_size) 
-        else xs:anyURI($_self||'?page='||$page||'&amp;pageSize='||$page_size),
+  _:create_document_list($_self, $_embedded_name, $_embedded, $page_size, $total_items, $page, map {})
+};
+
+declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as xs:string, $_embedded as array(element(json)), $page_size as xs:integer, $total_items as xs:integer, $page as xs:integer, $additional_parameters as map(*)) as element(json) {
+  let $additional_parameters_for_uri := string-join(map:for-each($additional_parameters, function($k, $v){"&amp;"||$k||"="||encode-for-uri($v)}), ""),
+      $_self_with_parameters := if ($page = 1) 
+        then xs:anyURI($_self||'?pageSize='||$page_size||$additional_parameters_for_uri) 
+        else xs:anyURI($_self||'?page='||$page||'&amp;pageSize='||$page_size||$additional_parameters_for_uri),
       $last_page := xs:integer(ceiling($total_items div $page_size)),
-      $_first := xs:anyURI($_self||'?page=1&amp;pageSize='||$page_size),
-      $_last := xs:anyURI($_self||'?page='||$last_page||'&amp;pageSize='||$page_size),
-      $_next := if ($page + 1 <= $last_page) then xs:anyURI($_self||'?page='||$page + 1||'&amp;pageSize='||$page_size)
+      $_first := xs:anyURI($_self||'?page=1&amp;pageSize='||$page_size||$additional_parameters_for_uri),
+      $_last := xs:anyURI($_self||'?page='||$last_page||'&amp;pageSize='||$page_size||$additional_parameters_for_uri),
+      $_next := if ($page + 1 <= $last_page) then xs:anyURI($_self||'?page='||$page + 1||'&amp;pageSize='||$page_size||$additional_parameters_for_uri)
   return
    <json type='object' objects='__links self first last next __embedded'>
        <__links>

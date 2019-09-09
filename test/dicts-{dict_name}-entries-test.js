@@ -308,7 +308,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     expect(body.total_items).to.equal("1")
                     expect(body._embedded.entries).to.have.length(1)
                     expect(body._embedded.entries[0].id).to.equal("test01")
-                })
+                    expect(body._links.self.href).to.contain("id=test01")
+                    expect(body._links.first.href).to.contain("id=test01")
+                    expect(body._links.last.href).to.contain("id=test01")
+                });
                 return chakram.wait();
             });
             
@@ -325,6 +328,9 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     expect(body.total_items).to.equal("1")
                     expect(body._embedded.entries).to.have.length(1)
                     expect(body._embedded.entries[0].id).to.equal("test01")
+                    expect(body._links.self.href).to.contain("id=test%2A")
+                    expect(body._links.first.href).to.contain("id=test%2A")
+                    expect(body._links.last.href).to.contain("id=test%2A")
                 })
                 return chakram.wait();
             });
@@ -343,6 +349,9 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     expect(body._embedded.entries).to.have.length(2)
                     expect(body._embedded.entries[0].id).to.equal("dictProfile")
                     expect(body._embedded.entries[1].id).to.equal("test01")
+                    expect(body._links.self.href).to.contain("ids=test01%2CdictProfile")
+                    expect(body._links.first.href).to.contain("ids=test01%2CdictProfile")
+                    expect(body._links.last.href).to.contain("ids=test01%2CdictProfile")
                 });
                 return chakram.wait();
             });

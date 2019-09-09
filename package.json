@@ -4,7 +4,7 @@
   "description": "Server part of VLE for BaseX",
   "main": "test.js",
   "scripts": {
-    "test": "test.js"
+    "test": "node_modules/.bin/mocha test.js"
   },
   "repository": {
     "type": "git",
