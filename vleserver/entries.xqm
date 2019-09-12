@@ -88,7 +88,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $additional_parameters := if ($ids) then map {'ids': $ids}
         else if ($id) then map {"id": $id}
         else map {},
-      $counts := $nodes_or_dryed!(if (. instance of element(util:dryed)) then xs:integer(./@count) else 1),
+      $counts := $nodes_or_dryed!(if (. instance of element(util:dryed)) then xs:integer(./@count) else count(./*)),
       $start-end-pos := for $i at $p in (1, $counts) let $start-pos := sum(($i, (1, $counts)[position() < $p]))
         return <_>
         <s>{$start-pos}</s>
@@ -99,16 +99,23 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
       $relevant_nodes_or_dryed := $start-end-pos[xs:integer(./e) >= $from and xs:integer(./s) <= $from+$pageSize],
+      $relevant_dbs := distinct-values($relevant_nodes_or_dryed/nd/*/@db_name/data()),
+      (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $entries_ids := $relevant_nodes_or_dryed/nd/*!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
   declare function local:filter($nodes as node()*) as node()* {
     $nodes/(@xml:id|@ID)
   };
-]``) else ./(@xml:id|@ID)),
+]``) else ./*/(@xml:id|@ID)),
       $from_relevant_nodes := $from - (xs:integer($relevant_nodes_or_dryed[1]/s) - 1),
       $relevant_ids := subsequence($entries_ids, $from_relevant_nodes, $pageSize),
-      $xml_snippets := if ($pageSize <= 25) then data-access:get-entries-by-ids($dict_name, $relevant_ids) else (),
+      (: $log := _:write-log('Relevant IDs: '||string-join(data($relevant_ids), ', '), 'INFO'), :)
+      $locked_entries := lcks:get_user_locking_entries($dict_name, $relevant_ids),
+      $xml_snippets := if ($pageSize <= 25) then data-access:get-entries-by-ids($dict_name, $relevant_ids, $relevant_dbs)/* else (),
+      (: $log := _:write-log('Before entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'), :)
+      $start-entries := prof:current-ns(),
       $entries_as_documents := for $id in $relevant_ids
-        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $xml_snippets[(@xml:id, @ID) = data($id)], lcks:get_user_locking_entry($dict_name, $id))
+        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $xml_snippets[(@xml:id, @ID) = data($id)], $locked_entries($id))
+    , $log := _:write-log('Generate entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO')
   return api-problem:or_result($start,
     json-hal:create_document_list#7, [
       rest:uri(), 'entries', array{$entries_as_documents}, $pageSize,

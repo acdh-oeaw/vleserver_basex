@@ -35,6 +35,17 @@ declare function _:get_user_locking_entry($db-base-name as xs:string, $id as xs:
   return $ret
 };
 
+declare function _:get_user_locking_entries($db-base-name as xs:string, $ids as xs:string+) as map(*) {
+  let $lcks-db-name := $db-base-name||'__lcks',
+      $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+      (: $log := _:write-log(``[looking for `{$ids_seq}` in "`{$lcks-db-name}`"]``, 'DEBUG'), :)
+      $locks := util:eval(``[try {collection("`{$lcks-db-name}`")//lock[@id = `{$ids_seq}` and xs:dateTime(@dt) > current-dateTime()]}
+                           catch err:FODC0002 {()}]``, (), 'get_user_locking_entry'),
+      (: $retLog := _:write-log(``[returned `{$locks}`]``, 'DEBUG'), :)
+      $ret := map:merge($locks!map { data(./@id): data(./@user)})
+  return $ret
+};
+
 declare %private function _:write-log($message as xs:string, $severity as xs:string) as empty-sequence() {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
 };
