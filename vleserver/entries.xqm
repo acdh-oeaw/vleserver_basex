@@ -72,7 +72,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         if ($ids) then data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
         else if ($id) then
           if (ends-with($id, '*')) then
-          let $id-is-not-start := if ($id ne '*') then true
+          let $id-is-not-start := if ($id ne '*') then true()
             else error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),
             'id=* is no useful filter')

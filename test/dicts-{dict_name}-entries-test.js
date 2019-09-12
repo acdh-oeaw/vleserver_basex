@@ -382,6 +382,21 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
         });
 
+        it('should respond 400 for useless "filter"', function() {
+            var response = request('get', baseURI+'/dicts/' + dictuser.table + '/entries', { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'qs': { id: '*' },
+                'auth': dictuserauth,
+                'time': true
+            });
+
+            expect(response).to.have.status(400)
+            expect(response).to.have.json(function(body){
+                expect(body.detail).to.equal("id=* is no useful filter")
+            });
+            return chakram.wait();
+        });
+
         it('should respond 401 for "Unauthorized"', function() {
             var response = request('get', baseURI+'/dicts/idDuisveniamqui/entries', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
