@@ -71,7 +71,12 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $nodes_or_dryed := try {
         if ($ids) then data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
         else if ($id) then
-          if (ends-with($id, '*')) then data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
+          if (ends-with($id, '*')) then
+          let $id-is-not-start := if ($id ne '*') then true
+            else error(xs:QName('response-codes:_400'),
+            $api-problem:codes_to_message(400),
+            'id=* is no useful filter')
+          return data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
           else data-access:get-entries-by-ids($dict_name, $id)
         else data-access:get-all-entries($dict_name) 
       } catch err:FODC0002 {

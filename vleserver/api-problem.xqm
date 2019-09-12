@@ -81,7 +81,7 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
         let $status-code := 
           let $status-code-from-local-name := replace(local-name-from-QName(xs:QName($code)), '_', '')
           return if ($status-code-from-local-name castable as xs:integer and 
-                     xs:integer($status-code-from-local-name) > 400 and
+                     xs:integer($status-code-from-local-name) >= 400 and
                      xs:integer($status-code-from-local-name) < 500) then xs:integer($status-code-from-local-name) else
                      (500, admin:write-log($additional, 'ERROR'))
         return _:return_problem(
