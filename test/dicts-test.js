@@ -148,6 +148,9 @@ describe('tests for /dicts', function() {
                 });
 
                 expect(response).to.have.status(201);
+                expect(response).to.have.json(function(body) {
+                    expect(body.title).to.equal("Created")
+                });
                 return chakram.wait();
             });
             afterEach('Delete that dictionary', function(){

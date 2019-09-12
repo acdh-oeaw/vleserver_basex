@@ -107,8 +107,12 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             },
                 response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
 
-            expect(response).to.have.status(201);
-            return chakram.wait();
+            expect(response).to.have.status(201)
+            expect(response).to.have.json(function(body){
+                expect(body.id).to.equal('dictProfile')
+                expect(body.type).to.equal('profile')
+            })
+            return chakram.wait()
         });
 
 
