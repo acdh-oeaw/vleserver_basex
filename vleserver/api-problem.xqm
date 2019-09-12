@@ -12,22 +12,22 @@ declare namespace http = "http://expath.org/ns/http-client";
 
 declare variable $_:enable_trace external := true();
 
-declare function _:or_result($api-function as function(*)*, $parameters as array(*)) as item()+ {
-    _:or_result($api-function, $parameters, (), ())
+declare function _:or_result($start-time-ns as xs:integer, $api-function as function(*)*, $parameters as array(*)) as item()+ {
+    _:or_result($start-time-ns, $api-function, $parameters, (), ())
 };
 
-declare function _:or_result($api-function as function(*)*, $parameters as array(*), $header-elements as map(xs:string, xs:string)?) as item()+ {
-    _:or_result($api-function, $parameters, (), $header-elements)
+declare function _:or_result($start-time-ns as xs:integer, $api-function as function(*)*, $parameters as array(*), $header-elements as map(xs:string, xs:string)?) as item()+ {
+    _:or_result($start-time-ns, $api-function, $parameters, (), $header-elements)
 };
 
-declare function _:or_result($api-function as function(*)*, $parameters as array(*), $ok-status as xs:integer?, $header-elements as map(xs:string, xs:string)?) as item()+ {
+declare function _:or_result($start-time-ns as xs:integer, $api-function as function(*)*, $parameters as array(*), $ok-status as xs:integer?, $header-elements as map(xs:string, xs:string)?) as item()+ {
     try {
         let $ok-status := if ($ok-status > 200 and $ok-status < 300) then $ok-status else 200,
             $ret := apply($api-function, $parameters)
-        return if ($ret instance of element(rfc7807:problem)) then _:return_problem($ret,$header-elements)
+        return if ($ret instance of element(rfc7807:problem)) then _:return_problem($start-time-ns, $ret,$header-elements)
         else        
           (web:response-header(map {'method': 'json'}, $header-elements, map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
-          $ret
+          _:inject-runtime($start-time-ns, $ret)
           )
     } catch * {
         let $status-code := if (namespace-uri-from-QName($err:code) eq 'https://tools.ietf.org/html/rfc7231#section-6') then
@@ -36,7 +36,7 @@ declare function _:or_result($api-function as function(*)*, $parameters as array
                      xs:integer($status-code-from-local-name) > 400 and
                      xs:integer($status-code-from-local-name) < 500) then xs:integer($status-code-from-local-name) else 400
         else 400        
-        return _:return_problem(
+        return _:return_problem($start-time-ns,
                 <problem xmlns="urn:ietf:rfc:7807">
                     <type>{namespace-uri-from-QName($err:code)}</type>
                     <title>{$err:description}</title>
@@ -48,7 +48,7 @@ declare function _:or_result($api-function as function(*)*, $parameters as array
     }
 };
 
-declare function _:return_problem($problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
+declare function _:return_problem($start-time-ns as xs:integer, $problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
 let $accept-header := try { req:header("ACCEPT") } catch basex:http { 'application/problem+xml' },
     $header-elements := map:merge(($header-elements, map{'Content-Type': if (matches($accept-header, '[+/]json')) then 'application/problem+json' else 'application/problem+xml'})),
     $error-status := if ($problem/rfc7807:status castable as xs:integer) then xs:integer($problem/rfc7807:status) else 400
@@ -57,12 +57,22 @@ return (web:response-header((), $header-elements, map{'message': $problem/rfc780
 )   
 };
 
-declare function _:result($result as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) {
-  _:or_result(_:return_result#1, [$result], $header-elements)
+declare function _:result($start-time-ns as xs:integer, $result as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) {
+  _:or_result($start-time-ns, _:return_result#1, [$result], $header-elements)
 };
 
 declare %private function _:return_result($to_return as node()) {
   $to_return
+};
+
+declare %private function _:inject-runtime($start as xs:integer, $ret) {
+  if ($ret instance of map(*)) then map:merge($ret, map {'took': _:runtime($start)})
+  else if ($ret instance of element(json)) then $ret transform with { insert node <took>{_:runtime($start)}</took> as last into . }
+  else $ret
+};
+
+declare %private function _:runtime($start as xs:integer) {
+  ((prof:current-ns() - $start) idiv 10000) div 100
 };
 
 declare
@@ -78,13 +88,14 @@ declare
   %rest:error-param("column-number", "{$column-number}")
   %rest:error-param("additional", "{$additional}")
 function _:error-handler($code as xs:string, $description, $value, $module, $line-number, $column-number, $additional) as item()+ {
-        let $status-code := 
+        let $start-time-ns := prof:current-ns(),
+            $status-code := 
           let $status-code-from-local-name := replace(local-name-from-QName(xs:QName($code)), '_', '')
           return if ($status-code-from-local-name castable as xs:integer and 
                      xs:integer($status-code-from-local-name) >= 400 and
                      xs:integer($status-code-from-local-name) < 500) then xs:integer($status-code-from-local-name) else
                      (500, admin:write-log($additional, 'ERROR'))
-        return _:return_problem(
+        return _:return_problem($start-time-ns,
                 <problem xmlns="urn:ietf:rfc:7807">
                     <type>{namespace-uri-from-QName(xs:QName($code))}</type>
                     <title>{$description}</title>

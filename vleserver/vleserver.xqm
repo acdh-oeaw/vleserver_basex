@@ -74,7 +74,7 @@ declare
     %rest:produces('application/problem+json')   
     %rest:produces('application/problem+xml')
 function _:getRoot() as item()+ {
-  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
+  api-problem:or_result(prof:current-ns(), json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/dicts'), <note>all dictionaries</note>)], 1, 1, 1], cors:header(()))
 };
 

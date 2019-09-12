@@ -44,9 +44,10 @@ declare
     %rest:produces('application/problem+json')
     %rest:produces('application/problem+xml')
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
-  let $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
+  let $start := prof:current-ns(),
+      $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
       $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(rest:uri()||'/'||.), <name>{.}</name>)
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page], cors:header(()))
+  return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page], cors:header(()))
 };
 
 (:~
@@ -69,7 +70,8 @@ declare
     %rest:produces('application/problem+xml')
     %test:arg("data", '{ "name": "some_name" }')
 function _:createDict($data, $content-type as xs:string, $wanted-response as xs:string) as item()+ {
-  let $checkResponse := if ($wanted-response = "application/vnd.wde.v2+json") then true()
+  let $start := prof:current-ns(),
+      $checkResponse := if ($wanted-response = "application/vnd.wde.v2+json") then true()
         else error(xs:QName('response-codes:_403'),
          'Only wde.v2 aware clients allowed',
          'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
@@ -99,7 +101,7 @@ else if ("`{$data/json/name}`" = 'dict_users') then
 else
   db:create("`{$data/json/name}`__prof", <profile/>, "`{$data/json/name}`.xml")
 ]``, (), 'try-create-dict', true()),
-        api-problem:result(
+        api-problem:result($start,
         <problem xmlns="urn:ietf:rfc:7807">
           <type>https://tools.ietf.org/html/rfc7231#section-6</type>
           <title>{$api-problem:codes_to_message(201)}</title>
@@ -137,8 +139,9 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')    
 function _:getDictDictName($dict_name as xs:string) as item()+ {
-  if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-exists')) then 
-  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
+  let $start := prof:current-ns()
+  return if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-exists')) then 
+  api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
     json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
   else
@@ -160,7 +163,7 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')  
 function _:getDictDictNameDictUsers() {
-  api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), '_', [
+  api-problem:or_result(prof:current-ns(), json-hal:create_document_list#6, [rest:uri(), '_', [
     json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1], cors:header(()))  
 };
 
@@ -181,7 +184,8 @@ declare
     %updating
 (: This function is meant to have a global write lock. :)
 function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string) {
-  let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($auth_header, '^Basic ', ''))), ':')
+  let $start := prof:current-ns(),
+      $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($auth_header, '^Basic ', ''))), ':')
   return if ($auth_header = '') then
     error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
   else if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = $dict_name and @type='su'])) then
@@ -193,7 +197,7 @@ function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string
   return (
     db:drop($db), 
     delete node collection('dict_users')//user[@dict=$dict_name],
-    update:output(api-problem:result(
+    update:output(api-problem:result($start,
     <problem xmlns="urn:ietf:rfc:7807">
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
        <title>{$api-problem:codes_to_message(204)}</title>

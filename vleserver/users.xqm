@@ -34,7 +34,8 @@ declare
     %rest:produces('application/problem+json')   
     %rest:produces('application/problem+xml')
 function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
-  let $users := try { util:eval(``[collection("dict_users")/users/user]``, (), 'get-users') }
+  let $start := prof:current-ns(),
+      $users := try { util:eval(``[collection("dict_users")/users/user]``, (), 'get-users') }
       catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
                        'Not found',
@@ -42,7 +43,7 @@ function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
       },
       (: FIXME: get the ids right. For $u at $p in $users where $p >= (($page - 1) * $pageSize) + 1 and $p <= (($page - 1) * $pageSize) + $pageSize ... :)
       $entries_as_documents := subsequence($users, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||./position())} catch basex:http {xs:anyURI('urn:local')}, .)
-  return api-problem:or_result(json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users), $page], cors:header(()))
+  return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users), $page], cors:header(()))
 };
 
 declare
@@ -81,7 +82,8 @@ declare
   "table": "A table name. Will only be returned on administrative queries on the special dict_users storage."
 }')
 function _:createUser($userData, $content-type as xs:string, $wanted-response as xs:string) {
-  if ($wanted-response = "application/vnd.wde.v2+json") then
+  let $start := prof:current-ns()
+  return if ($wanted-response = "application/vnd.wde.v2+json") then
     if ($content-type = 'application/json') then
       (: in this case $data is an element(json) :)
       if (exists($userData/json/id) and
@@ -113,7 +115,7 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
                               dt="{format-dateTime(current-dateTime(), '[Y1111]-[M11]-[D11]T[H11]:[m11]:[s11]')}">
                         {if ($type) then attribute {'type'}{$type}}
                         </user>
-        return api-problem:or_result(util:eval#4, [``[
+        return api-problem:or_result($start, util:eval#4, [``[
             insert node `{serialize($userTag)}` as last into collection('dict_users')/users,            
             update:output(`{serialize($userData)}` transform with {(replace node ./id with element {'id'} {count(collection('dict_users')/users/*) + 1}, delete node ./pw)})
         ]``, (), 'write-new-user', true()], cors:header(()))
@@ -152,10 +154,11 @@ declare
    %rest:produces('application/problem+json')   
    %rest:produces('application/problem+xml')
 function _:getDictDictNameUser($userName_or_id as xs:string) {
-  let $users := if ($userName_or_id castable as xs:integer) then util:eval(``[collection("dict_users")/users/user[`{$userName_or_id}`]]``, (), 'get-users')
+  let $start := prof:current-ns(),
+      $users := if ($userName_or_id castable as xs:integer) then util:eval(``[collection("dict_users")/users/user[`{$userName_or_id}`]]``, (), 'get-users')
                 else util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
   return if (not(exists($users))) then error(xs:QName('response-codes:_404'), $api-problem:codes_to_message(404))
-         else api-problem:or_result(_:userAsDocument#2, [rest:uri(), $users], cors:header(()))
+         else api-problem:or_result($start, _:userAsDocument#2, [rest:uri(), $users], cors:header(()))
 };
 (:~
  : Remove a user.
@@ -166,17 +169,20 @@ declare
   %updating
 (: write locks dict_users :)
 function _:deleteDictDictNameUser($userName_or_id as xs:string) {
+  let $start := prof:current-ns()
   (: TODO check that there is one dict_users user left before deleting a dict_users user
      or that this is the last dict_users user :)
+  return (
   if ($userName_or_id castable as xs:integer) then delete node collection('dict_users')//user[xs:integer($userName_or_id)]
   else delete node collection('dict_users')//user[@name = $userName_or_id],
-  update:output(api-problem:result(
+  update:output(api-problem:result($start,
     <problem xmlns="urn:ietf:rfc:7807">
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
        <title>{$api-problem:codes_to_message(204)}</title>
        <status>204</status>
     </problem>, cors:header(())
   ))
+  )
 };
 
 (:~

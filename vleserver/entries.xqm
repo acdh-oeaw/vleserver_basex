@@ -63,7 +63,8 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
                                   $pageSize as xs:integer, $page as xs:integer,
                                   $id as xs:string?, $ids as xs:string?,
                                   $q as xs:string?, $sort as xs:string?) {
-  let $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
+  let $start := prof:current-ns(),
+      $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
       else error(xs:QName('response-codes:_404'), 
          $api-problem:codes_to_message(404),
          'Dictionary '||$dict_name||' does not exist'),
@@ -105,10 +106,10 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
 ]``) else ./(@xml:id|@ID)),
       $from_relevant_nodes := $from - (xs:integer($relevant_nodes_or_dryed[1]/s) - 1),
       $relevant_ids := subsequence($entries_ids, $from_relevant_nodes, $pageSize),
-      $xml_snippets := if ($pageSize <= 10) then data-access:get-entries-by-ids($dict_name, $relevant_ids) else (),
+      $xml_snippets := if ($pageSize <= 25) then data-access:get-entries-by-ids($dict_name, $relevant_ids) else (),
       $entries_as_documents := for $id in $relevant_ids
         return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $xml_snippets[(@xml:id, @ID) = data($id)], lcks:get_user_locking_entry($dict_name, $id))
-  return api-problem:or_result(
+  return api-problem:or_result($start,
     json-hal:create_document_list#7, [
       rest:uri(), 'entries', array{$entries_as_documents}, $pageSize,
       $total_items, $page, $additional_parameters
@@ -158,11 +159,12 @@ declare
   "entry": "The entry as XML fragment."
 }')
 function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
-  let $userName := _:getUserNameFromAuthorization($auth_header),
+  let $start := prof:current-ns(),
+      $userName := _:getUserNameFromAuthorization($auth_header),
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
       $status := $userData/json/status/text(),
       $owner := $userData/json/owner/text()
-  return api-problem:or_result(_:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, cors:header(()))
+  return api-problem:or_result($start, _:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, cors:header(()))
 };
 
 declare %private function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
@@ -250,7 +252,8 @@ declare
   "entry": "The entry as XML fragment."
 }')
 function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
-  let $userName := _:getUserNameFromAuthorization($auth_header),
+  let $start := prof:current-ns(),
+      $userName := _:getUserNameFromAuthorization($auth_header),
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
       $status := $userData/json/status/text(),
       $owner := $userData/json/owner/text(),
@@ -259,7 +262,7 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for this entry',
                    'Entry is currently locked by "'||$lockedBy||'"') 
-  return api-problem:or_result(_:change_entry#6, [$entry, $dict_name, $id, $status, $owner, $userName], 200, cors:header(()))
+  return api-problem:or_result($start, _:change_entry#6, [$entry, $dict_name, $id, $status, $owner, $userName], 200, cors:header(()))
 };
 
 declare %private function _:change_entry($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
@@ -302,7 +305,8 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
 function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string) {
-  let $lockDuration := if ($lock castable as xs:integer) then
+  let $start := prof:current-ns(),
+      $lockDuration := if ($lock castable as xs:integer) then
                          let $lockAsDuration := xs:dayTimeDuration('PT'||$lock||'S') 
                          return if ($lockAsDuration > $lcks:maxLockTime) then $lcks:maxLockTime else $lockAsDuration
                        else if ($lock = 'true') then $lcks:maxLockTime
@@ -314,7 +318,7 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return api-problem:or_result(_:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, $lockedBy], cors:header(()))
+  return api-problem:or_result($start, _:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, $lockedBy], cors:header(()))
 };
 
 (:~
@@ -333,13 +337,14 @@ declare
   %rest:path('/restvle/dicts/{$dict_name}/entries/{$id}')
   %rest:header-param('Authorization', '{$auth_header}', "")
 function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string, $auth_header as xs:string) {
-  let $userName := _:getUserNameFromAuthorization($auth_header),
+  let $start := prof:current-ns(),
+      $userName := _:getUserNameFromAuthorization($auth_header),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $id),
       $checkLockedByCurrentUser := if ($userName = $lockedBy) then true()
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for this entry',
                    'Entry is currently locked by "'||$lockedBy||'"') 
-  return api-problem:or_result(_:delete_entry#3, [$dict_name, $id, $userName], cors:header(()))
+  return api-problem:or_result($start, _:delete_entry#3, [$dict_name, $id, $userName], cors:header(()))
 };
 
 declare %private function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) {
