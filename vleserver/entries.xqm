@@ -70,15 +70,25 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
          'Dictionary '||$dict_name||' does not exist'),
       $userName := _:getUserNameFromAuthorization($auth_header),
       $nodes_or_dryed := try {
-        if ($ids) then data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
-        else if ($id) then
+        if ($ids instance of xs:string) then
+          let $id-is-not-empty := if ($ids ne '') then true()
+            else error(xs:QName('response-codes:_404'),
+            $api-problem:codes_to_message(404),
+            'ids= does not select anything')
+        return data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+        else if ($id instance of xs:string) then
           if (ends-with($id, '*')) then
           let $id-is-not-start := if ($id ne '*') then true()
             else error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),
             'id=* is no useful filter')
           return data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
-          else data-access:get-entries-by-ids($dict_name, $id)
+          else
+          let $id-is-not-empty := if ($id ne '') then true()
+            else error(xs:QName('response-codes:_404'),
+            $api-problem:codes_to_message(404),
+            'id= does not select anything')
+          return data-access:get-entries-by-ids($dict_name, $id)
         else data-access:get-all-entries($dict_name) 
       } catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
@@ -96,6 +106,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         <nd>{$nodes_or_dryed[$p]}</nd>
         </_>,
       $total_items := xs:integer($start-end-pos[last()]/s) - 1,
+      $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
       $relevant_nodes_or_dryed := $start-end-pos[xs:integer(./e) >= $from and xs:integer(./s) <= $from+$pageSize],
