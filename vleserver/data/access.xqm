@@ -51,7 +51,7 @@ let $dicts := _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $get-db-for-id-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) 
-      then ``[if (collection("`{$dict}`")//profile[(@xml:id, @ID) = `{$ids_seq}`]) then <d>{collection("`{$dict}`")//profile/(@xml:id, @ID)}`{$dict}`</d> else ()]``
+      then ``[if (collection("`{$dict}`")//profile[(@xml:id, @ID) = `{$ids_seq}`]) then "`{$dict}`" else ()]``
       else ``[
             let $orig := db:attribute("`{$dict}`", `{$ids_seq}`)[local-name() = ('id', 'ID')]
             return if ($orig) then "`{$dict}`" else ()
@@ -67,8 +67,10 @@ return if (exists($found-in-parts)) then $found-in-parts
 declare function _:get-real-dicts-id-starting-with($dict as xs:string, $id_start as xs:string) as xs:string+ {
   let $dicts := _:get-list-of-data-dbs($dict),
       $get-db-for-id-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) 
-      then ``[if (collection("`{$dict}`")//profile[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")]) then <d>{collection("`{$dict}`")//profile/(@xml:id, @ID)}`{$dict}`</d> else ()]``
+    return if (ends-with($dict, '__prof')) then ``[
+      if (collection("`{$dict}`")//profile[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")])
+      then "`{$dict}`"
+      else ()]``
       else ``[
             let $orig := index:attributes("`{$dict}`", "`{$id_start}`")
             return if ($orig) then "`{$dict}`" else ()
@@ -105,7 +107,10 @@ declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $s
 let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $get-entries-by-ids-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then ``[<_ db_name="`{$dict}`">{collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`]}</_>]``
+    return if (ends-with($dict, '__prof')) then ``[
+      if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`])
+      then <_ db_name="`{$dict}`">{collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`]}</_>
+      else ()]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
             $ret := if (count($results) > 25) then util:dehydrate($results)
