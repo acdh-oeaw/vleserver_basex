@@ -148,17 +148,20 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
 declare
    %rest:GET
    %rest:path('/restvle/dicts/dict_users/users/{$userName_or_id}')
+   %rest:header-param("Accept", "{$wanted-response}", "")
    %rest:produces('application/json')
    %rest:produces('application/hal+json')
    %rest:produces('application/vnd.wde.v2+json')
    %rest:produces('application/problem+json')   
    %rest:produces('application/problem+xml')
-function _:getDictDictNameUser($userName_or_id as xs:string) {
+function _:getDictDictNameUser($userName_or_id as xs:string,$wanted-response as xs:string) {
   let $start := prof:current-ns(),
       $users := if ($userName_or_id castable as xs:integer) then util:eval(``[collection("dict_users")/users/user[`{$userName_or_id}`]]``, (), 'get-users')
                 else util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
-  return if (not(exists($users))) then error(xs:QName('response-codes:_404'), $api-problem:codes_to_message(404))
-         else api-problem:or_result($start, _:userAsDocument#2, [rest:uri(), $users], cors:header(()))
+  return if ($wanted-response = "application/vnd.wde.v2+json") then ( 
+            if (not(exists($users))) then error(xs:QName('response-codes:_404'), $api-problem:codes_to_message(404))
+            else api-problem:or_result($start, _:userAsDocument#2, [rest:uri(), $users], cors:header(())))
+         else (error(xs:QName('response-codes:_415'),$api-problem:codes_to_message(415)))
 };
 (:~
  : Remove a user.
