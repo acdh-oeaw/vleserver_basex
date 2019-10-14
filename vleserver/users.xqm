@@ -113,7 +113,7 @@ function _:createUser($userData, $content-type as xs:string, $wanted-response as
                               dict="{$userData/json/table}"
                               pw="{$userData/json/pw}"
                               dt="{format-dateTime(current-dateTime(), '[Y1111]-[M11]-[D11]T[H11]:[m11]:[s11]')}">
-                        {if ($type) then attribute {'type'}{$type}}
+                        {if ($type) then attribute {'type'}{$type} else ()}
                         </user>
         return api-problem:or_result($start, util:eval#4, [``[
             insert node `{serialize($userTag)}` as last into collection('dict_users')/users,            

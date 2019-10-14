@@ -25,7 +25,7 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
       $last_page := xs:integer(ceiling($total_items div $page_size)),
       $_first := xs:anyURI($_self||'?page=1&amp;pageSize='||$page_size||$additional_parameters_for_uri),
       $_last := xs:anyURI($_self||'?page='||$last_page||'&amp;pageSize='||$page_size||$additional_parameters_for_uri),
-      $_next := if ($page + 1 <= $last_page) then xs:anyURI($_self||'?page='||$page + 1||'&amp;pageSize='||$page_size||$additional_parameters_for_uri)
+      $_next := if ($page + 1 <= $last_page) then xs:anyURI($_self||'?page='||$page + 1||'&amp;pageSize='||$page_size||$additional_parameters_for_uri) else ()
   return
    <json type='object' objects='__links self first last next __embedded'>
        <__links>

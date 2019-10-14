@@ -56,6 +56,7 @@ declare function _:get-lemma-xquery($profile as document-node()) as xs:string {
       else if (starts-with($query_with_langid, '/'))
       then $query_with_langid
         => replace('^/', '\$node/')
+      else ()
   return $query_as_template_string
 };
 
