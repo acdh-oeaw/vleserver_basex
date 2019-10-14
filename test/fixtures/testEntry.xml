@@ -1,11 +1,11 @@
 <entry xmlns="http://www.tei-c.org/ns/1.0" numID="9" xml:id="{{xmlID}}">
    <form type="lemma">
-      <orth xml:lang="fa-Arab">-</orth>
-      <orth xml:lang="fa-x-modDMG">-</orth>
+      <orth xml:lang="fa-Arab">{{formFaArab}}</orth>
+      <orth xml:lang="fa-x-modDMG">{{formFaXModDMG}}</orth>
    </form>
 
    <gramGrp>
-      <gram type="pos"/>
+      <gram type="pos">{{pos}}</gram>
    </gramGrp>
 
    <sense>

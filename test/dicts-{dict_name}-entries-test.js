@@ -38,9 +38,16 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     before('Read templated test data', function() {
         var testProfileTemplate = fs.readFileSync('test/fixtures/testProfile.xml', 'utf8');
         expect(testProfileTemplate).to.contain("<tableName>{{dictName}}</tableName>");
+        expect(testProfileTemplate).to.contain("<displayString>{{displayString}}</displayString>");
         compiledProfileTemplate = Handlebars.compile(testProfileTemplate);
-        testProfileTemplate = compiledProfileTemplate({'dictName': 'replaced'});
+        testProfileTemplate = compiledProfileTemplate({
+            'dictName': 'replaced',
+            'mainLangLabel': 'aNCName',        
+            'displayString': '{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}'
+        });
         expect(testProfileTemplate).to.contain("<tableName>replaced</tableName>");
+        expect(testProfileTemplate).to.contain('displayString>{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}<');
+        expect(testProfileTemplate).to.contain('mainLangLabel>aNCName<');
         var testEntryTemplate = fs.readFileSync('test/fixtures/testEntry.xml', 'utf8');
         expect(testEntryTemplate).to.contain('"http://www.tei-c.org/ns/1.0"');        
         expect(testEntryTemplate).to.contain('xml:id="{{xmlID}}"');
@@ -49,12 +56,16 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         compiledEntryTemplate = Handlebars.compile(testEntryTemplate);
         testEntryTemplate = compiledEntryTemplate({
             'xmlID': 'testID',
+            'formFaArab': 'تست',
+            'formFaXModDMG': 'ṭēsṯ',
             'translation_en': 'test',
             'translation_de': 'Test',
             });
         expect(testEntryTemplate).to.contain('xml:id="testID"');
         expect(testEntryTemplate).to.contain('>test<');
         expect(testEntryTemplate).to.contain('>Test<');
+        expect(testEntryTemplate).to.contain('>تست<');
+        expect(testEntryTemplate).to.contain('>ṭēsṯ<');
     });
 
     beforeEach(function(){
@@ -100,7 +111,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'body': {
                     "sid": "dictProfile",
                     "lemma": "",
-                    "entry": compiledProfileTemplate({ 'dictName': dictuser.table })
+                    "entry": compiledProfileTemplate({
+                        'dictName': dictuser.table,
+                        'displayString': '//tei:form/tei:orth[1]', 
+                     })
                 },
                 'headers': { "Accept": "application/vnd.wde.v2+json" },
                 'auth': dictuserauth,
@@ -249,7 +263,11 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     'body': {
                         "sid": "dictProfile",
                         "lemma": "",
-                        "entry": compiledProfileTemplate({ 'dictName': dictuser.table })
+                        "entry": compiledProfileTemplate({
+                            'dictName': dictuser.table,                            
+                            'mainLangLabel': 'fa-x-modDMG',     
+                            'displayString': '//tei:form/tei:orth[@xml:lang = "{langid}"]',
+                        })
                     },
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
@@ -266,6 +284,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                         "lemma": "",
                         "entry": compiledEntryTemplate({
                             'xmlID': 'test01',
+                            'formFaArab': 'تست',
+                            'formFaXModDMG': 'ṭēsṯ',
                             'translation_en': 'test',
                             'translation_de': 'Test',
                             })
@@ -313,6 +333,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     expect(body.total_items).to.equal("1")
                     expect(body._embedded.entries).to.have.length(1)
                     expect(body._embedded.entries[0].id).to.equal("test01")
+                    expect(body._embedded.entries[0].lemma).to.equal("ṭēsṯ")
                     expect(body._links.self.href).to.contain("id=test01")
                     expect(body._links.first.href).to.contain("id=test01")
                     expect(body._links.last.href).to.contain("id=test01")

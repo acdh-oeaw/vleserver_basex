@@ -4,6 +4,7 @@ module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'elementTypes.xqm';
 import module namespace chg = "https://www.oeaw.ac.at/acdh/tools/vle/data/changes" at 'changes.xqm';
+import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
 
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
 declare namespace mds = "http://www.loc.gov/mods/v3";
@@ -12,27 +13,15 @@ declare namespace rfc-7807 = "urn:ietf:rfc:7807";
 
 declare variable $_:basePath as xs:string := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:selfName as xs:string := tokenize(static-base-uri(), '/')[last()];
-declare variable $_:default_split_every as xs:integer := 60000;
 declare variable $_:enable_trace := false();
 declare variable $_:default_index_options := map{'textindex': true(), 
                                                  'attrindex': true(),
                                                  'ftindex': true(), 'casesens': false(), 'diacritics': false(), 'language': 'en',
                                                  'maxlen':192, 'maxcats':1000,'splitsize': 20};
-declare function _:get-profile($dict_name as xs:string) as document-node() {
-  util:eval(``[collection("`{$dict_name}`__prof")]``, (), 'get-profile')
-};
 
-declare %private function _:get-list-of-data-dbs-from-profile($profile as document-node()) as xs:string* {
-  let $db-regExp := data($profile/profile/tableName/@find-dbs),
-      $dbs := if (exists($db-regExp)) then
-        util:eval(``[db:list()[matches(., "`{$db-regExp}`")]]``, (), 'get-list-of-data-dbs')
-        else $profile/profile/tableName/text()
-  return $dbs
-};
-
-declare %private function _:get-list-of-data-dbs($dict as xs:string) as xs:string* {
+declare function _:get-list-of-data-dbs($dict as xs:string) as xs:string* {
   let (: $log := _:write-log('acc:get-list-of-data-dbs $dict := '||$dict, 'DEBUG'), :)
-      $ret := ($dict||'__prof', _:get-list-of-data-dbs-from-profile(_:get-profile($dict)), _:get-skel-if-exists($dict))
+      $ret := ($dict||'__prof', profile:get-list-of-data-dbs(profile:get($dict)), _:get-skel-if-exists($dict))
       (: , $logRet := _:write-log('acc:get-list-of-data-dbs return '||string-join($ret, '; '), 'DEBUG') :)
   return $ret
 };
@@ -49,15 +38,15 @@ declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) as
 declare function _:get-real-dicts($dict as xs:string, $ids as xs:string+) as xs:string+ {
 let $dicts := _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
-    $get-db-for-id-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) 
-      then ``[if (collection("`{$dict}`")//profile[(@xml:id, @ID) = `{$ids_seq}`]) then "`{$dict}`" else ()]``
-      else ``[
-            let $orig := db:attribute("`{$dict}`", `{$ids_seq}`)[local-name() = ('id', 'ID')]
-            return if ($orig) then "`{$dict}`" else ()
-            ]``,
-    $found-in-parts := if (exists($get-db-for-id-scripts)) then util:evals($get-db-for-id-scripts,
-            (), 'get-db-for-id-script', true()) else ()
+    $get-db-for-id-script := '('||string-join(for $dict in $dicts
+    return if (ends-with($dict, '__prof')) then ``[
+      if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}` or @ID = `{$ids_seq}`])
+      then "`{$dict}`"
+      else ()]``
+      else ``[if (db:attribute("`{$dict}`", `{$ids_seq}`)) then "`{$dict}`" else ()]``
+    , ',&#x0a;')||')',
+    $found-in-parts := if ($get-db-for-id-script ne '()') then util:eval($get-db-for-id-script,
+            (), 'get-real-dicts', true()) else ()
 return if (exists($found-in-parts)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
@@ -66,17 +55,15 @@ return if (exists($found-in-parts)) then $found-in-parts
 
 declare function _:get-real-dicts-id-starting-with($dict as xs:string, $id_start as xs:string) as xs:string+ {
   let $dicts := _:get-list-of-data-dbs($dict),
-      $get-db-for-id-scripts := for $dict in $dicts
+      $get-db-for-id-script := '('||string-join(for $dict in $dicts
     return if (ends-with($dict, '__prof')) then ``[
       if (collection("`{$dict}`")//profile[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")])
       then "`{$dict}`"
       else ()]``
-      else ``[
-            let $orig := index:attributes("`{$dict}`", "`{$id_start}`")
-            return if ($orig) then "`{$dict}`" else ()
-            ]``,
-    $found-in-parts := if (exists($get-db-for-id-scripts)) then util:evals($get-db-for-id-scripts,
-            (), 'get-db-for-id-script', true()) else ()
+      else ``[if (index:attributes("`{$dict}`", "`{$id_start}`")) then "`{$dict}`" else ()]``
+    , ',&#x0a;')||')',
+    $found-in-parts := if ($get-db-for-id-script ne "") then util:eval($get-db-for-id-script,
+            (), 'get-real-dicts-id-starting-with', true()) else ()
 return if (exists($found-in-parts)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
@@ -86,70 +73,118 @@ return if (exists($found-in-parts)) then $found-in-parts
 (: this may throw FODC0002 if $dict||'__prof' does not exist :)
 declare function _:get-all-entries($dict as xs:string) {
 let $dicts := _:get-list-of-data-dbs($dict),
+    $profile := profile:get($dict),
+    $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then ``[<_ db_name="`{$dict}`">{collection("`{$dict}`")//profile}</_>]``
-      else ``[
-            import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-            _:do-get-index-data(collection("`{$dict}`"), (), ())
+    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
+      else ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+            `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
+            declare function local:extractor($node as node()) as xs:string* {
+              `{$data-extractor-xquery}`
+            };
+            _:do-get-index-data(collection("`{$dict}`"), (), (), local:extractor#1)
             ]``,
-    $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, (),    
-    'get-all-entries-script', true()) else ()
+    $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, map {
+      'data-extractor-xquery': $data-extractor-xquery
+    }, 'get-all-entries-script', true()) else ()
 return $found-in-parts
 };
 
-(: this may throw FODC0002 if $dict||'__prof' does not exist :)
+declare function _:get-profile-with-sort-xquery($dict as xs:string) as xs:string {
+``[<_ db_name="`{$dict}`">{
+      collection("`{$dict}`")//profile transform with {
+        insert node attribute {"`{$util:vleUtilSortKey}`"} {"   profile"} as first into .
+     }}
+   </_>]``
+};
+
+(:~ 
+ : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
+ : This may throw FODC0002 if $dict||'__prof' does not exist
+ :)
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+) {
   _:get-entries-by-ids($dict, $ids, ())
 };
 
-(: this may throw FODC0002 if $dict||'__prof' does not exist :)
+(:~ 
+ : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
+ : This may throw FODC0002 if $dict||'__prof' does not exist
+ :)
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $suggested_dbs as xs:string*) {
 let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+    $profile := profile:get($dict),
+    $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $get-entries-by-ids-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) then ``[
       if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`])
-      then <_ db_name="`{$dict}`">{collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`]}</_>
+      then `{_:get-profile-with-sort-xquery($dict)}`
       else ()]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+        `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
+        declare function local:extractor($node as node()) as xs:string* {
+          `{$data-extractor-xquery}`
+        };
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
-            $ret := if (count($results) > 25) then util:dehydrate($results)
-              else if (count($results) > 0) then <_ db_name="`{$dict}`">{$results}</_>
+            $ret := if (count($results) > 25) then util:dehydrate($results, local:extractor#1)
+              else if (count($results) > 0) then <_ db_name="`{$dict}`">{
+                for $r in $results
+                return $r transform with {insert node attribute {$util:vleUtilSortKey} {local:extractor($r)} as first into . }
+              }</_>
               else ()
         return $ret]``,
-    $log_scripts :=  _:write-log($get-entries-by-ids-scripts[1]||"&#x0a;"||$get-entries-by-ids-scripts[2], "INFO"),
-    $found-in-parts := if (exists($get-entries-by-ids-scripts)) then util:evals($get-entries-by-ids-scripts, (),    
-    if (exists($suggested_dbs)) then 'get-limited-entries-by-ids-script' else 'get-entries-by-ids-script', true()) else ()
+    $log_script1 :=  _:write-log($get-entries-by-ids-scripts[1], "INFO"),
+    $log_script2 :=  _:write-log($get-entries-by-ids-scripts[2], "INFO"),
+    $found-in-parts := if (exists($get-entries-by-ids-scripts)) then util:evals($get-entries-by-ids-scripts, (), if (exists($suggested_dbs)) then 'get-limited-entries-by-ids-script' else 'get-entries-by-ids-script', true()) else ()
 return if (exists($found-in-parts)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
                            'IDs '||$ids_seq||' not found')
 };
 
+(:~ 
+ : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
+ :)
 declare function _:get-entries-by-id-starting-with($dict_name as xs:string, $id_start as xs:string) {
 let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
+    $profile := profile:get($dict_name),
+    $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then ``[<_ db_name="`{$dict}`">{collection("`{$dict}`")//profile[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")]}</_>]``
+    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+        `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
+        declare function local:extractor($node as node()) as xs:string* {
+          `{$data-extractor-xquery}`
+        };
         let $results := collection("`{$dict}`")//*[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")],
-            $ret := if (count($results) > 25) then util:dehydrate($results)
-              else if (count($results) > 0) then <_ db_name="`{$dict}`">{$results}</_>
+            $ret := if (count($results) > 25) then util:dehydrate($results, local:extractor#1)
+              else if (count($results) > 0) then <_ db_name="`{$dict}`">{
+                for $r in $results
+                return $r transform with {insert node attribute {$util:vleUtilSortKey} {local:extractor($r)} as first into . }
+              }</_>
               else ()
         return $ret]``,
     $log_scripts :=  _:write-log($get-all-entries-scripts[1]||"&#x0a;"||$get-all-entries-scripts[2], "INFO"),
     $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, (),    
-    'get-all-entries-script', true()) else ()
+    'get-entries-by-id-starting-with', true()) else ()
 return $found-in-parts
 };
 
-declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?) {
+declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as xs:string*?) {
   let $start-time := prof:current-ms(),
     (:, $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
       $all-entries := types:get_all_entries($c),
       $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())],
       (: $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'), :)
-      $ret := if (count($results) > 25) then util:dehydrate($results) 
-              else if (count($results) > 0) then <_ db_name="{db:name($c)}">{$results}</_>
+      (: does not work for 730 databases and ~2.5 Mio tags that would be processed to extract data :)
+      $ret := if (count($results) > 25) then util:dehydrate($results, $data-extractor-xquery) 
+              else if (count($results) > 0) then <_ db_name="{util:db-name($c)}">{
+                for $r in $results
+                return $r transform with {insert node attribute {$util:vleUtilSortKey} {$data-extractor-xquery($r)} as first into . }
+              }</_>
               else ()
     (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)
   return $ret
@@ -250,19 +285,15 @@ declare %updating function _:insert-data($c as document-node()*, $data as elemen
 
 declare %private function _:get-collection-name-for-insert-data($dict as xs:string, $dataType as xs:string) as xs:string {
     let $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),        
-        $profile := if ($dataType = 'profile') then document {} else _:get-profile($dict),
+        $profile := if ($dataType = 'profile') then document {} else profile:get($dict),
         $dicts := if ($dataType = 'profile') then $dict||'__prof'
                   else if ($db-exists) then $dict
-                  else _:get-list-of-data-dbs-from-profile($profile),
+                  else profile:get-list-of-data-dbs($profile),
        (: $log := _:write-log('acc:get-collection-name-for-insert-data count(acc:count-current-items($dicts[last()], $dataType)/*) >= acc:get-split-every($profile): '
                            ||acc:count-current-items($dicts[last()], $dataType)||' >= '||acc:get-split-every($profile), 'DEBUG'), :)
-        $ret := if (empty($dicts) or _:count-current-items($dicts[last()], $dataType) >= _:get-split-every($profile)) then _:create-new-data-db($profile) else $dicts[last()]
+        $ret := if (empty($dicts) or _:count-current-items($dicts[last()], $dataType) >= profile:get-split-every($profile)) then _:create-new-data-db($profile) else $dicts[last()]
       (:, $retLog := _:write-log('acc:get-collection-name-for-insert-data return '||$ret, 'DEBUG') :)
     return $ret
-};
-
-declare %private function _:get-split-every($profile as document-node()) as xs:integer {
-  if ($profile/profile/tableName/@split-every) then xs:integer($profile/profile/tableName/@split-every) else $_:default_split_every
 };
 
 declare %private function _:count-current-items($dict as xs:string?, $dataType as xs:string) as xs:integer {
@@ -274,19 +305,9 @@ declare %private function _:count-current-items($dict as xs:string?, $dataType a
 };
 
 declare %private function _:create-new-data-db($profile as document-node()) as xs:string {
-  let $check-profile-contains-valid-dictname := 
-        if ((exists($profile/profile/tableName/@generate-db-prefix) and
-             exists($profile/profile/tableName/@find-dbs)) or
-            exists($profile/profile/tableName/text())) then ()
-        else error(xs:QName('response-codes:_422'),
-                   'Profile does not contain a valid name for the data DBs',
-                   'Need a "<tableName>somename</tableName>" or "<tableName generate-db-prefix="somename" find-dbs="somename\d+">somename</tableName>".&#x0a;'||
-                   'Got "'||serialize($profile/profile/tableName, map{'method': 'xml'})||'".'),
-      $current-dict-parts := _:get-list-of-data-dbs-from-profile($profile),
-      $new-db-name := if (exists($profile/profile/tableName/@generate-db-prefix) and
-                          exists($profile/profile/tableName/@find-dbs))
-                      then data($profile/profile/tableName/@generate-db-prefix)||format-integer(count($current-dict-parts), '000')
-                      else $profile/profile/tableName/text(),
+  let $check-profile-contains-valid-dictname := profile:check-contains-valid-dictname($profile),
+      $current-dict-parts := profile:get-list-of-data-dbs($profile),
+      $new-db-name := profile:get-name-for-new-db($profile, count($current-dict-parts)),
       $log := _:write-log('Trying to create '||$new-db-name, 'DEBUG'),
       (: TODO: read different options from profiles. :)
       $index-options := map:merge((map {}, $_:default_index_options)),
@@ -296,7 +317,7 @@ declare %private function _:create-new-data-db($profile as document-node()) as x
     db:create("`{$new-db-name}`", document {<_ xmlns=""></_>}, "`{$new-db-name}`.xml", $index-options)
   ]``,
     $create-new-data-db := util:eval($create-new-data-db-script, map{'index-options': $index-options}, 'create-new-data-db', true()),
-    $ret := _:get-list-of-data-dbs-from-profile($profile)[last()],
+    $ret := profile:get-list-of-data-dbs($profile)[last()],
     $retLog := _:write-log('Created '||$new-db-name, 'DEBUG')
   return $ret
 };
