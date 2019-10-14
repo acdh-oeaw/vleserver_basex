@@ -1,14 +1,35 @@
-<profile when="2016_12_16_10_43_17" xml:id="dictProfile" xml:space="preserve">
-<ip/>
-<autoSwitchString/>
-<tableName>{{dictName}}</tableName>
+<?xml version="1.0" encoding="UTF-8"?>
+<profile when="2016_12_16_10_43_17" 
+ xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+ xmlns:xhtml="http://www.w3.org/1999/xhtml"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:noNamespaceSchemaLocation="profiles.xsd" xml:id="dictProfile" xml:space="preserve">
 <basexRest>https://vle-curation.acdh.oeaw.ac.at</basexRest>
-<displayString>{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}</displayString>
-<displayXPaths/>
-<doubleNLElements>cit,entry1,form,gramGrp,rating,re,sense,xr</doubleNLElements>
-<editorFonts/>
-<editorFontsSize>10</editorFontsSize>
-<listBoxFonts/>
+<tableName>{{dictName}}</tableName>
+<namespaces>
+  <ns prefix="mds" uri="http://www.loc.gov/mods/v3"/>
+  <ns prefix="tei" uri="http://www.tei-c.org/ns/1.0"/>
+</namespaces>
+<queryTemplates>
+
+<queryTemplate label="tx_names">
+   declare namespace mds = 'http://www.loc.gov/mods/v3';   
+   collection('{dict}')//mds:mods[mds:name/mds:namePart[text() contains text "{subQuery}" using wildcards]]
+</queryTemplate>
+                                                     
+<queryTemplate label="tx_any">
+   declare namespace mds = 'http://www.loc.gov/mods/v3';   
+   collection('{dict}')//mds:mods[*/node()[text() contains text "{subQuery}" using wildcards]]
+</queryTemplate>
+                                                     
+<queryTemplate label="tx_title">
+   declare namespace mds = 'http://www.loc.gov/mods/v3';   
+   collection('{dict}')//mds:mods[*/*/mds:title[text() contains text "{subQuery}" using wildcards]]
+</queryTemplate>
+                                                     
+</queryTemplates>
+<mainLangLabel>{{mainLangLabel}}</mainLangLabel>
+<displayString>{{displayString}}</displayString>
 <entrySchema>
 </entrySchema>
 <entryStyle><xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/xhtml" xmlns:mds="http://www.loc.gov/mods/v3" version="1.0">
@@ -117,6 +138,12 @@
     </xsl:template>
 </xsl:stylesheet>
 </entryStyle>
+<displayXPaths/>
+<doubleNLElements>cit,entry1,form,gramGrp,rating,re,sense,xr</doubleNLElements>
+<editorFonts/>
+<editorFontsSize>10</editorFontsSize>
+<listBoxFonts/>
+<autoSwitchString/>
 <entryTemplates>//*********************************************************//
 //* ENTRY (lemma) - TEMPLATE ******************************//
 //*********************************************************//
@@ -463,29 +490,10 @@ z# = ž   //zhe alternative
 //
 </keyTranslations>
 <lemmaXPath/>
-<mainLangLabel/>
 <morphTemplates>
 </morphTemplates>
 <pointerTemplates><ptr type="example" target="{target}"/></pointerTemplates>
 <queryTemplate/>
-<queryTemplates>
-
-<queryTemplate label="tx_names">
-   declare namespace mds = 'http://www.loc.gov/mods/v3';   
-   collection('{dict}')//mds:mods[mds:name/mds:namePart[text() contains text "{subQuery}" using wildcards]]
-</queryTemplate>
-                                                     
-<queryTemplate label="tx_any">
-   declare namespace mds = 'http://www.loc.gov/mods/v3';   
-   collection('{dict}')//mds:mods[*/node()[text() contains text "{subQuery}" using wildcards]]
-</queryTemplate>
-                                                     
-<queryTemplate label="tx_title">
-   declare namespace mds = 'http://www.loc.gov/mods/v3';   
-   collection('{dict}')//mds:mods[*/*/mds:title[text() contains text "{subQuery}" using wildcards]]
-</queryTemplate>
-                                                     
-</queryTemplates>
 <requestContentType>application/xml</requestContentType>
 <requestTransferEncoding/>
 <respString><fs type="change"><f name="who"><symbol value="{who}"/></f><f name="when"><symbol value="{date}"/></f></fs></respString>

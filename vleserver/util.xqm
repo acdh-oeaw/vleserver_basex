@@ -1,11 +1,14 @@
 xquery version "3.0";
 module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
 
+declare namespace wde = "https://www.oeaw.ac.at/acdh/tools/vle";
+
 import module namespace jobs = "http://basex.org/modules/jobs";
 import module namespace l = "http://basex.org/modules/admin";
 
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:selfName := tokenize(static-base-uri(), '/')[last()];
+declare variable $_:vleUtilSortKey := "vutlsk";
 
 declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as xs:string) as item()* {
   _:eval($query, $bindings, $jobName, false())
@@ -18,7 +21,7 @@ declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as x
 
 declare %private function _:start-eval-job($query as xs:string, $bindings as map(*)?, $jobName as xs:string, $dontCheckQuery as xs:boolean, $subJobNumber as xs:integer) as xs:string {
     let $too-many-jobs := if (count(jobs:list()) >= xs:integer(db:system()//parallel)) then 
-                          error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests!') else (),
+                          error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests! (>='||db:system()//parallel||')') else (),
         $query-is-sane := $dontCheckQuery or _:query-is-sane($query)
         (:, $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG') :)
         return jobs:eval($query, $bindings, map {
@@ -49,17 +52,31 @@ declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName 
     let $start := prof:current-ns(),
         $randMs := random:integer(100),
         $randSleep := prof:sleep($randMs),
-        $batch-size := floor((xs:integer(db:system()//parallel) - count(jobs:list())) * 1 div 3),
+        $batch-size := _:get-batch-size(),
         $batches := (0 to xs:integer(ceiling(count($queries) div $batch-size))),
         (: , $log := l:write-log('$randMs := '||$randMs||' $batch-size := '||$batch-size, 'DEBUG') :)
         $ret := for $batch-number in $batches
                 let $js := subsequence($queries, $batch-number * $batch-size + 1, $batch-size)!_:start-eval-job(., $bindings, $jobName, $dontCheckQuery, xs:integer($batch-size * $batch-number + position()))
                   , $_ := $js!jobs:wait(.)
-                  , $status := jobs:list-details()[@id = $js]
-                (:, $log := $status!l:write-log('Job '||./@id||' duration '||seconds-from-duration(./@duration)*1000||' ms') :)
-                return $js!(try { jobs:result(.) } catch * {
+                (:, $status := jobs:list-details()[@id = $js]
+                  , $log := $status!l:write-log('Job '||./@id||' duration '||seconds-from-duration(./@duration)*1000||' ms') :)
+                return _:get-results-or-errors($js)
+      , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100
+      , $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($queries)||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
+      (: , $logMore := l:write-log(serialize($ret[. instance of node()]/self::_:error, map{'method': 'xml'})) :)
+    return _:throw-on-error-in-returns($ret)
+};
+
+declare function _:get-batch-size() {
+  floor((xs:integer(db:system()//parallel) - count(jobs:list())) * 1 div 3)
+};
+
+declare function _:get-results-or-errors($js as xs:string*) {
+   $js!(try { jobs:result(.) }
+        catch * {
                   <_:error>
                     <_:code>{$err:code}</_:code>
+                    <_:code-namespace>{namespace-uri-from-QName($err:code)}</_:code-namespace>
                     <_:description>{$err:description}</_:description>
                     <_:value>{$err:value}</_:value>
                     <_:module>{$err:module}</_:module>
@@ -68,34 +85,44 @@ declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName 
                     <_:additional>{$err:additional}</_:additional>
                   </_:error>
                 })
-      , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100
-      , $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($queries)||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
-      (: , $logMore := l:write-log(serialize($ret[. instance of node()]/self::_:error, map{'method': 'xml'})) :)
-    return if (exists($ret[. instance of node()]/self::_:error)) then error(xs:QName(($ret[. instance of node()]/self::_:error)[1]/_:code), ($ret[. instance of node()]/self::_:error)[1]/_:description, string-join($ret[. instance of node()]/self::_:error/_:additional, '&#x0a;')) else $ret
+};
+
+declare function _:throw-on-error-in-returns($ret) {
+if (exists($ret[. instance of node()]/self::_:error))
+then ($ret[. instance of node()]/self::_:error)[1]!error(QName(./_:code-namespace, ./_:code),
+          ($ret[. instance of node()]/self::_:error)[1]/_:description,
+          string-join($ret[. instance of node()]/self::_:error/_:additional, '&#x0a;'))
+else $ret  
 };
 
 declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:string) as document-node() {
    _:get-xml-file-or-default($fn, $default, true())
 };
 
-declare function _:evals($query as xs:string, $bindings as map(*)?, $sequenceKey as xs:string, $jobName as xs:string, $dontCheckQuery as xs:boolean) as item()* {
+(:~
+ : Executes one query using a sequence of different bindings in a map
+ : For example with seqenceKey := 'sequenceKey'
+ : map { 'sequenceKey': (<a/>,<b/>)}
+ :)
+declare function _:evals($query as xs:string, $bindings as map(*)?, $sequenceKey as xs:string, $batch-size as xs:integer, $jobName as xs:string, $dontCheckQuery as xs:boolean) as item()* {
       (: WARNING: Clean up code is missing. If queries come in too fast (below 100 ms between each) or too many (more than 10 is not testet)
        batch-size may go down to 0 and/or the wde:too-many-parallel-requests error may show :)
     let $start := prof:current-ns(),
         $randMs := random:integer(100),
         $randSleep := prof:sleep($randMs),
-        $batch-size := floor((xs:integer(db:system()//parallel) - count(jobs:list())) * 1 div 3),
-        $batches := (0 to xs:integer(ceiling(count($bindings($sequenceKey)) div $batch-size))),
-        (: , $log := l:write-log('$randMs := '||$randMs||' $batch-size := '||$batch-size, 'DEBUG') :)
-        $ret := for $batch-number in $batches
-                let $js := _:start-eval-job($query, map:merge((map {$sequenceKey: subsequence($bindings($sequenceKey), $batch-number * $batch-size + 1, $batch-size)}, $bindings)), $jobName, $dontCheckQuery, xs:integer($batch-size * $batch-number + position()))
+        $batches := (0 to xs:integer(ceiling(count($bindings($sequenceKey)) div $batch-size)) - 1),
+     (: $log := l:write-log('$randMs := '||$randMs||' $batch-size := '||$batch-size, 'DEBUG'), :)
+        $ret := for $batch-number at $batch-pos in $batches
+                let $batch-bindings := map:merge((map {$sequenceKey: subsequence($bindings($sequenceKey), $batch-number * $batch-size + 1, $batch-size)}, $bindings)),
+                 (: $log := l:write-log(serialize($batch-bindings, map {'method': 'basex'}), 'DEBUG'), :)
+                    $js := _:start-eval-job($query, $batch-bindings, $jobName, $dontCheckQuery, xs:integer($batch-size * $batch-number + $batch-pos))
                   , $_ := $js!jobs:wait(.)
-                  , $status := jobs:list-details()[@id = $js]
-                (:, $log := $status!l:write-log('Job '||./@id||' duration '||seconds-from-duration(./@duration)*1000||' ms') :)
-                return $js!jobs:result(.)
+                (:, $status := jobs:list-details()[@id = $js]
+                  , $log := $status!l:write-log('Job '||./@id||' duration '||seconds-from-duration(./@duration)*1000||' ms') :)
+                return _:get-results-or-errors($js)
       , $runtime := ((prof:current-ns() - $start) idiv 10000) div 100,
         $log := if ($runtime > 100) then l:write-log('Batch execution of '||count($bindings($sequenceKey))||' jobs for '||$jobName||' took '||$runtime||' ms') else ()
-    return $ret
+    return _:throw-on-error-in-returns($ret)
 };
 
 declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:string, $fn-is-valid as xs:boolean) as document-node() {
@@ -105,16 +132,39 @@ declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:stri
   return jobs:result($jid)    
 };
 
-declare function _:dehydrate($nodes as node()*) as element(_:dryed)* {
-  for $nodes_per_db in $nodes
-  group by $db_name := db:name($nodes_per_db)
-  return <_:dryed db_name="{$db_name}" count="{count($nodes_per_db)}"
-           pres="{string-join(db:node-pre($nodes_per_db), ' ')}"
-  />
+declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as function(node()) as xs:string*?) as element(_:dryed)* {
+  for $nodes_in_db in $nodes
+  group by $db_name := _:db-name($nodes_in_db)
+  let $pres := db:node-pre($nodes_in_db)
+  return <_:dryed db_name="{$db_name}">
+  {for $n at $i in $nodes_in_db
+    let $extracted-strings := try {
+      $data-extractor-xquery($n)
+    } catch * {
+      '  _error_: '||$err:description
+    },
+       $extracted-string := if (exists($extracted-strings)) then string-join($extracted-strings, ', ') else ()
+    order by $extracted-string ascending
+    return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{attribute {$_:vleUtilSortKey} {$extracted-string}}</_:d>
+  }
+  </_:dryed>
 };
 
-declare function _:hydrate($dryed as element(_:dryed)+) as node()* {
-  let $queries := $dryed!``[tokenize("`{data(./@pres)}`")!db:open-pre("`{./@db_name}`",  xs:integer(.))]``
+(: db:name causes global read lock :)
+declare function _:db-name($n as node()) as xs:string {
+  replace($n/base-uri(), '^/([^/]+)/.*$', '$1')
+};
+
+declare function _:hydrate($dryed as element(_:d)+) as node()* {
+  let $queries := for $d in $dryed
+      let $db_name := $d/../@db_name
+      group by $db_name
+      let $pre_seq := '("'||string-join($d/@pre, '","')||'")',
+          $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey], '","')||'")'
+      return ``[declare namespace  _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+    for $pre at $i in `{$pre_seq}`
+    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:open-pre("`{$db_name}`",  xs:integer($pre))}</_:h>
+  ]``
   return _:evals($queries, (), 'util:hydrate', false())
 };
 
@@ -122,12 +172,21 @@ declare function _:hydrate($dryed as element(_:dryed)+) as node()* {
 (: $filter_code is a XQuery function
    declare function filter($nodes as node()*) as node()* {()};
 :)
-declare function _:hydrate($dryed as element(_:dryed)+, $filter_code as xs:string) as node()* {
-  let $queries := $dryed!``[`{$filter_code}`
-    let $nodes := tokenize("`{data(./@pres)}`")!db:open-pre("`{./@db_name}`",  xs:integer(.))
-    return local:filter($nodes)
+declare function _:hydrate($dryed as element(_:d)+, $filter_code as xs:string) as node()* {
+  let $queries := for $d in $dryed
+      let $db_name := $d/../@db_name
+      group by $db_name
+      let $pre_seq := '('||string-join($d/@pre, ',')||')',
+          $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey], '","')||'")',
+          $assert-seqs-match := if (count($d/@pre) ne count($d/@*[local-name() = $_:vleUtilSortKey]!xs:string(.)))
+            then error(xs:QName('_:seq_mismatch'), 'pre and sort key don''t match')
+            else ()
+      return ``[declare namespace  _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+    `{$filter_code}`
+    for $pre at $i in `{$pre_seq}`
+    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{local:filter(db:open-pre("`{$db_name}`",  $pre))}</_:h>
   ]``
-  return _:evals($queries, (), 'util:hydrate', false())
+  return _:evals($queries, (), 'util:hydrate-and-filter', false())
 };
 
 declare function _:get-public-scheme-and-hostname() as xs:string {

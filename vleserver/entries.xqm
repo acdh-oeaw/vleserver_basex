@@ -26,6 +26,7 @@ declare variable $_:enable_trace := false();
 (:~
  : A list of all entries for a particular dictionary. TODO: Limit by query.
  :
+ : There seems to be a limit of about 80 ids that can be specified at any one time.
  : This will be the URI to search for a particular entry by numerous filter
  : an search options.
  : Search option are defined as queryTemplates in profiles. They can be used as
@@ -46,6 +47,7 @@ declare
     %rest:GET
     %rest:path('/restvle/dicts/{$dict_name}/entries')
     %rest:header-param('Authorization', '{$auth_header}', "")
+    %rest:header-param('Accept', '{$accept}')
     %rest:query-param("page", "{$page}", 1)
     %rest:query-param("pageSize", "{$pageSize}", 25)
     %rest:query-param("id", "{$id}")
@@ -62,8 +64,20 @@ declare
 function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:string,
                                   $pageSize as xs:integer, $page as xs:integer,
                                   $id as xs:string?, $ids as xs:string?,
-                                  $q as xs:string?, $sort as xs:string?) {
-  let $start := prof:current-ns(),
+                                  $q as xs:string?, $sort as xs:string?,
+                                  $accept as xs:string*) {
+  let $start-fun := prof:current-ns(),
+      $start := $start-fun,
+      $check_authenticated_for_q_sort_xquery := if ((exists($q) or
+        (exists($sort) and not($sort = ("none", "asc", "desc"))))
+        and not($accept = 'application/vnd.wde.v2+json'))
+      then error(xs:QName('response-codes:_403'), 
+         $api-problem:codes_to_message(403),
+         'XQuery for sort or q is only allowed if authenticated')
+      else true(),
+      $additional_ret_query_parameters := if ($ids) then map {'ids': $ids}
+        else if ($id) then map {"id": $id}
+        else map {},
       $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
       else error(xs:QName('response-codes:_404'), 
          $api-problem:codes_to_message(404),
@@ -95,53 +109,70 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
                        'Not found',
                        $err:additional)
       },
-      $additional_parameters := if ($ids) then map {'ids': $ids}
-        else if ($id) then map {"id": $id}
-        else map {},
-      $counts := $nodes_or_dryed!(if (. instance of element(util:dryed)) then xs:integer(./@count) else count(./*)),
-      $start-end-pos := for $i at $p in (1, $counts) let $start-pos := sum(($i, (1, $counts)[position() < $p]))
-        return <_>
-        <s>{$start-pos}</s>
-        <e>{if (exists($counts[$p])) then $start-pos + $counts[$p] - 1 else 0}</e>
-        <nd>{$nodes_or_dryed[$p]}</nd>
-        </_>,
-      $total_items := xs:integer($start-end-pos[last()]/s) - 1,
+   (: $log := _:write-log('Got all entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
+      $start := prof:current-ns(), :)
+      $nodes_or_dryed_sorted := switch($sort)
+        case "asc" return for $n in $nodes_or_dryed/*
+        order by $n/@*[local-name() = $util:vleUtilSortKey]
+        return $n
+        case "desc" return for $n in $nodes_or_dryed/*
+        order by $n/@*[local-name() = $util:vleUtilSortKey] descending
+        return $n
+        case "none" return $nodes_or_dryed/*
+        default return for $n in $nodes_or_dryed/*
+        order by $n/@*[local-name() = $util:vleUtilSortKey]
+        return $n,
+      $total_items := count($nodes_or_dryed_sorted),
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
-      $relevant_nodes_or_dryed := $start-end-pos[xs:integer(./e) >= $from and xs:integer(./s) <= $from+$pageSize],
-      $relevant_dbs := distinct-values($relevant_nodes_or_dryed/nd/*/@db_name/data()),
+      $relevant_nodes_or_dryed := subsequence($nodes_or_dryed_sorted, $from, $pageSize),
+      $relevant_dbs := distinct-values($relevant_nodes_or_dryed/../@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
-      $entries_ids := $relevant_nodes_or_dryed/nd/*!(if (. instance of element(util:dryed)) then util:hydrate(., ``[
+      $hydrated_ids := if (exists($relevant_nodes_or_dryed[parent::util:dryed]))
+        then map:merge((for $h in util:hydrate($relevant_nodes_or_dryed[parent::util:dryed], ``[
   declare function local:filter($nodes as node()*) as node()* {
     $nodes/(@xml:id|@ID)
-  };
-]``) else ./*/(@xml:id|@ID)),
-      $from_relevant_nodes := $from - (xs:integer($relevant_nodes_or_dryed[1]/s) - 1),
-      $relevant_ids := subsequence($entries_ids, $from_relevant_nodes, $pageSize),
+  };]``)
+        let $pre := xs:integer($h/@pre)
+        group by $pre
+        return map {$pre: $h}))
+        else ['poisoned', 'should not be used below'],
+      $relevant_ids := for $nd in $relevant_nodes_or_dryed
+        return typeswitch ($nd)
+          case  element(util:d) return $hydrated_ids(xs:integer($nd/@pre))[@db_name = $nd/@db_name]/(@xml:id|@ID)
+          default return $nd/(@xml:id|@ID),
+   (: $log := _:write-log('After relevant entries as attributes: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
+      $start := prof:current-ns(), :)
       (: $log := _:write-log('Relevant IDs: '||string-join(data($relevant_ids), ', '), 'INFO'), :)
-      $locked_entries := lcks:get_user_locking_entries($dict_name, $relevant_ids),
-      $xml_snippets := if ($pageSize <= 25) then data-access:get-entries-by-ids($dict_name, $relevant_ids, $relevant_dbs)/* else (),
-      (: $log := _:write-log('Before entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'), :)
-      $start-entries := prof:current-ns(),
+      $locked_entries := lcks:get_user_locking_entries($dict_name, data($relevant_ids)),
+      $xml_snippets := if ($pageSize <= 25) 
+        then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs)/*
+        else (),
+      $xml_snippets_without_sort_key := $xml_snippets transform with {
+          delete node ./@*[local-name() = $util:vleUtilSortKey]
+        },
+   (: $log := _:write-log('Before entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
+      $start := prof:current-ns(), :)
       $entries_as_documents := for $id in $relevant_ids
-        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $xml_snippets[(@xml:id, @ID) = data($id)], $locked_entries($id))
-    , $log := _:write-log('Generate entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO')
-  return api-problem:or_result($start,
+        (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
+        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $id/../@*[local-name() = $util:vleUtilSortKey], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id))
+ (: , $log := _:write-log('Generate entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO') :)
+  return api-problem:or_result($start-fun,
     json-hal:create_document_list#7, [
-      rest:uri(), 'entries', array{$entries_as_documents}, $pageSize,
-      $total_items, $page, $additional_parameters
+      try {rest:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents}, $pageSize,
+      $total_items, $page, $additional_ret_query_parameters
     ], cors:header(())
   )
 };
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $id as attribute(), $entry as element()?, $isLockedBy as xs:string?) {
+function _:entryAsDocument($_self as xs:anyURI, $id as attribute(), $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?) {
   json-hal:create_document($_self, (
     <id>{data($id)}</id>,
     <sid>{data($id)}</sid>,
-    if (exists($entry)) then <lemma>TODO</lemma> else (),
+    <lemma>{$lemma}</lemma>,
     if (exists($entry//*:fs[@type='change']/*[@name='status'])) then
     <status>{$entry//*:fs[@type='change']/*[@name='status']/*/@value/data/()}</status> else (),
     if (exists($entry//*:fs[@type='change']/*[@name='owner'])) then
@@ -188,7 +219,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
 declare %private function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
   let $savedEntry := data-access:create_new_entry($data, $dict, $status, $owner, $changingUser),
       $run_plugins := plugins:after_created($savedEntry, $dict, $savedEntry/(@xml:id, @ID), $status, $owner, $changingUser)
-  return _:entryAsDocument(xs:anyURI(rest:uri()||'/'||$savedEntry/(@ID, @xml:id)), $savedEntry/(@ID, @xml:id), $savedEntry, ())          
+  return _:entryAsDocument(xs:anyURI(rest:uri()||'/'||$savedEntry/(@ID, @xml:id)), $savedEntry/(@ID, @xml:id), 'TODO', $savedEntry, ())          
 };
 
 declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) as element()+ {
@@ -286,7 +317,7 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
 declare %private function _:change_entry($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
   let $savedEntry := data-access:change_entry($data, $dict, $id, $status, $owner, $changingUser),
       $run_plugins := plugins:after_updated($savedEntry, $dict, $id, $status, $owner, $changingUser)
-  return _:entryAsDocument(rest:uri(), $savedEntry/(@ID, @xml:id), $savedEntry, lcks:get_user_locking_entry($dict, $savedEntry/(@ID, @xml:id)))
+  return _:entryAsDocument(rest:uri(), $savedEntry/(@ID, @xml:id), 'TODO', $savedEntry, lcks:get_user_locking_entry($dict, $savedEntry/(@ID, @xml:id)))
 };
 
 
@@ -336,7 +367,7 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return api-problem:or_result($start, _:entryAsDocument#4, [rest:uri(), $entry/(@xml:id, @ID), $entry, $lockedBy], cors:header(()))
+  return api-problem:or_result($start, _:entryAsDocument#5, [rest:uri(), $entry/(@xml:id, @ID), 'TODO', $entry, $lockedBy], cors:header(()))
 };
 
 (:~

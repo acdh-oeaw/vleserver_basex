@@ -31,7 +31,7 @@ function _:cors_options_response($path as xs:string, $requested-method as xs:str
 };
 
 declare function _:header($config as element(restCORSconfig)?) as map(xs:string, xs:string)? {
-  let $origin := req:header("Origin")
+  let $origin := try { req:header("Origin") } catch basex:http {'urn:local'}
   return if (exists($origin)) then
   map{"Access-Control-Allow-Origin": $origin,
       "Access-Control-Allow-Credentials": "true"}
