@@ -128,7 +128,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
           `{$data-extractor-xquery}`
         };
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
-            $ret := if (count(`{$ids_seq}`) > 25) then util:dehydrate($results, local:extractor#1)
+            $ret := if (count($results) > 25 and `{count($ids)}` > 25) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
                 return $r transform with {insert node attribute {$util:vleUtilSortKey} {local:extractor($r)} as first into . }
