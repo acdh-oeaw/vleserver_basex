@@ -14,12 +14,22 @@ declare function _:get_data_type($data as element()) as xs:string {
     case element(tei:TEI) return 'TEI'
     case element(tei:teiCorpus) return 'teiCorpus'
     case element(profile) return 'profile'
-    case element(tei:header) return 'header'
+    case element(tei:teiHeader) return 'header'
     case element(tei:cit) return 'example'
     case element(tei:entryFree) return 'entryFree'
     case element(tei:xenoData) return 'xenoData'
     case element(_) return '_'
-    default return error(xs:QName('_:error'), 'Unknown data type')
+    default return error(
+      xs:QName('_:error'),
+      'Unknown data type',
+      serialize(element {
+        QName($data/namespace-uri(),
+          if (in-scope-prefixes($data)[1] ne "")
+          then in-scope-prefixes($data)[1]||':'||$data/local-name()
+          else $data/local-name()
+        )} {$data/@*}
+      )
+    )
 };
 
 declare function _:get-parent-node-for-element($c as document-node()*, $dataType as xs:string) as node()* {
