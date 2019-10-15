@@ -160,7 +160,8 @@ declare function _:hydrate($dryed as element(_:d)+) as node()* {
       let $db_name := $d/../@db_name
       group by $db_name
       let $pre_seq := '("'||string-join($d/@pre, '","')||'")',
-          $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey], '","')||'")'
+          $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey]!
+            (replace(., '"', '&amp;quot;', 'q') => replace('&amp;([^q])', '&amp;amp;$1')), '","')||'")'
       return ``[declare namespace  _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
     for $pre at $i in `{$pre_seq}`
     return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:open-pre("`{$db_name}`",  xs:integer($pre))}</_:h>
@@ -177,7 +178,8 @@ declare function _:hydrate($dryed as element(_:d)+, $filter_code as xs:string) a
       let $db_name := $d/../@db_name
       group by $db_name
       let $pre_seq := '('||string-join($d/@pre, ',')||')',
-          $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey], '","')||'")',
+          $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey]!
+            (replace(., '"', '&amp;quot;', 'q') => replace('&amp;([^q])', '&amp;amp;$1')), '","')||'")',
           $assert-seqs-match := if (count($d/@pre) ne count($d/@*[local-name() = $_:vleUtilSortKey]!xs:string(.)))
             then error(xs:QName('_:seq_mismatch'), 'pre and sort key don''t match')
             else ()
