@@ -132,22 +132,21 @@ declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:stri
   return jobs:result($jid)    
 };
 
-declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as function(node()) as xs:string*?) as element(_:dryed)* {
+(: result is not sorted, most probably document order applies :)
+declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as function(node()) as attribute()*?) as element(_:dryed)* {
   for $nodes_in_db in $nodes
   group by $db_name := _:db-name($nodes_in_db)
   let $pres := db:node-pre($nodes_in_db)
-  return <_:dryed db_name="{$db_name}">
+  return (# db:copynode false #) { <_:dryed db_name="{$db_name}" order="none">
   {for $n at $i in $nodes_in_db
-    let $extracted-strings := try {
+    let $extracted-attrs := try {
       $data-extractor-xquery($n)
     } catch * {
       '  _error_: '||$err:description
-    },
-       $extracted-string := if (exists($extracted-strings)) then string-join($extracted-strings, ', ') else ()
-    order by $extracted-string ascending
-    return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{attribute {$_:vleUtilSortKey} {$extracted-string}}</_:d>
+    }
+    return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{$extracted-attrs}</_:d>
   }
-  </_:dryed>
+  </_:dryed> }
 };
 
 (: db:name causes global read lock :)

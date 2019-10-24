@@ -79,8 +79,9 @@ let $dicts := _:get-list-of-data-dbs($dict),
     return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
       else ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-            declare function local:extractor($node as node()) as xs:string* {
-              `{$data-extractor-xquery}`
+            declare function local:extractor($node as node()) as attribute()* {
+              ($node/@ID, $node/@xml:id,
+               attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
             };
             _:do-get-index-data(collection("`{$dict}`"), (), (), local:extractor#1)
             ]``,
@@ -124,8 +125,9 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
       else ()]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-        declare function local:extractor($node as node()) as xs:string* {
-          `{$data-extractor-xquery}`
+        declare function local:extractor($node as node()) as attribute()* {
+          ($node/@ID, $node/@xml:id,
+           attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
         };
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
             $ret := if (count($results) > 25 and `{count($ids)}` > 25) then util:dehydrate($results, local:extractor#1)
@@ -156,8 +158,9 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
     return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-        declare function local:extractor($node as node()) as xs:string* {
-          `{$data-extractor-xquery}`
+        declare function local:extractor($node as node()) as attribute()* {
+          ($node/@ID, $node/@xml:id,
+           attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
         };
         let $results := collection("`{$dict}`")//*[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")],
             $ret := if (count($results) > 25) then util:dehydrate($results, local:extractor#1)
@@ -173,14 +176,18 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
 return $found-in-parts
 };
 
-declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as xs:string*?) {
+declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?) {
+  _:do-get-index-data($c, $id, $dt, $data-extractor-xquery)
+};
+
+declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?, $dehydrate-more-than-results as xs:integer) {
   let $start-time := prof:current-ms(),
     (:, $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
       $all-entries := types:get_all_entries($c),
       $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())],
       (: $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'), :)
       (: does not work for 730 databases and ~2.5 Mio tags that would be processed to extract data :)
-      $ret := if (count($results) > 25) then util:dehydrate($results, $data-extractor-xquery) 
+      $ret := if (count($results) > $dehydrate-more-than-results) then util:dehydrate($results, $data-extractor-xquery) 
               else if (count($results) > 0) then <_ db_name="{util:db-name($c)}">{
                 for $r in $results
                 return $r transform with {insert node attribute {$util:vleUtilSortKey} {$data-extractor-xquery($r)} as first into . }
