@@ -24,10 +24,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
       if (exists($dbs[not(ends-with(., '__prof'))])) then ``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-            declare function local:extractor($node as node()) as attribute()* {
-              ($node/@ID, $node/@xml:id,
-               attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
-            };
+            `{profile:generate-local-extractor-function($profile)}`
             let $dryeds as element(util:dryed)+ := (`{string-join(for $db in $dbs[not(ends-with(., '__prof'))] return ``[
             data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``, ',')
             }`)
@@ -42,41 +39,45 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
     $write-jobs := if (exists($cache-all-entries-scripts)) then util:evals($cache-all-entries-scripts, (),
     'cache-all-entries-script', true()) else (),
     $_ := $write-jobs!jobs:wait(.),
-    $optimize-xquery := "db:optimize('"||$dict||'__cache'||"', true(),"||$_:optimizeOptions||")",
-    $sorted := (
-    util:eval(_:sort-cache-xquery($dict, 'ascending'), (), 'sort-cache-write-order-ascending', true()),
-    util:eval(_:sort-cache-xquery($dict, 'descending'), (), 'sort-cache-write-order-descending', true()))
-    return util:eval($optimize-xquery, (), 'optimize-cache', true())
+    $sorted := _:sort-and-optimize($dict, $profile)
+    return $sorted
+};
+
+declare function _:sort-and-optimize($dict as xs:string, $profile as document-node()) {
+let $alt-lemma-xqueries := profile:get-alt-lemma-xqueries($profile),
+    $optimize-xquery := "db:optimize('"||$dict||'__cache'||"', true(),"||$_:optimizeOptions||")"
+return (util:eval(_:sort-cache-xquery($dict, 'ascending', ()), (), 'sort-cache-write-order-ascending', true()),
+    util:eval(_:sort-cache-xquery($dict, 'descending', ()), (), 'sort-cache-write-order-descending', true()),
+    for $label in map:keys($alt-lemma-xqueries)
+    return (util:eval(_:sort-cache-xquery($dict, 'ascending', $label), (), 'sort-cache-write-'||$label||'-order-ascending', true()),
+    util:eval(_:sort-cache-xquery($dict, 'descending', $label), (), 'sort-cache-write-'||$label||'-order-descending', true())),
+    util:eval($optimize-xquery, (), 'optimize-cache', true()))
 };
 
 (: db:copynode false is essential here. Can exhaust the memory otherwise. :)
-declare function _:sort-cache-xquery($dict as xs:string, $order as xs:string) {
-``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+declare function _:sort-cache-xquery($dict as xs:string, $order as xs:string, $alt-label as xs:string?) {
+let $alt-label-postfix := if (exists($alt-label)) then '-'||$alt-label else '',
+    $alt-label-attribute := if (exists($alt-label)) then ``[ label="`{$alt-label}`"]`` else ""
+return ``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
 (# db:copynode false #) {
 let $sorted := for $d in collection('`{$dict}`__cache')//*[@order="none"]/_:d
-  order by $d/@`{$util:vleUtilSortKey}` `{$order}`
+  order by $d/@`{$util:vleUtilSortKey||$alt-label-postfix}` `{$order}`
   return $d
-return db:replace("`{$dict||'__cache'}`", '`{$order}`_cache.xml', <_:dryed order="`{$order}`">{$sorted}</_:dryed>)}]``
+return db:replace("`{$dict||'__cache'}`", '`{$order||$alt-label-postfix}`_cache.xml', <_:dryed order="`{$order}`"`{$alt-label-attribute}`>{$sorted}</_:dryed>)}]``
 };
 
 declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string) {
 let $dbs:= data-access:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
-    $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $query := ``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at "util.xqm";
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-            declare function local:extractor($node as node()) as attribute()* {
-              ($node/@ID, $node/@xml:id,
-               attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
-            };
+            `{profile:generate-local-extractor-function($profile)}`
             let $dryed as element(util:dryed) := data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)
             return util:eval(``[declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
          declare variable $dryed as element(util:dryed) external;
          db:replace("`{$dict||'__cache'}`", $dryed/@db_name||'_cache.xml', $dryed)]``||']``'||
          ``[, map{'dryed': $dryed}, "refresh-cache-db-`{$db_name}`", true())]``,         
          $optimize-xquery := "db:optimize('"||$dict||'__cache'||"', true(),"||$_:optimizeOptions||")"
-   return (util:eval(_:sort-cache-xquery($dict, 'ascending'), (), 'sort-cache-write-order-ascending', true()),
-    util:eval(_:sort-cache-xquery($dict, 'descending'), (), 'sort-cache-write-order-descending', true()),
-    util:eval($optimize-xquery, (), 'optimize-cache', true()))
+   return _:sort-and-optimize($dict, $profile)
 };

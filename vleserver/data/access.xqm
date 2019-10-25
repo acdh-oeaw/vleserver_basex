@@ -74,20 +74,16 @@ return if (exists($found-in-parts)) then $found-in-parts
 declare function _:get-all-entries($dict as xs:string) {
 let $dicts := _:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
-    $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $get-all-entries-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
       else ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-            declare function local:extractor($node as node()) as attribute()* {
-              ($node/@ID, $node/@xml:id,
-               attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
-            };
+            `{profile:generate-local-extractor-function($profile)}`
             _:do-get-index-data(collection("`{$dict}`"), (), (), local:extractor#1)
             ]``,
-    $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, map {
-      'data-extractor-xquery': $data-extractor-xquery
-    }, 'get-all-entries-script', true()) else ()
+    $found-in-parts := if (exists($get-all-entries-scripts))
+      then util:evals($get-all-entries-scripts, (),
+        'get-all-entries-script', true()) else ()
 return $found-in-parts
 };
 
@@ -125,10 +121,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
       else ()]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-        declare function local:extractor($node as node()) as attribute()* {
-          ($node/@ID, $node/@xml:id,
-           attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
-        };
+        `{profile:generate-local-extractor-function($profile)}`
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
             $ret := if (count($results) > 25 and `{count($ids)}` > 25) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
@@ -158,10 +151,7 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
     return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-        declare function local:extractor($node as node()) as attribute()* {
-          ($node/@ID, $node/@xml:id,
-           attribute {$util:vleUtilSortKey} {string-join(`{$data-extractor-xquery}`, ', ')})
-        };
+        `{profile:generate-local-extractor-function($profile)}`
         let $results := collection("`{$dict}`")//*[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")],
             $ret := if (count($results) > 25) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{

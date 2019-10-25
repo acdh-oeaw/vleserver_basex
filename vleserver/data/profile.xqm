@@ -36,14 +36,17 @@ declare function _:get-xquery-namespace-decls($profile as document-node()) as xs
 };
 
 (: genarates an XQuery snippet that is meant to be used with
-   xquery:eval(profile:get-lemma-xquery(profile), map{'': document {$entry}})
-   so with the entry wraped in a document node. :)
+   the concrete entry supplied as $node :)
 declare function _:get-lemma-xquery($profile as document-node()) as xs:string {
   let $template := if (normalize-space($profile//displayString) ne '') then $profile//displayString/text()
         else $_:default_lemma_xquery,
       $langId := if (normalize-space($profile//mainLangLabel) ne '') then normalize-space($profile//mainLangLabel)
-        else (),
-      $query := $template 
+        else ()
+  return _:template-to-template-string-transformation($template, $langId)
+};
+
+declare function _:template-to-template-string-transformation($template as xs:string, $langId as xs:string?) as xs:string {  
+  let $query := $template 
         => replace('&#x0d;|&#x0a;', ''),
       $query_with_langid := if (exists($langId))
         then replace($query, '{langid}', $langId, 'iq')
@@ -58,6 +61,14 @@ declare function _:get-lemma-xquery($profile as document-node()) as xs:string {
         => replace('^/', '\$node/')
       else ()
   return $query_as_template_string
+};
+
+declare function _:get-alt-lemma-xqueries($profile as document-node()) as map(xs:string, xs:string) {
+let $langId := if (normalize-space($profile//mainLangLabel) ne '') then normalize-space($profile//mainLangLabel)
+        else ()
+return map:merge((for $altDisplayString in $profile//altDisplayString
+  where normalize-space($altDisplayString) ne ''
+  return map{xs:string($altDisplayString/@label): _:template-to-template-string-transformation($altDisplayString, $langId)}))
 };
 
 declare function _:get-list-of-data-dbs($profile as document-node()) as xs:string* {
@@ -77,6 +88,19 @@ declare function _:get-name-for-new-db($profile as document-node(), $current-db-
       exists($profile/profile/tableName/@find-dbs))
   then data($profile/profile/tableName/@generate-db-prefix)||format-integer($current-db-count, '000')
   else $profile/profile/tableName/text()
+};
+
+declare function _:generate-local-extractor-function($profile as document-node()) as xs:string {
+let $data-extractor-xquery := _:get-lemma-xquery($profile),
+    $alt-extractor-xqueries := _:get-alt-lemma-xqueries($profile)
+return ``[declare function local:extractor($node as node()) as attribute()* {
+  ($node/@ID, $node/@xml:id,
+  attribute {"`{$util:vleUtilSortKey}`"} {string-join(`{$data-extractor-xquery}`!normalize-space(.), ', ')}`{
+  if (exists($alt-extractor-xqueries?*)) then ",&#x0a;"||string-join(for $label in map:keys($alt-extractor-xqueries)
+    return ``[attribute {"`{$util:vleUtilSortKey||'-'||$label}`"} {string-join(`{$alt-extractor-xqueries($label)}`!normalize-space(.), ', ')}]``, ",&#x0a;") 
+    else () }` 
+  )
+};]``  
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
