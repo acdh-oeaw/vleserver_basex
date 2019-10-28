@@ -34,7 +34,7 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
           let $status-code-from-local-name := replace(local-name-from-QName($err:code), '_', '')
           return if ($status-code-from-local-name castable as xs:integer and 
                      xs:integer($status-code-from-local-name) > 400 and
-                     xs:integer($status-code-from-local-name) < 500) then xs:integer($status-code-from-local-name) else 400
+                     xs:integer($status-code-from-local-name) < 511) then xs:integer($status-code-from-local-name) else 400
         else 400        
         return _:return_problem($start-time-ns,
                 <problem xmlns="urn:ietf:rfc:7807">
@@ -93,7 +93,7 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
           let $status-code-from-local-name := replace(local-name-from-QName(xs:QName($code)), '_', '')
           return if ($status-code-from-local-name castable as xs:integer and 
                      xs:integer($status-code-from-local-name) >= 400 and
-                     xs:integer($status-code-from-local-name) < 500) then xs:integer($status-code-from-local-name) else
+                     xs:integer($status-code-from-local-name) < 511) then xs:integer($status-code-from-local-name) else
                      (500, admin:write-log($additional, 'ERROR'))
         return _:return_problem($start-time-ns,
                 <problem xmlns="urn:ietf:rfc:7807">
