@@ -12,6 +12,7 @@ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
 import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator.xqm';
@@ -22,6 +23,7 @@ declare namespace test = "http://exist-db.org/xquery/xqsuite";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 
 declare variable $_:enable_trace := false();
+declare variable $_:dont_try_to_return_more_than := 200000;
 
 (:~
  : A list of all entries for a particular dictionary. TODO: Limit by query.
@@ -81,52 +83,52 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
       else error(xs:QName('response-codes:_404'), 
          $api-problem:codes_to_message(404),
-         'Dictionary '||$dict_name||' does not exist'),
-      $userName := _:getUserNameFromAuthorization($auth_header),
-      $nodes_or_dryed := try {
+         'Dictionary '||$dict_name||' does not exist'),      
+      $id-is-not-empty-or-no-filter :=
         if ($ids instance of xs:string) then
-          let $id-is-not-empty := if ($ids ne '') then true()
+            if ($ids ne '') then true()
             else error(xs:QName('response-codes:_404'),
             $api-problem:codes_to_message(404),
             'ids= does not select anything')
-        return data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
         else if ($id instance of xs:string) then
           if (ends-with($id, '*')) then
-          let $id-is-not-start := if ($id ne '*') then true()
+            if ($id ne '*') then true()
             else error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),
             'id=* is no useful filter')
-          return data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
           else
-          let $id-is-not-empty := if ($id ne '') then true()
+            if ($id ne '') then true()
             else error(xs:QName('response-codes:_404'),
             $api-problem:codes_to_message(404),
-            'id= does not select anything')
-          return data-access:get-entries-by-ids($dict_name, $id)
-        else data-access:get-all-entries($dict_name) 
-      } catch err:FODC0002 {
-        error(xs:QName('response-codes:_404'),
-                       'Not found',
-                       $err:additional)
-      },
-   (: $log := _:write-log('Got all entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
-      $start := prof:current-ns(), :)
-      $nodes_or_dryed_sorted := switch($sort)
-        case "asc" return for $n in $nodes_or_dryed/*
-        order by $n/@*[local-name() = $util:vleUtilSortKey]
-        return $n
-        case "desc" return for $n in $nodes_or_dryed/*
-        order by $n/@*[local-name() = $util:vleUtilSortKey] descending
-        return $n
-        case "none" return $nodes_or_dryed/*
-        default return for $n in $nodes_or_dryed/*
-        order by $n/@*[local-name() = $util:vleUtilSortKey]
-        return $n,
-      $total_items := count($nodes_or_dryed_sorted),
+            'id= does not select anything'),
+      $userName := _:getUserNameFromAuthorization($auth_header),
+      $profile := profile:get($dict_name),
+      $total_items := if (exists($profile//useCache)) then
+        error(xs:QName('response-codes:_501'), 
+          $api-problem:codes_to_message(501))
+        else
+          if ($ids instance of xs:string) then
+            data-access:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+          else if ($id instance of xs:string) then
+            if (ends-with($id, '*')) then
+              data-access:count-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
+            else
+              data-access:count-entries-by-ids($dict_name, $id)
+          else data-access:count-all-entries($dict_name),
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
-      $relevant_nodes_or_dryed := subsequence($nodes_or_dryed_sorted, $from, $pageSize),
+      $relevant_nodes_or_dryed := if (exists($profile//useCache)) then
+      error(xs:QName('response-codes:_501'), 
+         $api-problem:codes_to_message(501))
+      else
+        let $total-items-is-not-more-than-200000 := if ($total_items <= $_:dont_try_to_return_more_than) then true()
+          else error(xs:QName('response-codes:_413'), 
+            $api-problem:codes_to_message(413),
+            'You selected '||$total_items||' entries which is more than the server can deliver ('||
+            $_:dont_try_to_return_more_than||').'||
+            'Use caching if you need to browse more entries.')
+        return _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $from, $pageSize),
       $relevant_dbs := distinct-values($relevant_nodes_or_dryed/../@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $hydrated_ids := if (exists($relevant_nodes_or_dryed[parent::util:dryed]))
@@ -164,6 +166,40 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $total_items, $page, $additional_ret_query_parameters
     ], cors:header(())
   )
+};
+
+declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
+  $id as xs:string?, $ids as xs:string*,
+  $sort as xs:string, $from as xs:integer, $num as xs:integer)
+  as element()* {
+let (: $start := prof:current-ns(), :)
+    $nodes_or_dryed := try {
+        if ($ids instance of xs:string) then
+          data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+        else if ($id instance of xs:string) then
+          if (ends-with($id, '*')) then
+            data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
+          else
+            data-access:get-entries-by-ids($dict_name, $id)
+        else data-access:get-all-entries($dict_name) 
+      } catch err:FODC0002 {
+        error(xs:QName('response-codes:_404'),
+                       'Not found',
+                       $err:additional)
+      },
+ (: $log := _:write-log('Got all entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'), :)
+    $nodes_or_dryed_sorted := switch($sort)
+        case "asc" return for $n in $nodes_or_dryed/*
+        order by $n/@*[local-name() = $util:vleUtilSortKey]
+        return $n
+        case "desc" return for $n in $nodes_or_dryed/*
+        order by $n/@*[local-name() = $util:vleUtilSortKey] descending
+        return $n
+        case "none" return $nodes_or_dryed/*
+        default return for $n in $nodes_or_dryed/*
+        order by $n/@*[local-name() = $util:vleUtilSortKey]
+        return $n
+  return subsequence($nodes_or_dryed_sorted, $from, $num)
 };
 
 declare

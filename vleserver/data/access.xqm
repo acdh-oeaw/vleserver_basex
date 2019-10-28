@@ -87,6 +87,13 @@ let $dicts := _:get-list-of-data-dbs($dict),
 return $found-in-parts
 };
 
+declare function _:count-all-entries($dict as xs:string) as xs:integer {
+let $xqueries := _:get-list-of-data-dbs($dict)!
+``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(types:get_all_entries(collection("`{.}`")))]``
+return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
+};
+
 declare function _:get-profile-with-sort-xquery($dict as xs:string) as xs:string {
 ``[<_ db_name="`{$dict}`">{
       collection("`{$dict}`")//profile transform with {
@@ -139,6 +146,14 @@ return if (exists($found-in-parts)) then $found-in-parts
                            'IDs '||$ids_seq||' not found')
 };
 
+declare function _:count-entries-by-ids($dict as xs:string, $ids as xs:string+) {
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+    $xqueries := _:get-list-of-data-dbs($dict)!
+``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(db:attribute("`{.}`", `{$ids_seq}`))]``
+return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
+};
+
 (:~ 
  : If there are more than 25 results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
@@ -166,13 +181,20 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
 return $found-in-parts
 };
 
+declare function _:count-entries-by-id-starting-with($dict_name as xs:string, $id_start as xs:string) {
+let $xqueries := _:get-list-of-data-dbs($dict_name)!
+``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(index:attributes("`{.}`", "`{$id_start}`"))]``
+return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
+};
+
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?) {
   _:do-get-index-data($c, $id, $dt, $data-extractor-xquery)
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?, $dehydrate-more-than-results as xs:integer) {
-  let $start-time := prof:current-ms(),
-    (:, $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
+  let (: $start-time := prof:current-ms(), :)
+      (: $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
       $all-entries := types:get_all_entries($c),
       $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())],
       (: $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'), :)
