@@ -81,6 +81,8 @@ let $dicts := _:get-list-of-data-dbs($dict),
             `{profile:generate-local-extractor-function($profile)}`
             _:do-get-index-data(collection("`{$dict}`"), (), (), local:extractor#1)
             ]``,
+    $log-script1 := _:write-log($get-all-entries-scripts[1], 'INFO'),    
+    $log-scriptn := _:write-log($get-all-entries-scripts[2], 'INFO'),
     $found-in-parts := if (exists($get-all-entries-scripts))
       then util:evals($get-all-entries-scripts, (),
         'get-all-entries-script', true()) else ()
@@ -89,8 +91,9 @@ return $found-in-parts
 
 declare function _:count-all-entries($dict as xs:string) as xs:integer {
 let $xqueries := _:get-list-of-data-dbs($dict)!
-``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
-  count(types:get_all_entries(collection("`{.}`")))]``
+(if (ends-with(., '__prof')) then "1"
+ else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(types:get_all_entries(collection("`{.}`")))]``)
 return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
 };
 
@@ -133,7 +136,8 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
             $ret := if (count($results) > 25 and `{count($ids)}` > 25) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
-                return $r transform with {insert node attribute {$util:vleUtilSortKey} {local:extractor($r)} as first into . }
+                let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
+                return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
         return $ret]``,
@@ -149,8 +153,9 @@ return if (exists($found-in-parts)) then $found-in-parts
 declare function _:count-entries-by-ids($dict as xs:string, $ids as xs:string+) {
 let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $xqueries := _:get-list-of-data-dbs($dict)!
-``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
-  count(db:attribute("`{.}`", `{$ids_seq}`))]``
+(if (ends-with(., '__prof')) then ``[if (exists(`{$ids_seq}`[. = 'dictProfile'])) then 1 else 0]``
+ else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(db:attribute("`{.}`", `{$ids_seq}`))]``)
 return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
 };
 
@@ -171,7 +176,8 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
             $ret := if (count($results) > 25) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
-                return $r transform with {insert node attribute {$util:vleUtilSortKey} {local:extractor($r)} as first into . }
+                let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
+                return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
         return $ret]``,
@@ -183,13 +189,14 @@ return $found-in-parts
 
 declare function _:count-entries-by-id-starting-with($dict_name as xs:string, $id_start as xs:string) {
 let $xqueries := _:get-list-of-data-dbs($dict_name)!
-``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
-  count(index:attributes("`{.}`", "`{$id_start}`"))]``
+(if (ends-with(., '__prof')) then ``[if (starts-with('dictProfile', "`{$id_start}`")) then 1 else 0]``
+ else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(index:attributes("`{.}`", "`{$id_start}`")!db:attribute("`{.}`", .)[. instance of attribute(xml:id) or attribute(ID)])]``)
 return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?) {
-  _:do-get-index-data($c, $id, $dt, $data-extractor-xquery)
+  _:do-get-index-data($c, $id, $dt, $data-extractor-xquery, 25)
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?, $dehydrate-more-than-results as xs:integer) {
@@ -202,7 +209,8 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, 
       $ret := if (count($results) > $dehydrate-more-than-results) then util:dehydrate($results, $data-extractor-xquery) 
               else if (count($results) > 0) then <_ db_name="{util:db-name($c)}">{
                 for $r in $results
-                return $r transform with {insert node attribute {$util:vleUtilSortKey} {$data-extractor-xquery($r)} as first into . }
+                let $extracted-data := if (exists($data-extractor-xquery)) then $data-extractor-xquery($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))] else ()
+                return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
     (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)

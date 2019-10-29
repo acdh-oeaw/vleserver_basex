@@ -170,7 +170,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
 
 declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
   $id as xs:string?, $ids as xs:string*,
-  $sort as xs:string, $from as xs:integer, $num as xs:integer)
+  $sort as xs:string?, $from as xs:integer, $num as xs:integer)
   as element()* {
 let (: $start := prof:current-ns(), :)
     $nodes_or_dryed := try {
