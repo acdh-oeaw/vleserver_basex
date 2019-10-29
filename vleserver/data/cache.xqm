@@ -81,3 +81,19 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
          $optimize-xquery := "db:optimize('"||$dict||'__cache'||"', true(),"||$_:optimizeOptions||")"
    return _:sort-and-optimize($dict, $profile)
 };
+
+declare function _:get-all-entries($dict as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?) as element(util:d)* {
+let $sort := switch($sort)
+        case "asc" return "ascending"
+        case "desc" return "descending"
+        case "none" return "none"
+        default return "ascending",
+    $label := if (exists($label)) then "and @label = '"||$label||"'" else "and not(@label)"
+return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+  subsequence(collection("`{$dict}`__cache")//_:dryed[@order='`{$sort}`' `{$label}`]/_:d, `{$from}`, `{$num}`)]``, (), 'count-all-entries')
+};
+
+declare function _:count-all-entries($dict as xs:string) as xs:integer {
+  util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+  count(collection("`{$dict}`__cache")//_:dryed[@order='none']/_:d)]``, (), 'count-all-entries')
+};

@@ -156,25 +156,24 @@ declare function _:db-name($n as node()) as xs:string {
 
 declare function _:hydrate($dryed as element(_:d)+) as node()* {
   let $queries := for $d in $dryed
-      let $db_name := $d/../@db_name
+      let $db_name := $d/@db_name
       group by $db_name
-      let $pre_seq := '("'||string-join($d/@pre, '","')||'")',
+      let $pre_seq := '('||string-join($d/@pre, ', ')||')',
           $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey]!
             (replace(., '"', '&amp;quot;', 'q') => replace('&amp;([^q])', '&amp;amp;$1')), '","')||'")'
       return ``[declare namespace  _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
     for $pre at $i in `{$pre_seq}`
-    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:open-pre("`{$db_name}`",  xs:integer($pre))}</_:h>
+    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:open-pre("`{$db_name}`", $pre)}</_:h>
   ]``
   return _:evals($queries, (), 'util:hydrate', false())
 };
-
 
 (: $filter_code is a XQuery function
    declare function filter($nodes as node()*) as node()* {()};
 :)
 declare function _:hydrate($dryed as element(_:d)+, $filter_code as xs:string) as node()* {
   let $queries := for $d in $dryed
-      let $db_name := $d/../@db_name
+      let $db_name := $d/@db_name
       group by $db_name
       let $pre_seq := '('||string-join($d/@pre, ',')||')',
           $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey]!

@@ -12,6 +12,7 @@ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'data/cache.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
@@ -56,6 +57,7 @@ declare
     %rest:query-param("ids", "{$ids}")
     %rest:query-param("q", "{$q}")
     %rest:query-param("sort", "{$sort}")
+    %rest:query-param("altLemma", "{$altLemma}")
     %test:arg("page", 1)
     %test:arg("pageSize", 10)
     %rest:produces('application/json')
@@ -67,7 +69,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
                                   $pageSize as xs:integer, $page as xs:integer,
                                   $id as xs:string?, $ids as xs:string?,
                                   $q as xs:string?, $sort as xs:string?,
-                                  $accept as xs:string*) {
+                                  $altLemma as xs:string?, $accept as xs:string*) {
   let $start-fun := prof:current-ns(),
       $start := $start-fun,
       $check_authenticated_for_q_sort_xquery := if ((exists($q) or
@@ -103,10 +105,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
             'id= does not select anything'),
       $userName := _:getUserNameFromAuthorization($auth_header),
       $profile := profile:get($dict_name),
-      $total_items := if (exists($profile//useCache)) then
-        error(xs:QName('response-codes:_501'), 
-          $api-problem:codes_to_message(501))
-        else
+      $total_items := 
           if ($ids instance of xs:string) then
             data-access:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
           else if ($id instance of xs:string) then
@@ -114,35 +113,27 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
               data-access:count-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
             else
               data-access:count-entries-by-ids($dict_name, $id)
-          else data-access:count-all-entries($dict_name),
+          else if (exists($profile//useCache))
+            then cache:count-all-entries($dict_name)
+            else data-access:count-all-entries($dict_name),
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
-      $relevant_nodes_or_dryed := if (exists($profile//useCache)) then
-      error(xs:QName('response-codes:_501'), 
-         $api-problem:codes_to_message(501))
-      else
-        let $total-items-is-not-more-than-200000 := if ($total_items <= $_:dont_try_to_return_more_than) then true()
+      $relevant_nodes_or_dryed :=
+        let $total-items-is-not-more-than := if ($total_items <= $_:dont_try_to_return_more_than or exists($profile//useCache)) then true()
           else error(xs:QName('response-codes:_413'), 
             $api-problem:codes_to_message(413),
             'You selected '||$total_items||' entries which is more than the server can deliver ('||
             $_:dont_try_to_return_more_than||').'||
             'Use caching if you need to browse more entries.')
-        return _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $from, $pageSize),
+        return if (exists($profile//useCache))
+          then _:get-dryed-from-cache($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
+          else _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize),
       $relevant_dbs := distinct-values($relevant_nodes_or_dryed/../@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
-      $hydrated_ids := if (exists($relevant_nodes_or_dryed[parent::util:dryed]))
-        then map:merge((for $h in util:hydrate($relevant_nodes_or_dryed[parent::util:dryed], ``[
-  declare function local:filter($nodes as node()*) as node()* {
-    $nodes/(@xml:id|@ID)
-  };]``)
-        let $pre := xs:integer($h/@pre)
-        group by $pre
-        return map {$pre: $h}))
-        else ['poisoned', 'should not be used below'],
       $relevant_ids := for $nd in $relevant_nodes_or_dryed
         return typeswitch ($nd)
-          case  element(util:d) return $hydrated_ids(xs:integer($nd/@pre))[@db_name = $nd/@db_name]/(@xml:id|@ID)
+          case  element(util:d) return $nd/(@xml:id|@ID)
           default return $nd/(@xml:id|@ID),
    (: $log := _:write-log('After relevant entries as attributes: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
       $start := prof:current-ns(), :)
@@ -152,13 +143,14 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs)/*
         else (),
       $xml_snippets_without_sort_key := $xml_snippets transform with {
-          delete node ./@*[local-name() = $util:vleUtilSortKey]
+          delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]
         },
    (: $log := _:write-log('Before entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
       $start := prof:current-ns(), :)
+      $label := if (exists($altLemma)) then '-'||$altLemma else '',
       $entries_as_documents := for $id in $relevant_ids
         (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
-        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $id/../@*[local-name() = $util:vleUtilSortKey], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id))
+        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id))
  (: , $log := _:write-log('Generate entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO') :)
   return api-problem:or_result($start-fun,
     json-hal:create_document_list#7, [
@@ -168,11 +160,22 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
   )
 };
 
+declare function _:get-dryed-from-cache($dict_name as xs:string,
+  $id as xs:string?, $ids as xs:string*,
+  $sort as xs:string?, $label as xs:string?,
+  $from as xs:integer, $num as xs:integer, $total_items_expected as xs:integer) {
+if ($ids instance of xs:string or $id instance of xs:string) 
+then _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $label, $from, $num)
+else cache:get-all-entries($dict_name, $from, $num, $sort, $label)
+};
+
 declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
   $id as xs:string?, $ids as xs:string*,
-  $sort as xs:string?, $from as xs:integer, $num as xs:integer)
+  $sort as xs:string?, $label as xs:string?,
+  $from as xs:integer, $num as xs:integer)
   as element()* {
 let (: $start := prof:current-ns(), :)
+    $label := if (exists($label)) then '-'||$label else '',
     $nodes_or_dryed := try {
         if ($ids instance of xs:string) then
           data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
@@ -190,14 +193,14 @@ let (: $start := prof:current-ns(), :)
  (: $log := _:write-log('Got all entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'), :)
     $nodes_or_dryed_sorted := switch($sort)
         case "asc" return for $n in $nodes_or_dryed/*
-        order by $n/@*[local-name() = $util:vleUtilSortKey]
+        order by $n/@*[local-name() = $util:vleUtilSortKey||$label]
         return $n
         case "desc" return for $n in $nodes_or_dryed/*
-        order by $n/@*[local-name() = $util:vleUtilSortKey] descending
+        order by $n/@*[local-name() = $util:vleUtilSortKey||$label] descending
         return $n
         case "none" return $nodes_or_dryed/*
         default return for $n in $nodes_or_dryed/*
-        order by $n/@*[local-name() = $util:vleUtilSortKey]
+        order by $n/@*[local-name() = $util:vleUtilSortKey||$label]
         return $n
   return subsequence($nodes_or_dryed_sorted, $from, $num)
 };
@@ -205,6 +208,7 @@ let (: $start := prof:current-ns(), :)
 declare
   %private
 function _:entryAsDocument($_self as xs:anyURI, $id as attribute(), $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?) {
+(# db:copynode false #) {
   json-hal:create_document($_self, (
     <id>{data($id)}</id>,
     <sid>{data($id)}</sid>,
@@ -216,6 +220,7 @@ function _:entryAsDocument($_self as xs:anyURI, $id as attribute(), $lemma as xs
     if (exists($isLockedBy)) then <locked>{$isLockedBy}</locked> else (),
     if (exists($entry)) then <type>{types:get_data_type($entry)}</type> else (),
     if (exists($entry)) then <entry>{serialize($entry)}</entry> else ()))
+}
 };
 
 (:~
