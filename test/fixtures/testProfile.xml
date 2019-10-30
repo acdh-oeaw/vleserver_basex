@@ -30,6 +30,7 @@
 </queryTemplates>
 <mainLangLabel>{{mainLangLabel}}</mainLangLabel>
 <displayString>{{displayString}}</displayString>
+{{#if altDisplayString}}<altDisplayString label="{{altDisplayString/label}}">{{altDisplayString/displayString}}</altDisplayString>{{/if}}
 <entrySchema>
 </entrySchema>
 <entryStyle><xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/xhtml" xmlns:mds="http://www.loc.gov/mods/v3" version="1.0">

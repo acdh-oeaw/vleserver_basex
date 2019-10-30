@@ -74,8 +74,9 @@ return if (exists($found-in-parts)) then $found-in-parts
 declare function _:get-all-entries($dict as xs:string) {
 let $dicts := _:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
+    $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
+    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict, $altLabels)
       else ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
@@ -97,12 +98,13 @@ let $xqueries := _:get-list-of-data-dbs($dict)!
 return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
 };
 
-declare function _:get-profile-with-sort-xquery($dict as xs:string) as xs:string {
-``[<_ db_name="`{$dict}`">{
-      collection("`{$dict}`")//profile transform with {
-        insert node attribute {"`{$util:vleUtilSortKey}`"} {"   profile"} as first into .
-     }}
-   </_>]``
+declare function _:get-profile-with-sort-xquery($db_name as xs:string, $altLabels as xs:string*) as xs:string {
+let $labels := ('', $altLabels!('-'||.))
+return ``[<_ db_name="`{$db_name}`">{
+  collection("`{$db_name}`")//profile transform with {
+`{string-join($labels!``[    insert node attribute {"`{$util:vleUtilSortKey||.}`"} {"   profile"} as first into .]``, ',&#x0a;')}`
+  }}
+</_>]``
 };
 
 (:~ 
@@ -124,10 +126,11 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $profile := profile:get($dict),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
+    $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $get-entries-by-ids-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) then ``[
       if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`])
-      then `{_:get-profile-with-sort-xquery($dict)}`
+      then `{_:get-profile-with-sort-xquery($dict, $altLabels)}`
       else ()]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
@@ -167,8 +170,9 @@ declare function _:get-entries-by-id-starting-with($dict_name as xs:string, $id_
 let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
     $profile := profile:get($dict_name),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
+    $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
+    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict, $altLabels)
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
         `{profile:generate-local-extractor-function($profile)}`

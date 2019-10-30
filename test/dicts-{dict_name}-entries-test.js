@@ -43,10 +43,15 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         testProfileTemplate = compiledProfileTemplate({
             'dictName': 'replaced',
             'mainLangLabel': 'aNCName',        
-            'displayString': '{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}'
+            'displayString': '{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}',
+            'altDisplayString': {
+                'label': 'test',
+                'displayString': '//mds:titleInfo/mds:title'
+            }
         });
         expect(testProfileTemplate).to.contain("<tableName>replaced</tableName>");
         expect(testProfileTemplate).to.contain('displayString>{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}<');
+        expect(testProfileTemplate).to.contain('altDisplayString label="test">//mds:titleInfo/mds:title<');
         expect(testProfileTemplate).to.contain('mainLangLabel>aNCName<');
         var testEntryTemplate = fs.readFileSync('test/fixtures/testEntry.xml', 'utf8');
         expect(testEntryTemplate).to.contain('"http://www.tei-c.org/ns/1.0"');        
@@ -267,6 +272,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                             'dictName': dictuser.table,                            
                             'mainLangLabel': 'fa-x-modDMG',     
                             'displayString': '//tei:form/tei:orth[@xml:lang = "{langid}"]',
+                            'altDisplayString': {
+                                'label': 'fa-Arab',
+                                'displayString': '//tei:form/tei:orth[@xml:lang = "fa-Arab"]'
+                            }
                         })
                     },
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
@@ -316,6 +325,26 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     expect(body._embedded.entries).to.have.length(2)
                     expect(body._embedded.entries[0].id).to.equal("dictProfile")
                     expect(body._embedded.entries[1].id).to.equal("test01")
+                    expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ")
+                });
+                return chakram.wait();
+            });
+
+            it('get all entries with an alternate lemma', function () {
+                var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {"altLemma": "fa-Arab"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.total_items).to.equal("2")
+                    expect(body._embedded.entries).to.have.length(2)
+                    expect(body._embedded.entries[0].id).to.equal("dictProfile")
+                    expect(body._embedded.entries[1].id).to.equal("test01")
+                    expect(body._embedded.entries[1].lemma).to.equal("تست")
                 });
                 return chakram.wait();
             });
