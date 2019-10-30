@@ -1,4 +1,4 @@
-<entry xmlns="http://www.tei-c.org/ns/1.0" numID="9" xml:id="{{xmlID}}">
+<entry xmlns="http://www.tei-c.org/ns/1.0" xml:id="{{xmlID}}" xml:lang="en" type="mainEntry">
    <form type="lemma">
       <orth xml:lang="fa-Arab">{{formFaArab}}</orth>
       <orth xml:lang="fa-x-modDMG">{{formFaXModDMG}}</orth>
@@ -8,7 +8,7 @@
       <gram type="pos">{{pos}}</gram>
    </gramGrp>
 
-   <sense>
+   <sense xml:id="sense-1">
       <cit type="translation" xml:lang="en">
          <quote>{{translation_en}}</quote>
       </cit>
