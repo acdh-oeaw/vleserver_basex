@@ -29,6 +29,24 @@ declare function _:get($dict_name as xs:string) as document-node() {
   util:eval(``[collection("`{$dict_name}`__prof")]``, (), 'get-profile')
 };
 
+declare function _:get-rng-schema($dict_name as xs:string) as xs:string {
+    let $schema := _:get($dict_name)/profile/entrySchema/Q{http://relaxng.org/ns/structure/1.0}grammar
+    (: let $log := _:write-log('method get-schema invoked '||serialize($schema)) :)
+    return concat('<?xml version="1.0" encoding="utf-8"?>',serialize($schema))
+};
+
+declare function _:get-xsd-schema($dict_name as xs:string) as xs:string {
+    let $schema := serialize(_:get($dict_name)/profile/entrySchema/Q{http://www.w3.org/2001/XMLSchema}schema)
+    return concat('<?xml version="1.0" encoding="utf-8"?>',$schema)
+};
+
+declare function _:get-schema-type($dict_name as xs:string) as xs:string {
+    let $schema_type := if (exists(_:get($dict_name)/profile/entrySchema/Q{http://relaxng.org/ns/structure/1.0}grammar)) then 'rng'
+        else if (exists(_:get($dict_name)/profile/entrySchema/Q{http://www.w3.org/2001/XMLSchema}schema)) then 'xsd'
+        else error(xs:QName('response-codes:_404'),'No schema for validation available','Need a relaxng grammar or a xml schema.')
+    return $schema_type
+};
+
 declare function _:get-xquery-namespace-decls($profile as document-node()) as xs:string* {
   let $ret := $profile//namespaces/ns!``[declare namespace `{data(./@prefix)}` = "`{data(./@uri)}`";]``
   return if (exists($ret)) then $ret
@@ -81,4 +99,8 @@ declare function _:get-name-for-new-db($profile as document-node(), $current-db-
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
+};
+
+declare %private function _:write-log($message as xs:string) {
+    admin:write-log($message,"trace")
 };

@@ -15,6 +15,7 @@ import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/dat
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
 import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator.xqm';
+import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
 declare namespace http = "http://expath.org/ns/http-client";
@@ -211,6 +212,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
   let $start := prof:current-ns(),
       $userName := _:getUserNameFromAuthorization($auth_header),
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
+      (: $log := _:write-log(serialize($entry)), :)
       $status := $userData/json/status/text(),
       $owner := $userData/json/owner/text()
   return api-problem:or_result($start, _:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, cors:header(()))
@@ -248,19 +250,52 @@ declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $use
   "entry": "The entry as XML fragment."
 } object.&#x0a;]``||
                'JSON was: '||serialize($userData, map{'method': 'json'})),
-      $entry := try {parse-xml-fragment($userData/json/entry/text())/*
+      $entry := try {parse-xml-fragment($userData/json/entry/text())
         } catch * {
           error(xs:QName('response-codes:_422'),
-               'Entry is not paresable as XML',
+               'Entry is not parseable as XML'||$err:additional,
                'Need some well formed XML. '||
                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
                $err:additional) 
         },
-      $check_new_node_has_id := if (exists($entry/(@xml:id, @ID))) then true()
+       $testfortextnodeonly := if ($entry/child::node() instance of text()) then error(xs:QName('response-codes:_422'),'Error during parsing','Data consists only of text - no markup') else(),
+        (: $log := _:write-log("value of entry/profile " || $entry/profile), :)
+        (: $log := _:write-log("value of entry " || serialize($entry)), :)
+        (: $log := _:write-log(serialize(profile:get-schema($dict_name))), :)
+      $validation := try {
+            if(types:get_data_type_of_document($entry) = 'entry') then
+                if(profile:get-schema-type($dict_name) = 'rng') then
+                    validate:rng($entry,profile:get-rng-schema($dict_name))
+                else validate:xsd($entry,profile:get-xsd-schema($dict_name))
+            else ()
+        } catch basex:init {
+            error(xs:QName('response-codes:_422'),'Error during validation','The validation cannot be started.'||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional)
+        } catch basex:not-found {
+            error(xs:QName('response-codes:_422'),'Error during validation','No validator is available. '||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional)
+        } catch basex:version {
+            error(xs:QName('response-codes:_422'),'Error during validation','No validator is found for the specified version. '||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional)
+        } catch * {
+            let $report := if (profile:get-schema-type($dict_name) = 'rng') then validate:rng-report($entry,profile:get-rng-schema($dict_name))
+                           else validate:xsd-report($entry,profile:get-xsd-schema($dict_name)),
+            $error := error(xs:QName('response-codes:_422'),'Error during validation '||$report,
+                'The document cannot be validated against the specified schema. '||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional||'&#x0a;'||
+                'Error report: '||$report)
+            return $entry/*
+        },
+      $check_new_node_has_id := if ((exists($entry/profile/@xml:id)) or (exists($entry/Q{http://www.tei-c.org/ns/1.0}entry/@xml:id))
+                                     or (exists($entry/profile/@ID)) or (exists($entry/Q{http://www.tei-c.org/ns/1.0}entry/@ID))) then true()
         else error(xs:QName('response-codes:_422'),
-                  '@xml:id or @ID missing on data node',
+                  '@xml:id or @ID missing on data node'||serialize($entry),
                   'Element '||$entry/local-name()||' needs to have either an xml:id attribute or an ID attribute.')   
-  return $entry 
+  return $entry/*
 };
 
 declare %private function _:getUserNameFromAuthorization($auth_header as xs:string) as xs:string {
@@ -403,4 +438,8 @@ declare %private function _:delete_entry($dict as xs:string, $id as xs:string, $
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
+};
+
+declare %private function _:write-log($message as xs:string) {
+    admin:write-log($message,"trace")
 };
