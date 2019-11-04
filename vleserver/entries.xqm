@@ -164,9 +164,18 @@ declare function _:get-dryed-from-cache($dict_name as xs:string,
   $id as xs:string?, $ids as xs:string*,
   $sort as xs:string?, $label as xs:string?,
   $from as xs:integer, $num as xs:integer, $total_items_expected as xs:integer) {
-if ($ids instance of xs:string or $id instance of xs:string) 
-then _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $label, $from, $num)
-else cache:get-all-entries($dict_name, $from, $num, $sort, $label)
+    try {
+        if ($ids instance of xs:string) then
+          cache:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'), $from, $num, $sort, $label, $total_items_expected)
+        else if ($id instance of xs:string) then
+          if (ends-with($id, '*')) then
+            cache:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'), $from, $num, $sort, $label, $total_items_expected)
+          else
+            cache:get-entries-by-ids($dict_name, $id, $from, $num, $sort, $label, $total_items_expected)
+        else cache:get-all-entries($dict_name, $from, $num, $sort, $label, $total_items_expected)
+    } catch cache:missing {
+       _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $label, $from, $num)
+    }
 };
 
 declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,

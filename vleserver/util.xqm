@@ -15,7 +15,8 @@ declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as x
 };
 
 declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as xs:string, $dontCheckQuery as xs:boolean) as item()* {
-    let $j := _:start-eval-job($query, $bindings, $jobName, $dontCheckQuery, 0), $_ := jobs:wait($j)   
+    let (: $log := l:write-log($query, 'INFO'), :)
+        $j := _:start-eval-job($query, $bindings, $jobName, $dontCheckQuery, 0), $_ := jobs:wait($j)   
     return jobs:result($j)
 };
 
