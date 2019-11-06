@@ -89,6 +89,7 @@ declare
   %rest:error-param("additional", "{$additional}")
 function _:error-handler($code as xs:string, $description, $value, $module, $line-number, $column-number, $additional) as item()+ {
         let $start-time-ns := prof:current-ns(),
+            $origin := try { req:header("Origin") } catch basex:http {'urn:local'},
             $status-code := 
           let $status-code-from-local-name := replace(local-name-from-QName(xs:QName($code)), '_', '')
           return if ($status-code-from-local-name castable as xs:integer and 
@@ -103,7 +104,8 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
                     <instance>{namespace-uri-from-QName(xs:QName($code))}/{local-name-from-QName(xs:QName($code))}</instance>
                     <status>{$status-code}</status>
                     {if ($_:enable_trace) then <trace xml:space="preserve">{replace(replace($additional, '^.*Stopped at ', '', 's'), ':\n.*($|(\n\nStack Trace:(\n)))', '$3')}</trace> else ()}
-                </problem>, map{"Access-Control-Allow-Origin": "*"})  
+                </problem>, map{"Access-Control-Allow-Origin": $origin,
+                                "Access-Control-Allow-Credentials": "true"})  
 };
 
 declare %private function _:on_accept_to_json($problem as element(rfc7807:problem)) as item() {

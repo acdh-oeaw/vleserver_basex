@@ -159,7 +159,7 @@ let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
 (if (ends-with(., '__prof')) then ``[if (exists(`{$ids_seq}`[. = 'dictProfile'])) then 1 else 0]``
  else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
   count(db:attribute("`{.}`", `{$ids_seq}`))]``)
-return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
+return sum(util:evals($xqueries, (), 'count-entries-by-ids', true()))  
 };
 
 (:~ 
@@ -196,7 +196,7 @@ let $xqueries := _:get-list-of-data-dbs($dict_name)!
 (if (ends-with(., '__prof')) then ``[if (starts-with('dictProfile', "`{$id_start}`")) then 1 else 0]``
  else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
   count(index:attributes("`{.}`", "`{$id_start}`")!db:attribute("`{.}`", .)[. instance of attribute(xml:id) or attribute(ID)])]``)
-return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
+return sum(util:evals($xqueries, (), 'count-entries-by-id-starting-with', true()))  
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?) {

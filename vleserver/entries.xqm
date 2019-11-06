@@ -129,7 +129,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         return if (exists($profile//useCache))
           then _:get-dryed-from-cache($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
           else _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize),
-      $relevant_dbs := distinct-values($relevant_nodes_or_dryed/../@db_name/data()),
+      $relevant_dbs := distinct-values($relevant_nodes_or_dryed/@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $relevant_ids := for $nd in $relevant_nodes_or_dryed
         return typeswitch ($nd)
@@ -174,6 +174,7 @@ declare function _:get-dryed-from-cache($dict_name as xs:string,
             cache:get-entries-by-ids($dict_name, $id, $from, $num, $sort, $label, $total_items_expected)
         else cache:get-all-entries($dict_name, $from, $num, $sort, $label, $total_items_expected)
     } catch cache:missing {
+       _:write-log('cache miss', 'INFO'),
        _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $label, $from, $num)
     }
 };
