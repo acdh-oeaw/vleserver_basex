@@ -104,8 +104,8 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
                     <instance>{namespace-uri-from-QName(xs:QName($code))}/{local-name-from-QName(xs:QName($code))}</instance>
                     <status>{$status-code}</status>
                     {if ($_:enable_trace) then <trace xml:space="preserve">{replace(replace($additional, '^.*Stopped at ', '', 's'), ':\n.*($|(\n\nStack Trace:(\n)))', '$3')}</trace> else ()}
-                </problem>, map{"Access-Control-Allow-Origin": $origin,
-                                "Access-Control-Allow-Credentials": "true"})  
+                </problem>, if (exists($origin)) then map{"Access-Control-Allow-Origin": $origin,
+                                "Access-Control-Allow-Credentials": "true"} else ())  
 };
 
 declare %private function _:on_accept_to_json($problem as element(rfc7807:problem)) as item() {
