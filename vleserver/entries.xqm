@@ -119,16 +119,9 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
-      $relevant_nodes_or_dryed :=
-        let $total-items-is-not-more-than := if ($total_items <= $_:dont_try_to_return_more_than or exists($profile//useCache)) then true()
-          else error(xs:QName('response-codes:_413'), 
-            $api-problem:codes_to_message(413),
-            'You selected '||$total_items||' entries which is more than the server can deliver ('||
-            $_:dont_try_to_return_more_than||').'||
-            'Use caching if you need to browse more entries.')
-        return if (exists($profile//useCache))
+      $relevant_nodes_or_dryed := if (exists($profile//useCache))
           then _:get-dryed-from-cache($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
-          else _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize),
+          else _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items),
       $relevant_dbs := distinct-values($relevant_nodes_or_dryed/@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $relevant_ids := for $nd in $relevant_nodes_or_dryed
@@ -175,16 +168,23 @@ declare function _:get-dryed-from-cache($dict_name as xs:string,
         else cache:get-all-entries($dict_name, $from, $num, $sort, $label, $total_items_expected)
     } catch cache:missing {
        _:write-log('cache miss', 'INFO'),
-       _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $label, $from, $num)
+       _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $label, $from, $num, $total_items_expected)
     }
 };
 
 declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
   $id as xs:string?, $ids as xs:string*,
   $sort as xs:string?, $label as xs:string?,
-  $from as xs:integer, $num as xs:integer)
+  $from as xs:integer, $num as xs:integer,
+  $total_items_expected as xs:integer)
   as element()* {
 let (: $start := prof:current-ns(), :)
+    $total-items-expected-is-not-more-than := if ($total_items_expected <= $_:dont_try_to_return_more_than) then true()
+          else error(xs:QName('response-codes:_413'), 
+            $api-problem:codes_to_message(413),
+            'You selected '||$total_items_expected||' entries which is more than the server can deliver ('||
+            $_:dont_try_to_return_more_than||').'||
+            'Use caching if you need to browse more entries.'),
     $label := if (exists($label)) then '-'||$label else '',
     $nodes_or_dryed := try {
         if ($ids instance of xs:string) then
