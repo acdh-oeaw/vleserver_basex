@@ -283,7 +283,7 @@ declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $use
          'Only wde.v2 aware clients allowed',
          'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
          'Accept was :'||$wanted-response),
-      $check_content_type := if ($content-type = 'application/json') then true()
+      $check_content_type := if (starts-with($content-type,'application/json')) then true()
       (: in this case $data is an element(json) :) 
       else error(xs:QName('response-codes:_415'),
          'Content-Type needs to be application/json',
