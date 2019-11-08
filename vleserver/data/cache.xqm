@@ -79,14 +79,16 @@ util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
-  let $all := collection("`{$dict}`__cache")//_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{_:label-to-pred-part($label)}`]/_:d,
+  let $all := collection("`{$dict}`__cache")//_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{_:label-to-pred-part($label)}`]/(_:d, tokenize(@ids)),
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
       $all_found := if (count($all) = $total_items_expected) then true()
       else error(xs:QName('cache:stale'),
            'expected '||$total_items_expected||' results got '||count($all))
-  return subsequence($all, `{$from}`, `{$num}`)
+  return if ($all instance of xs:string*)
+         then collection("`{$dict}`__cache")//_:d[(@ID, @xml:id) = subsequence($all, `{$from}`, `{$num}`)]
+         else subsequence($all, `{$from}`, `{$num}`)
   } catch db:* | err:FODC0002 {
     error(xs:QName('cache:missing'),
            'expected any result from cache got 0')
