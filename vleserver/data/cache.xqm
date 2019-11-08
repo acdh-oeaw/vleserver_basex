@@ -75,11 +75,12 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
 };
 
 declare function _:get-all-entries($dict as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
-util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+let $label-pred-part := if ($sort = 'none') then '' else _:label-to-pred-part($label)
+return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
-  let $all := collection("`{$dict}`__cache")//_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{_:label-to-pred-part($label)}`]/(_:d, tokenize(@ids)),
+  let $all := collection("`{$dict}`__cache")//_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{$label-pred-part}`]/(_:d, tokenize(@ids)),
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
@@ -114,19 +115,25 @@ declare function _:count-all-entries($dict as xs:string) as xs:integer {
 };
 
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
-let $ids_seq := ``[("`{string-join($ids, '","')}`")]``
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+    $label-pred-part := if ($sort = 'none') then '' else _:label-to-pred-part($label)
 return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
-  let $all := db:attribute("`{$dict}`__cache", `{$ids_seq}`)[local-name() = ('ID', 'id') and ancestor::_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{_:label-to-pred-part($label)}`]],
+  let $all := (
+      db:attribute("`{$dict}`__cache", `{$ids_seq}`)[local-name() = ('ID', 'id') and ancestor::_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{_:label-to-pred-part($label)}`]],
+      collection("`{$dict}`__cache")//_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{$label-pred-part}`]/tokenize(@ids)[. = `{$ids_seq}`]
+      ),
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
       $all_found := if (count($all) = $total_items_expected) then true()
       else error(xs:QName('cache:stale'),
            'expected '||$total_items_expected||' results got '||count($all))
-  return subsequence($all, `{$from}`, `{$num}`)/..
+  return if ($all instance of xs:string*)
+         then collection("`{$dict}`__cache")//_:d[(@ID, @xml:id) = subsequence($all, `{$from}`, `{$num}`)]
+         else subsequence($all, `{$from}`, `{$num}`)/..
   } catch db:* | err:FODC0002 {
     error(xs:QName('cache:missing'),
            'expected any result from cache got 0')
@@ -135,19 +142,25 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
 };
 
 declare function _:get-entries-by-id-starting-with($dict as xs:string, $id_start as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
-util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+let $label-pred-part := if ($sort = 'none') then '' else _:label-to-pred-part($label)
+return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
   let $values := index:attributes("`{$dict}`__cache", "`{$id_start}`")/text(),
-      $all := db:attribute("`{$dict}`__cache", $values)[local-name() = ('ID', 'id') and ancestor::_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{_:label-to-pred-part($label)}`]],
+      $all := (
+        db:attribute("`{$dict}`__cache", $values)[local-name() = ('ID', 'id') and ancestor::_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{$label-pred-part}`]],
+        collection("`{$dict}`__cache")//_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{$label-pred-part}`]/tokenize(@ids)[starts-with(., "`{$id_start}`")]
+      ),
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
       $all_found := if (count($all) = $total_items_expected) then true()
       else error(xs:QName('cache:stale'),
            'expected '||$total_items_expected||' results got '||count($all))
-  return subsequence($all, `{$from}`, `{$num}`)/..
+  return if ($all instance of xs:string*)
+         then collection("`{$dict}`__cache")//_:d[(@ID, @xml:id) = subsequence($all, `{$from}`, `{$num}`)]
+         else subsequence($all, `{$from}`, `{$num}`)/..
   } catch db:* | err:FODC0002 {
     error(xs:QName('cache:missing'),
            'expected any result from cache got 0')
