@@ -7,6 +7,7 @@ import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/pr
 
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:sortBatchSize := 1500000;
+declare variable $_:sortMaxSize := 10000;
 declare variable $_:optimizeOptions := "map {'updindex': true(), 'attrindex': true()}";
 
 declare function _:cache-all-entries($dict as xs:string) {
@@ -54,12 +55,45 @@ return ``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
 `{for $alt-label-postfix in $alt-label-postfixes
   return for $order in ('ascending', 'descending')
 return ``[
-let $sorted-`{$order||$alt-label-postfix}` := for $d in collection('`{$dict}`__cache')//*[@order="none"]/_:d
+let $sorted-`{$order||$alt-label-postfix}` := subsequence(for $d in collection('`{$dict}`__cache')//*[@order="none"]/_:d
   order by $d/@`{$util:vleUtilSortKey||$alt-label-postfix}` `{$order}`
-  return $d/(@ID, @xml:id)/data()]``}`
+  return $d/(@ID, @xml:id)/data(), 1, `{$_:sortMaxSize}`)]``}`
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
           return for $order in ('ascending', 'descending')
 return ``[db:replace("`{$dict||'__cache'}`", '`{$order||$alt-label-postfix}`_cache.xml', <_:dryed order="`{$order}`"`{$alt-label-attributes[$i]}` ids="{string-join($sorted-`{$order||$alt-label-postfix}`, ' ')}"/>)]``, ',&#x0a;')}`)]``
+};
+
+declare function _:sort-cache-xquery2($dict as xs:string) {
+let $profile := profile:get($dict),
+    $alt-labels := ("", map:keys(profile:get-alt-lemma-xqueries($profile))),
+    $alt-label-postfixes := $alt-labels!(if (. ne "") then '-'||. else ''),
+    $alt-label-attributes := $alt-labels!(if (. ne "") then ``[ label="`{.}`"]`` else "")
+return ``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+import module namespace cache = 'https://www.oeaw.ac.at/acdh/tools/vle/data/cache' at 'data/cache.xqm';
+let $ids := map:merge(xquery:fork-join((`{string-join(for $alt-label-postfix in $alt-label-postfixes
+  return for $order in ('asc', 'desc')
+return ``[
+ cache:order-by-key-ids-`{$order}`("sorted-`{$order||$alt-label-postfix}`", collection('`{$dict}`__cache')//@`{$util:vleUtilSortKey||$alt-label-postfix}`)]``, ',')}`)))
+return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
+          return for $order in ('asc', 'desc')
+return ``[db:replace("`{$dict||'__cache'}`", '`{$order||$alt-label-postfix}`_cache.xml', <_:dryed order="`{$order}`"`{$alt-label-attributes[$i]}` ids="{$ids('sorted-`{$order||$alt-label-postfix}`')}"/>)]``, ',&#x0a;')}`)]``
+};
+
+declare function _:order-by-key-ids-asc($name as xs:string, $key-attr as attribute()*) as function() as map(xs:string, xs:string) {
+  function() as map(xs:string, xs:string) { map {$name:
+      string-join(subsequence(for $d in $key-attr
+        order by xs:string(($d)) ascending
+        return xs:string($d/../(@ID, @xml:id)), 1, $_:sortMaxSize), ' ')}
+    }
+};
+
+declare function _:order-by-key-ids-desc($name as xs:string, $key-attr as attribute()*) as function() as map(xs:string, xs:string) {
+  function() as map(xs:string, xs:string) { map {$name:
+      string-join(subsequence(for $d in $key-attr
+        order by xs:string(($d)) descending
+        return xs:string($d/../(@ID, @xml:id)), 1, $_:sortMaxSize), ' ')}
+    }
 };
 
 declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string) {
