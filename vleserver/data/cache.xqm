@@ -6,25 +6,33 @@ import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
 
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
-declare variable $_:sortBatchSize := 1500000;
-declare variable $_:sortMaxSize := 10000;
+declare variable $_:sortMaxSize := 15000;
 declare variable $_:optimizeOptions := "map {'updindex': true(), 'attrindex': true()}";
 
 declare function _:cache-all-entries($dict as xs:string) {
 let $dbs:= data-access:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
+    $alt-labels := ("", map:keys(profile:get-alt-lemma-xqueries($profile))),
+    $alt-label-postfixes := $alt-labels!(if (. ne "") then '-'||. else ''),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $recreate-cache := (util:eval(``[db:create("`{$dict||'__cache'}`")]``, (), 'create-empty-cache', true())),
     $cache-all-entries-scripts := for $dbs at $p in $dbs
     let $key := floor($p div 10)
     group by $key
-    return 
-      if (exists($dbs[not(ends-with(., '__prof'))])) then ``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-            declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+    return (
+      if (exists($dbs)) then ``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+            import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
-            let $dryeds as element(util:dryed)+ := (`{string-join(for $db in $dbs[not(ends-with(., '__prof'))] return ``[
-            data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``, ',')
+            let $dryeds as element(util:dryed)+ := (`{string-join(
+            (for $db in $dbs[ends-with(., '__prof')] return ``[
+            util:dehydrate(collection('`{$db}`')//profile, function($n){($n/@xml:id, `{
+              string-join(
+              for $alt-label-postfix in $alt-label-postfixes
+              return``[attribute {'`{$util:vleUtilSortKey||$alt-label-postfix}`'} {'  profile'}]``, ',')}`)})
+            ]``,
+            for $db in $dbs[not(ends-with(., '__prof'))] return ``[
+            data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``), ',')
             }`)
             return jobs:eval(``[declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
          declare variable $dryeds as element(util:dryed)+ external;
@@ -33,7 +41,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
           'cache': false(),
           'id': 'vleserver:cache-all-entrie-write-script`{$key}`-'||jobs:current(),
           'base-uri': '`{$_:basePath}`/vleserver_cache-all-entries-write-script`{$key}`.xq'})]``
-       else (),
+       else ()),
     $write-jobs := if (exists($cache-all-entries-scripts)) then util:evals($cache-all-entries-scripts, (),
     'cache-all-entries-script', true()) else (),
     $_ := $write-jobs!jobs:wait(.),
@@ -43,7 +51,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
 };
 
 declare function _:sort($dict as xs:string) {
-  util:eval(_:sort-cache-xquery($dict), (), 'sort-cache-write-order-ascending', true())
+  util:eval(_:sort-cache-xquery($dict), (), 'sort-cache', true())
 };
 
 declare function _:sort-cache-xquery($dict as xs:string) {
@@ -53,16 +61,16 @@ let $profile := profile:get($dict),
     $alt-label-attributes := $alt-labels!(if (. ne "") then ``[ label="`{.}`"]`` else "")
 return ``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
 `{for $alt-label-postfix in $alt-label-postfixes
-  return for $order in ('ascending', 'descending')
 return ``[
-let $sorted-`{$order||$alt-label-postfix}` := subsequence(for $d in collection('`{$dict}`__cache')//*[@order="none"]/_:d
-  order by $d/@`{$util:vleUtilSortKey||$alt-label-postfix}` `{$order}`
-  return $d/(@ID, @xml:id)/data(), 1, `{$_:sortMaxSize}`)]``}`
+let $sorted-ascending`{$alt-label-postfix}` := for $key in collection('`{$dict}`__cache')//*[@order="none"]/_:d/@`{$util:vleUtilSortKey||$alt-label-postfix}`
+  order by data($key) ascending
+  return $key]``}`
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
-          return for $order in ('ascending', 'descending')
-return ``[db:replace("`{$dict||'__cache'}`", '`{$order||$alt-label-postfix}`_cache.xml', <_:dryed order="`{$order}`"`{$alt-label-attributes[$i]}` ids="{string-join($sorted-`{$order||$alt-label-postfix}`, ' ')}"/>)]``, ',&#x0a;')}`)]``
+return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>),
+db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>)]``, ',&#x0a;')}`)]``
 };
 
+(: this is slightly slower than the above. There seems to be no gain in doing a fork-join here. :)
 declare function _:sort-cache-xquery2($dict as xs:string) {
 let $profile := profile:get($dict),
     $alt-labels := ("", map:keys(profile:get-alt-lemma-xqueries($profile))),
@@ -72,31 +80,23 @@ return ``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cache = 'https://www.oeaw.ac.at/acdh/tools/vle/data/cache' at 'data/cache.xqm';
 let $ids := map:merge(xquery:fork-join((`{string-join(for $alt-label-postfix in $alt-label-postfixes
-  return for $order in ('asc', 'desc')
 return ``[
- cache:order-by-key-ids-`{$order}`("sorted-`{$order||$alt-label-postfix}`", collection('`{$dict}`__cache')//@`{$util:vleUtilSortKey||$alt-label-postfix}`)]``, ',')}`)))
+ cache:order-by-key-ids-asc("sorted-ascending`{$alt-label-postfix}`", collection('`{$dict}`__cache')//@`{$util:vleUtilSortKey||$alt-label-postfix}`)]``, ',')}`)))
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
-          return for $order in ('asc', 'desc')
-return ``[db:replace("`{$dict||'__cache'}`", '`{$order||$alt-label-postfix}`_cache.xml', <_:dryed order="`{$order}`"`{$alt-label-attributes[$i]}` ids="{$ids('sorted-`{$order||$alt-label-postfix}`')}"/>)]``, ',&#x0a;')}`)]``
+return ``[db:replace("`{$dict||'__cache'}`", '`ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($ids('sorted-ascending`{$alt-label-postfix}`'), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>),
+db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($ids('sorted-ascending`{$alt-label-postfix}`')), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>)
+]``, ',&#x0a;')}`)]``
 };
 
-declare function _:order-by-key-ids-asc($name as xs:string, $key-attr as attribute()*) as function() as map(xs:string, xs:string) {
-  function() as map(xs:string, xs:string) { map {$name:
-      string-join(subsequence(for $d in $key-attr
-        order by xs:string(($d)) ascending
-        return xs:string($d/../(@ID, @xml:id)), 1, $_:sortMaxSize), ' ')}
+declare function _:order-by-key-ids-asc($name as xs:string, $key-attrs as attribute()*) as function() as map(xs:string, attribute()*) {
+  function() as map(xs:string, attribute()*) { map {$name:
+      for $key-attr in $key-attrs
+        order by xs:string($key-attr) ascending
+        return $key-attr}
     }
 };
 
-declare function _:order-by-key-ids-desc($name as xs:string, $key-attr as attribute()*) as function() as map(xs:string, xs:string) {
-  function() as map(xs:string, xs:string) { map {$name:
-      string-join(subsequence(for $d in $key-attr
-        order by xs:string(($d)) descending
-        return xs:string($d/../(@ID, @xml:id)), 1, $_:sortMaxSize), ' ')}
-    }
-};
-
-declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string) {
+declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string, $sort-again as xs:boolean) {
 let $dbs:= data-access:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
     $query := (util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
@@ -104,12 +104,13 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
             let $dryed as element(util:dryed) := data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)
-            return db:replace("`{$dict||'__cache'}`", $dryed/@db_name||'_cache.xml', $dryed)]``, (), "refresh-cache-db-"||$db_name, true()), _:sort($dict))
+            return db:replace("`{$dict||'__cache'}`", $dryed/@db_name||'_cache.xml', $dryed)]``, (), "refresh-cache-db-"||$db_name, true()), if ($sort-again) then _:sort($dict) else ())
    return $query
 };
 
 declare function _:get-all-entries($dict as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
-let $label-pred-part := if ($sort = 'none') then '' else _:label-to-pred-part($label)
+let $label-pred-part := if ($sort = 'none') then '' else _:label-to-pred-part($label),
+    $alt-label-postfix := if ($label ne "") then '-'||$label else ''
 return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
@@ -118,11 +119,16 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
-      $all_found := if (count($all) = $total_items_expected) then true()
+      $all_found := if (count($all) = $total_items_expected or count($all) = `{$_:sortMaxSize}`) then true()
       else error(xs:QName('cache:stale'),
            'expected '||$total_items_expected||' results got '||count($all))
   return if ($all instance of xs:string*)
-         then collection("`{$dict}`__cache")//_:d[(@ID, @xml:id) = subsequence($all, `{$from}`, `{$num}`)]
+         then `{if ($sort = 'none') then '()' else
+           ``[if (subsequence($all, `{$from}`, `{$num}`) instance of empty-sequence())
+           then subsequence(for $key in collection('`{$dict}`__cache')//@`{$util:vleUtilSortKey||$alt-label-postfix}`
+             order by data($key) `{_:sort-to-long-str($sort)}`
+             return $key, `{$from}`, `{$num}`)/..
+           else db:attribute("`{$dict}`__cache", subsequence($all, `{$from}`, `{$num}`))[. instance of attribute(ID) or . instance of attribute(xml:id)]/..]``}`
          else subsequence($all, `{$from}`, `{$num}`)
   } catch db:* | err:FODC0002 {
     error(xs:QName('cache:missing'),
