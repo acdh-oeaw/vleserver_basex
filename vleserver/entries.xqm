@@ -366,9 +366,9 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
 };
 
 declare %private function _:change_entry($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
-  let $savedEntry := data-access:change_entry($data, $dict, $id, $status, $owner, $changingUser),
-      $run_plugins := plugins:after_updated($savedEntry, $dict, $id, $status, $owner, $changingUser)
-  return _:entryAsDocument(rest:uri(), $savedEntry/(@ID, @xml:id), 'TODO', $savedEntry, lcks:get_user_locking_entry($dict, $savedEntry/(@ID, @xml:id)))
+  let $savedEntry as map(xs:string, item()) := data-access:change_entry($data, $dict, $id, $status, $owner, $changingUser),
+      $run_plugins := plugins:after_updated($savedEntry('current'), $savedEntry('before'), $dict, $id, $savedEntry('db_name'), $status, $owner, $changingUser)
+  return _:entryAsDocument(rest:uri(), $savedEntry('current')/(@ID, @xml:id), 'TODO', $savedEntry('current'), lcks:get_user_locking_entry($dict, $savedEntry('current')/(@ID, @xml:id)))
 };
 
 

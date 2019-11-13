@@ -260,12 +260,20 @@ declare function _:create_new_entry($data as element(), $dict as xs:string, $sta
           }, 'add-entry-todb', true()))[2]
 };
 
-declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element() {
+(: Change an entry and return a map {
+     'before': element(),
+     'current': element(),
+     'db_name': xs:string
+  :)
+declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as map(xs:string, item()) {
   let $entryToReplace := _:find_entry_as_dbname_pre($dict, $id),
       $newEntryWithChange := if (types:get_data_type($newEntry) = 'profile') then $newEntry transform with { chg:add-change-record-to-profile(.) }
                              else $newEntry transform with { chg:add-change-record(., $entryToReplace[1], $entryToReplace[2], $status, $owner, $changingUser) }
-  return (chg:save-entry-in-history($dict, $entryToReplace[1], $entryToReplace[2]),
-          _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntryWithChange))
+  return map {
+    'before': chg:save-entry-in-history($dict, $entryToReplace[1], $entryToReplace[2]),
+    'current': _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntryWithChange),
+    'db_name': $entryToReplace[1]
+  }
 };
 
 declare %private function _:find_entry_as_dbname_pre($dict_name as xs:string, $id as xs:string) as xs:anyAtomicType+ {
@@ -273,7 +281,7 @@ util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/
     let $dict_name := data-access:get-real-dicts("`{$dict_name}`", "`{$id}`"),
         $entry := collection($dict_name)//*[(@xml:id, @ID) = "`{$id}`"] 
     return ($dict_name, db:node-pre($entry), $entry//*:fs[@type='change']/*[@name='owner']/*/@value/data())
-    ]``, (), 'find-entry-for-delete', true())  
+    ]``, (), 'find_entry_as_dbname_pre', true())  
 };
 
 declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre as xs:integer, $newEntry as element()) as element() {
@@ -287,7 +295,7 @@ declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre 
 declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) as element(rfc-7807:problem) {
   let $entryToDelete := _:find_entry_as_dbname_pre($dict, $id)
   return (chg:save-entry-in-history-before-deletion($dict, $entryToDelete[1], $entryToDelete[2], $changingUser),
-          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))
+          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))[2]
 };
 
 declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre as xs:integer) as element(rfc-7807:problem) {
