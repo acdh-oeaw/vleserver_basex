@@ -46,28 +46,29 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
     'cache-all-entries-script', true()) else (),
     $_ := $write-jobs!jobs:wait(.),
     $optimze := util:eval(``[db:optimize("`{$dict}`__cache", true(), `{$_:optimizeOptions}`)]``, (), 'optimize-cache', true()),
-    $sorted := _:sort($dict)
+    $sorted := _:sort($dict, $alt-labels)
     return $sorted
 };
 
-declare function _:sort($dict as xs:string) {
-  util:eval(_:sort-cache-xquery($dict), (), 'sort-cache-write', true())
+declare function _:sort($dict as xs:string, $labels-to-sort as xs:string*) {
+  util:eval(_:sort-cache-xquery($dict, $labels-to-sort), (), 'sort-cache-write', true())
 };
 
-declare function _:sort-cache-xquery($dict as xs:string) {
+declare function _:sort-cache-xquery($dict as xs:string, $labels-to-sort as xs:string*) {
 let $profile := profile:get($dict),
-    $alt-labels := ("", map:keys(profile:get-alt-lemma-xqueries($profile))),
+    $alt-labels := ("", map:keys(profile:get-alt-lemma-xqueries($profile)))[. = $labels-to-sort],
     $alt-label-postfixes := $alt-labels!(if (. ne "") then '-'||. else ''),
     $alt-label-attributes := $alt-labels!(if (. ne "") then ``[ label="`{.}`"]`` else "")
 return ``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+let $ds := collection('`{$dict}`__cache')//*[@order="none"]/_:d
 `{for $alt-label-postfix in $alt-label-postfixes
 return ``[
-let $sorted-ascending`{$alt-label-postfix}` := for $key in collection('`{$dict}`__cache')//*[@order="none"]/_:d/@`{$util:vleUtilSortKey||$alt-label-postfix}`
-  order by data($key) ascending
-  return $key]``}`
+let $sorted-ascending`{$alt-label-postfix}` := for $d in $ds
+  order by data($d/@`{$util:vleUtilSortKey||$alt-label-postfix}`) ascending
+  return $d]``}`
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
-return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>),
-db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>)]``, ',&#x0a;')}`)]``
+return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)/(@ID, @xml:id), ' ')}"/>),
+db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)/(@ID, @xml:id), ' ')}"/>)]``, ',&#x0a;')}`)]``
 };
 
 (: this is slightly slower than the above. There seems to be no gain in doing a fork-join here. :)
@@ -96,7 +97,7 @@ declare function _:order-by-key-ids-asc($name as xs:string, $key-attrs as attrib
     }
 };
 
-declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string, $sort-again as xs:boolean) {
+declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string, $labels-to-sort as xs:string*) {
 let $dbs:= data-access:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
     $query := (util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
@@ -104,7 +105,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
             let $dryed as element(util:dryed) := data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)
-            return db:replace("`{$dict||'__cache'}`", $dryed/@db_name||'_cache.xml', $dryed)]``, (), "refresh-cache-db-"||$db_name, true()), if ($sort-again) then _:sort($dict) else ())
+            return db:replace("`{$dict||'__cache'}`", $dryed/@db_name||'_cache.xml', $dryed)]``, (), "refresh-cache-db-"||$db_name, true()), if (exists($labels-to-sort)) then _:sort($dict, $labels-to-sort) else ())
    return $query
 };
 
