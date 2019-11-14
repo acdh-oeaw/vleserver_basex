@@ -24,6 +24,7 @@ declare namespace test = "http://exist-db.org/xquery/xqsuite";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 
 declare variable $_:enable_trace := false();
+declare variable $_:max_results_with_entries := 1000;
 declare variable $_:dont_try_to_return_more_than := 200000;
 
 (:~
@@ -132,8 +133,8 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $start := prof:current-ns(), :)
       (: $log := _:write-log('Relevant IDs: '||string-join(data($relevant_ids), ', '), 'INFO'), :)
       $locked_entries := lcks:get_user_locking_entries($dict_name, data($relevant_ids)),
-      $xml_snippets := if ($pageSize <= 25) 
-        then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs)/*
+      $xml_snippets := if ($pageSize <= $_:max_results_with_entries) 
+        then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries)/*
         else (),
       $xml_snippets_without_sort_key := $xml_snippets transform with {
           delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]

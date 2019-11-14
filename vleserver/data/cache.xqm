@@ -7,7 +7,7 @@ import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/pr
 
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:sortMaxSize := 15000;
-declare variable $_:optimizeOptions := "map {'updindex': true(), 'attrindex': true()}";
+declare variable $_:optimizeOptions := "map {'updindex': true(), 'attrindex': true(), 'attrinclude': 'Q{http://www.w3.org/XML/1998/namespace}id, ID, order, label, db_name'}";
 
 declare function _:cache-all-entries($dict as xs:string) {
 let $dbs:= data-access:get-list-of-data-dbs($dict),
@@ -51,7 +51,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
 };
 
 declare function _:sort($dict as xs:string) {
-  util:eval(_:sort-cache-xquery($dict), (), 'sort-cache', true())
+  util:eval(_:sort-cache-xquery($dict), (), 'sort-cache-write', true())
 };
 
 declare function _:sort-cache-xquery($dict as xs:string) {

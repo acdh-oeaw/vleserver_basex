@@ -14,6 +14,7 @@ declare namespace rfc-7807 = "urn:ietf:rfc:7807";
 declare variable $_:basePath as xs:string := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:selfName as xs:string := tokenize(static-base-uri(), '/')[last()];
 declare variable $_:enable_trace := false();
+declare variable $_:max-direct-xml := 25;
 declare variable $_:default_index_options := map{'textindex': true(), 
                                                  'attrindex': true(),
                                                  'ftindex': true(), 'casesens': false(), 'diacritics': false(), 'language': 'en',
@@ -108,25 +109,26 @@ return ``[<_ db_name="`{$db_name}`">{
 };
 
 (:~ 
- : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
  : This may throw FODC0002 if $dict||'__prof' does not exist
  :)
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+) {
-  _:get-entries-by-ids($dict, $ids, ())
+  _:get-entries-by-ids($dict, $ids, (), ())
 };
 
 (:~ 
- : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
  : This may throw FODC0002 if $dict||'__prof' does not exist
  :)
-declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $suggested_dbs as xs:string*) {
+declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $suggested_dbs as xs:string*, $max-direct-xml as xs:integer?) {
 let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $profile := profile:get($dict),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
+    $max-direct-xml := if (exists($max-direct-xml)) then $max-direct-xml else $_:max-direct-xml,
     $get-entries-by-ids-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) then ``[
       if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`])
@@ -136,7 +138,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
         `{profile:generate-local-extractor-function($profile)}`
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
-            $ret := if (count($results) > 25 and `{count($ids)}` > 25) then util:dehydrate($results, local:extractor#1)
+            $ret := if (count($results) > `{$max-direct-xml}` and `{count($ids) > $max-direct-xml}`()) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
                 let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
@@ -163,7 +165,7 @@ return sum(util:evals($xqueries, (), 'count-entries-by-ids', true()))
 };
 
 (:~ 
- : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
  :)
 declare function _:get-entries-by-id-starting-with($dict_name as xs:string, $id_start as xs:string) {
@@ -177,7 +179,7 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
         `{profile:generate-local-extractor-function($profile)}`
         let $results := collection("`{$dict}`")//*[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")],
-            $ret := if (count($results) > 25) then util:dehydrate($results, local:extractor#1)
+            $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
                 let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
@@ -200,7 +202,7 @@ return sum(util:evals($xqueries, (), 'count-entries-by-id-starting-with', true()
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?) {
-  _:do-get-index-data($c, $id, $dt, $data-extractor-xquery, 25)
+  _:do-get-index-data($c, $id, $dt, $data-extractor-xquery, $_:max-direct-xml)
 };
 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?, $dehydrate-more-than-results as xs:integer) {
