@@ -21,16 +21,20 @@ return if (profile:use-cache($profile)) then
     then
       let $profile := document {$data-current},
           $old-profile := document {$data-before},
-          $alt-lemma-xqueries := profile:get-alt-lemma-xqueries($profile),
+          $cache-flag-changed := profile:use-cache($profile) != profile:use-cache($old-profile)
+          (:, $log-cache-flag := _:write-log('cache flag changed: '||$cache-flag-changed||' current: '||profile:use-cache($profile)||' before: '||profile:use-cache($old-profile), 'INFO') :)
+      return if ($cache-flag-changed) then
+        if (profile:use-cache($profile))
+        then cache:cache-all-entries($dict)
+        else cache:remove($dict)
+      else let $alt-lemma-xqueries := profile:get-alt-lemma-xqueries($profile),
           $old-alt-lemma-xqueries := profile:get-alt-lemma-xqueries($old-profile),
-          $cache-flag-changed := profile:use-cache($profile) != profile:use-cache($old-profile),
           $lemma-xquery-changed := profile:get-lemma-xquery($profile) != profile:get-lemma-xquery($old-profile),
           $alt-lemma-xquery-changed := for $key in map:keys($alt-lemma-xqueries)
             where $alt-lemma-xqueries($key) != $old-alt-lemma-xqueries($key)
             return $key,
           $sort-keys := (if ($lemma-xquery-changed) then '' else (), $alt-lemma-xquery-changed),
-          (: $log-cache-flag := _:write-log('cache flag changed: '||$cache-flag-changed||' current: '||profile:use-cache($profile)||' before: '||profile:use-cache($old-profile), 'INFO'),
-          $log-lemma-xquery := _:write-log('lemma xquery changed: '||$lemma-xquery-changed||' current: '||profile:get-lemma-xquery($profile)||' before: '||profile:get-lemma-xquery($old-profile), 'INFO'),
+          (: $log-lemma-xquery := _:write-log('lemma xquery changed: '||$lemma-xquery-changed||' current: '||profile:get-lemma-xquery($profile)||' before: '||profile:get-lemma-xquery($old-profile), 'INFO'),
           $log-alt-lemma-xqueries := for $key in $alt-lemma-xquery-changed
             return _:write-log('current lemma xquery '||$key||': '||$alt-lemma-xqueries($key)||' before: '||$old-alt-lemma-xqueries($key), 'INFO'), :)
           $log-sort-keys := _:write-log('refreshing caches: '||string-join($sort-keys!(if (. = '') then 'default' else .), ', '), 'INFO')

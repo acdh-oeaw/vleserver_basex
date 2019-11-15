@@ -29,7 +29,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
             util:dehydrate(collection('`{$db}`')//profile, function($n){($n/@xml:id, `{
               string-join(
               for $alt-label-postfix in $alt-label-postfixes
-              return``[attribute {'`{$util:vleUtilSortKey||$alt-label-postfix}`'} {'  profile'}]``, ',')}`)})
+              return``[attribute {'`{$util:vleUtilSortKey||$alt-label-postfix}`'} {'`{$profile:sortValue}`'}]``, ',')}`)})
             ]``,
             for $db in $dbs[not(ends-with(., '__prof'))] return ``[
             data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``), ',')
@@ -205,4 +205,8 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
            'expected any result from cache got 0')
   }]``,
   map {'total_items_expected': $total_items_expected}, 'cache-get-entries-by-id-starting-with')
+};
+
+declare function _:remove($dict as xs:string) {
+  util:eval(``[db:drop("`{$dict||'__cache'}`")]``, (), 'remove-cache', true())
 };
