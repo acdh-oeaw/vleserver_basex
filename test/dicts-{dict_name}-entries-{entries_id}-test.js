@@ -131,6 +131,10 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             });
 
             expect(response).to.have.status(200);
+            expect(response).to.have.json(function(body){
+                expect(body.id).to.equal(entryID);
+                expect(body.lemma).to.equal("[]");
+            })
             return chakram.wait();
         });
 
@@ -394,7 +398,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
 
             expect(response).to.have.status(200);
             expect(response).to.have.json(function(body){
-                expect(body.id).to.equal(entryID)
+                expect(body.id).to.equal(entryID);
+                expect(body.lemma).to.equal("[]");
             })
             return chakram.wait();
         });

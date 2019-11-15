@@ -5,6 +5,7 @@ import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '
 
 declare variable $_:default_split_every as xs:integer := 60000;
 declare variable $_:enable_trace := false();
+declare variable $_:sortValue := '  profile';
 declare variable $_:default_namespaces := (
   '(: no namespaces in profile :)',
   'declare namespace mds = "http://www.loc.gov/mods/v3";',
@@ -95,12 +96,31 @@ let $data-extractor-xquery := _:get-lemma-xquery($profile),
     $alt-extractor-xqueries := _:get-alt-lemma-xqueries($profile)
 return ``[declare function local:extractor($node as node()) as attribute()* {
   ($node/@ID, $node/@xml:id,
-  attribute {"`{$util:vleUtilSortKey}`"} {string-join(`{$data-extractor-xquery}`!normalize-space(.), ', ')}`{
-  if (exists($alt-extractor-xqueries?*)) then ",&#x0a;"||string-join(for $label in map:keys($alt-extractor-xqueries)
-    return ``[attribute {"`{$util:vleUtilSortKey||'-'||$label}`"} {string-join(`{$alt-extractor-xqueries($label)}`!normalize-space(.), ', ')}]``, ",&#x0a;") 
+  attribute {"`{$util:vleUtilSortKey}`"} {
+    if ($node instance of element(profile))
+    then "`{$_:sortValue}`"
+    else string-join(`{$data-extractor-xquery}`!normalize-space(.), ', ')
+  }`{if (exists($alt-extractor-xqueries?*)) then ",&#x0a;"||string-join(for $label in map:keys($alt-extractor-xqueries)
+    return ``[attribute {"`{$util:vleUtilSortKey||'-'||$label}`"} {
+    if ($node instance of element(profile))
+    then "`{$_:sortValue}`"
+    else string-join(`{$alt-extractor-xqueries($label)}`!normalize-space(.), ', ')
+  }]``, ",&#x0a;") 
     else () }` 
   )
 };]``  
+};
+
+declare function _:use-cache($profile as document-node()) as xs:boolean {
+  exists($profile//useCache)
+};
+
+declare function _:extract-sort-values($profile as document-node(), $data as element()+) as element(_)+ {
+let $extract-sort-values-xquery := ``[`{string-join(_:get-xquery-namespace-decls($profile), '&#x0a;')}`
+             declare variable $data as element()+ external;
+             `{_:generate-local-extractor-function($profile)}`
+             $data!<_>{local:extractor(.)}</_>]``
+return util:eval($extract-sort-values-xquery, map {'data': $data}, 'cache-update-extract-sort-values', true())
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {

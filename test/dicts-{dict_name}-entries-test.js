@@ -110,8 +110,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     });
     
     describe('tests for post', function() {
-        // this test fails and I don't know why
-        xit('should respond 201 for "Created"', function() {
+        it('should respond 201 for "Created"', function() {
             var config = { 
                 'body': {
                     "sid": "dictProfile",
@@ -129,8 +128,9 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
             expect(response).to.have.status(201)
             expect(response).to.have.json(function(body){
-                expect(body.id).to.equal('dictProfile')
-                expect(body.type).to.equal('profile')
+                expect(body.id).to.equal('dictProfile');
+                expect(body.type).to.equal('profile');
+                expect(body.lemma).to.equal('  profile');
             })
             return chakram.wait()
         });
@@ -148,7 +148,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 401 for "Unauthorized"', function() {
+        it('should respond 401 for "Unauthorized"', function() {
             var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
                 'body': {
                     "sid":"mollit nostrud adipisicing",
@@ -164,7 +164,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        xit('should respond 403 for "Forbidden"', function() {
+        it('should respond 403 for "Forbidden"', function() {
             var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
                 'body': {
                     "sid":"magna in",

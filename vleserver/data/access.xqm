@@ -103,7 +103,7 @@ declare function _:get-profile-with-sort-xquery($db_name as xs:string, $altLabel
 let $labels := ('', $altLabels!('-'||.))
 return ``[<_ db_name="`{$db_name}`">{
   collection("`{$db_name}`")//profile transform with {
-`{string-join($labels!``[    insert node attribute {"`{$util:vleUtilSortKey||.}`"} {"   profile"} as first into .]``, ',&#x0a;')}`
+`{string-join($labels!``[    insert node attribute {"`{$util:vleUtilSortKey||.}`"} {"`{$profile:sortValue}`"} as first into .]``, ',&#x0a;')}`
   }}
 </_>]``
 };
@@ -223,7 +223,7 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, 
   return $ret
 };
 
-declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element() {
+declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as map(xs:string, item()) {
   let $id := $data/(@xml:id, @ID),
       $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
       $dataType := types:get_data_type($data),
@@ -254,12 +254,15 @@ declare function _:create_new_entry($data as element(), $dict as xs:string, $sta
             update:output($data-with-change))
           ]``
         (: , $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG') :)
-          return (
+          return map {
+            'current': (
           if ($dataType = 'profile') then
           _:create-new-data-db(document{$data}) else "",
           util:eval($add-entry-todb-script, map {
             'data-with-change': $data-with-change
-          }, 'add-entry-todb', true()))[2]
+          }, 'add-entry-todb', true()))[2],
+            'db_name': $target-collection
+          }
 };
 
 (: Change an entry and return a map {
@@ -294,10 +297,12 @@ declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre 
   ]``, map {'newEntry': $newEntry}, 'replace-entry-by-pre', true())  
 };
 
-declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) as element(rfc-7807:problem) {
+declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) as map(xs:string, item()) {
   let $entryToDelete := _:find_entry_as_dbname_pre($dict, $id)
-  return (chg:save-entry-in-history-before-deletion($dict, $entryToDelete[1], $entryToDelete[2], $changingUser),
-          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))[2]
+  return map {'api-response': (chg:save-entry-in-history-before-deletion($dict, $entryToDelete[1], $entryToDelete[2], $changingUser),
+          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))[2],
+    'db_name': $entryToDelete[1]
+  }
 };
 
 declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre as xs:integer) as element(rfc-7807:problem) {

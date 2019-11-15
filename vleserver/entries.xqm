@@ -270,8 +270,10 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
 
 declare %private function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
   let $savedEntry := data-access:create_new_entry($data, $dict, $status, $owner, $changingUser),
-      $run_plugins := plugins:after_created($savedEntry, $dict, $savedEntry/(@xml:id, @ID), $status, $owner, $changingUser)
-  return _:entryAsDocument(xs:anyURI(rest:uri()||'/'||$savedEntry/(@ID, @xml:id)), $savedEntry/(@ID, @xml:id), 'TODO', $savedEntry, ())          
+      $run_plugins := plugins:after_created($savedEntry('current'), $dict, $savedEntry('current')/(@xml:id, @ID), $savedEntry('db_name'), $status, $owner, $changingUser)
+  return _:entryAsDocument(xs:anyURI(rest:uri()||'/'||$savedEntry('current')/(@ID, @xml:id)), $savedEntry('current')/(@ID, @xml:id), 
+  profile:extract-sort-values(profile:get($dict), $savedEntry('current'))/@*[local-name() = $util:vleUtilSortKey],
+  $savedEntry('current'), ())          
 };
 
 declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string) as element()+ {
@@ -369,7 +371,9 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
 declare %private function _:change_entry($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) {
   let $savedEntry as map(xs:string, item()) := data-access:change_entry($data, $dict, $id, $status, $owner, $changingUser),
       $run_plugins := plugins:after_updated($savedEntry('current'), $savedEntry('before'), $dict, $id, $savedEntry('db_name'), $status, $owner, $changingUser)
-  return _:entryAsDocument(rest:uri(), $savedEntry('current')/(@ID, @xml:id), 'TODO', $savedEntry('current'), lcks:get_user_locking_entry($dict, $savedEntry('current')/(@ID, @xml:id)))
+  return _:entryAsDocument(rest:uri(), $savedEntry('current')/(@ID, @xml:id), 
+  profile:extract-sort-values(profile:get($dict), $savedEntry('current'))/@*[local-name() = $util:vleUtilSortKey],
+  $savedEntry('current'), lcks:get_user_locking_entry($dict, $savedEntry('current')/(@ID, @xml:id)))
 };
 
 
@@ -419,7 +423,9 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return api-problem:or_result($start, _:entryAsDocument#5, [rest:uri(), $entry/(@xml:id, @ID), 'TODO', $entry, $lockedBy], cors:header(()))
+  return api-problem:or_result($start, _:entryAsDocument#5, [rest:uri(), $entry/(@xml:id, @ID), 
+  profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
+  $entry, $lockedBy], cors:header(()))
 };
 
 (:~
@@ -449,8 +455,8 @@ function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string, $a
 };
 
 declare %private function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) {
-  data-access:delete_entry($dict, $id, $changingUser),
-  plugins:after_deleted($dict, $id, $changingUser)
+  let $ret := data-access:delete_entry($dict, $id, $changingUser)
+  return (plugins:after_deleted($dict, $id, $ret('db_name'), $changingUser), $ret('api-response'))
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
