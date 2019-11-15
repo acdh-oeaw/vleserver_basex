@@ -16,7 +16,7 @@ cache-update:after_created($data, "`{$dict}`", "`{$id}`", "`{$db_name}`", $statu
 };
 
 declare function _:after_updated($data-current as element(), $data-before as element(), $dict as xs:string, $id as xs:string, $db_name as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
-  util:eval(``[import module namespace example = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/example' at 'plugins/example.xqm';
+  util:eval(``[import module namespace esrch = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/elasticsearch-update' at 'plugins/elasticsearch-update.offxqm';
 import module namespace cache-update = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/cache-update' at 'plugins/cache-update.xqm';
 declare variable $data-current external; declare variable $data-before external;
 declare variable $owner external; declare variable $status external;
