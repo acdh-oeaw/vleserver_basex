@@ -5,7 +5,7 @@ var request = chakram.request;
 var expect = chakram.expect;
 
 module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
-describe('tests for /dicts/{dicts_name}', function() {
+describe('tests for /dicts/{dict_name}', function() {
     var superuser = {
         "id": "",
         "userID": basexAdminUser,
