@@ -12,6 +12,7 @@ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 import module namespace functx = "http://www.functx.com";
 
@@ -140,9 +141,11 @@ declare
     %rest:produces('application/problem+xml')    
 function _:getDictDictName($dict_name as xs:string) as item()+ {
   let $start := prof:current-ns()
-  return if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-exists')) then 
-  api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), '_', [
-    json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), <note>all entries</note>),
+  return if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-exists')) then
+    let  $entries-are-cached := profile:use-cache(profile:get($dict_name))
+    return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), '__', [
+    json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), (<note>all entries</note>,
+    if ($entries-are-cached) then <cache>{$entries-are-cached}</cache> else ())),
     json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
   else
   error(xs:QName('response-codes:_404'),
