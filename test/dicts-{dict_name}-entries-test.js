@@ -263,8 +263,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     });
 
     describe('tests for get', function() {
-        describe('should respond 200 for "OK"', function() {
-            beforeEach('Add test data', function() {
+        describe('should respond 200 for "OK"', response200tests.curry(false));        
+        describe('should respond 200 for "OK" (using cache)', response200tests.curry(true));
+        function response200tests (useCache) {
+            beforeEach('Add test data', async function() {
                 // chakram.startDebug();
                 var config = { 
                     'body': {
@@ -277,19 +279,19 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                             'altDisplayString': {
                                 'label': 'fa-Arab',
                                 'displayString': '//tei:form/tei:orth[@xml:lang = "fa-Arab"]'
-                            }
+                            },
+                            'useCache': useCache
                         })
                     },
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
                     'time': true
                 },
-                    response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+                response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
     
                 expect(response).to.have.status(201);
-                return chakram.wait()
-                .then(function() {
-                var config = { 
+                await chakram.wait();
+                config = { 
                     'body': {
                         "sid": "test01",
                         "lemma": "",
@@ -305,16 +307,51 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     'auth': dictuserauth,
                     'time': true
                 },
-                    response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+                response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
     
                 expect(response).to.have.status(201);
-                return chakram.wait();                
-                })
-                .then(function() {
-                    //chakram.startDebug();
-                });
+                await chakram.wait();
+                for (let i = 2; i < 5; i++) {
+                    config = { 
+                        'body': {
+                            "sid": "test0" + i,
+                            "lemma": "",
+                            "entry": compiledEntryTemplate({
+                                'xmlID': 'test0' + i,
+                                'formFaArab': 'تست ' + i,
+                                'formFaXModDMG': 'ṭēsṯ ' + i,
+                                'translation_en': 'test' + i,
+                                'translation_de': 'Test' + i,
+                                })
+                        },
+                        'headers': { "Accept": "application/vnd.wde.v2+json" },
+                        'auth': dictuserauth,
+                        'time': true
+                    },
+                    await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+                }
+                for (let i = 9; i > 4; i--) {
+                    config = { 
+                        'body': {
+                            "sid": "test0" + i,
+                            "lemma": "",
+                            "entry": compiledEntryTemplate({
+                                'xmlID': 'test0' + i,
+                                'formFaArab': 'تست ' + i,
+                                'formFaXModDMG': 'ṭēsṯ ' + i,
+                                'translation_en': 'test' + i,
+                                'translation_de': 'Test' + i,
+                                })
+                        },
+                        'headers': { "Accept": "application/vnd.wde.v2+json" },
+                        'auth': dictuserauth,
+                        'time': true
+                    },
+                    await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+                }
+                //chakram.startDebug();
             });
-            it('just get all entries', function () {
+            it('just get all entries (standard sorted by lemma ascending)', function () {
                 var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
@@ -323,11 +360,13 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json(function(body){
-                    expect(body.total_items).to.equal("2")
-                    expect(body._embedded.entries).to.have.length(2)
+                    expect(body.total_items).to.equal("10")
+                    expect(body._embedded.entries).to.have.length(10)
                     expect(body._embedded.entries[0].id).to.equal("dictProfile")
                     expect(body._embedded.entries[1].id).to.equal("test01")
                     expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ")
+                    expect(body._embedded.entries[9].id).to.equal("test09")
+                    expect(body._embedded.entries[9].lemma).to.equal("ṭēsṯ 9")
                 });
                 return chakram.wait();
             });
@@ -342,11 +381,13 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json(function(body){
-                    expect(body.total_items).to.equal("2")
-                    expect(body._embedded.entries).to.have.length(2)
+                    expect(body.total_items).to.equal("10")
+                    expect(body._embedded.entries).to.have.length(10)
                     expect(body._embedded.entries[0].id).to.equal("dictProfile")
                     expect(body._embedded.entries[1].id).to.equal("test01")
                     expect(body._embedded.entries[1].lemma).to.equal("تست")
+                    expect(body._embedded.entries[9].id).to.equal("test09")
+                    expect(body._embedded.entries[9].lemma).to.equal("تست 9")
                 });
                 return chakram.wait();
             });
@@ -396,19 +437,6 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 expect(response).to.have.status(404);
                 return chakram.wait();
             });
-            // this test fails (of course): return status code is 200 - is interpreted as GET on /dicts/{tablename}/entries - delivers all entries
-            xit('id parameter is missing - should response 404 "Not Found"', function(){
-                var response = request('get', baseURI + "/dicts/" + dictuser.table + "/entries", {
-                    'headers' : {"Accept" : "application/vnd.wde.v2+json"},
-                    'qs' : {},
-                    'auth' : dictuserauth,
-                    'time' : true
-                });
-
-                expect(response).to.have.status(404);
-                return chakram.wait();
-            });
-            // added T.K. end
             
             it('filter by id that starts with something', function () {
                 var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
@@ -420,9 +448,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json(function(body){
-                    expect(body.total_items).to.equal("1")
-                    expect(body._embedded.entries).to.have.length(1)
+                    expect(body.total_items).to.equal("9")
+                    expect(body._embedded.entries).to.have.length(9)
                     expect(body._embedded.entries[0].id).to.equal("test01")
+                    expect(body._embedded.entries[8].id).to.equal("test09")
                     expect(body._links.self.href).to.contain("id=test%2A")
                     expect(body._links.first.href).to.contain("id=test%2A")
                     expect(body._links.last.href).to.contain("id=test%2A")
@@ -461,21 +490,65 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 expect(response).to.have.status(200);
                 return chakram.wait();
             });
-            afterEach('Remove test data', function() {
-                // chakram.stopDebug();
-                return request('get', baseURI+'/dicts/'+dictuser.table+'/entries/test01', {
-                    'headers': {"Accept":"application/vnd.wde.v2+json"},
-                    'qs': {'lock': 2},
-                    'auth': dictuserauth
-                })
-                .then(function(){
-                return request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/test01', {
-                    'headers': {"Accept":"application/vnd.wde.v2+json"},
-                    'auth': dictuserauth
+            
+            it('get all entries sorted by lemma descending', function () {
+                var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {"sort": "desc"},
+                    'auth': dictuserauth,
+                    'time': true
                 });
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.total_items).to.equal("10")
+                    expect(body._embedded.entries).to.have.length(10)
+                    expect(body._embedded.entries[0].id).to.equal("test09")
+                    expect(body._embedded.entries[1].id).to.equal("test08")
+                    expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ 8")
+                    expect(body._embedded.entries[9].id).to.equal("dictProfile")
+                    expect(body._embedded.entries[9].lemma).to.equal("  profile")
                 });
+                return chakram.wait();
             });
-        });
+
+            it('get all entries sorted as inserted/document order', function () {
+                var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {"sort": "none"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.total_items).to.equal("10")
+                    expect(body._embedded.entries).to.have.length(10)
+                    expect(body._embedded.entries[0].id).to.equal("dictProfile")
+                    expect(body._embedded.entries[1].id).to.equal("test01")
+                    expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ")
+                    expect(body._embedded.entries[9].id).to.equal("test05")
+                    expect(body._embedded.entries[9].lemma).to.equal("ṭēsṯ 5")
+                });
+                return chakram.wait();
+            });
+            afterEach('Remove test data', async function() {
+                // chakram.stopDebug();
+                for (let i = 1; i < 10; i++) {
+                    await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/test0' + i, {
+                        'headers': { "Accept": "application/vnd.wde.v2+json" },
+                        'qs': { 'lock': 2 },
+                        'auth': dictuserauth
+                    });
+                }
+                for (let i = 1; i < 10; i++) {
+                    await request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/test0' + i, {
+                        'headers': { "Accept": "application/vnd.wde.v2+json" },
+                        'auth': dictuserauth
+                    });
+                }
+            });
+        }
 
         it('should respond 400 for useless "filter"', function() {
             var response = request('get', baseURI+'/dicts/' + dictuser.table + '/entries', { 

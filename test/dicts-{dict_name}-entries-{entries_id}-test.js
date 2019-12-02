@@ -356,8 +356,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
     
     describe('tests for put', function() {
         var entryID = 'innisiut';
-        beforeEach('Add a test entry', function(){
-            return request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+        beforeEach('Add a test entry', async function(){
+            await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
                     'body': {
                         "sid":entryID,
                         "lemma":"",
@@ -370,14 +370,12 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': dictuserauth,
                     'time': true
-            })
-            .then(function(testEntryCreated){
-                return request('get', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, {
+            });
+            await request('get', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, {
                     'qs': {'lock': 2},
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': dictuserauth,
                     'time': true
-                });
             });
         });
         it('should respond 200 for "OK"', function() {
