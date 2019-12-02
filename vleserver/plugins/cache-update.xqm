@@ -10,7 +10,9 @@ declare variable $_:logging-enabled := true();
 declare function _:after_created($data as element(), $dict as xs:string, $id as xs:string, $db_name as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
 let $profile := profile:get($dict)
 return if (profile:use-cache($profile))
-  then cache:refresh-cache-db($dict, $db_name, ("", map:keys(profile:get-alt-lemma-xqueries($profile))))
+  then if ($data instance of element(profile))
+    then cache:cache-all-entries($dict)
+  else cache:refresh-cache-db($dict, $db_name, ("", map:keys(profile:get-alt-lemma-xqueries($profile))))
   else ()
 };
 
@@ -56,7 +58,9 @@ return if (profile:use-cache($profile)) then
 declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
 let $profile := profile:get($dict)
 return if (profile:use-cache($profile))
-  then cache:refresh-cache-db($dict, $db_name, ("", map:keys(profile:get-alt-lemma-xqueries($profile))))
+  then if ($id = 'dictProfile')
+    then cache:remove($dict)
+  else cache:refresh-cache-db($dict, $db_name, ("", map:keys(profile:get-alt-lemma-xqueries($profile))))
   else ()
 };
 

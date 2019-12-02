@@ -67,8 +67,8 @@ let $sorted-ascending`{$alt-label-postfix}` := for $d in $ds
   order by data($d/@`{$util:vleUtilSortKey||$alt-label-postfix}`) ascending
   return $d]``}`
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
-return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)/(@ID, @xml:id), ' ')}"/>),
-db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)/(@ID, @xml:id), ' ')}"/>)]``, ',&#x0a;')}`)]``
+return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}"/>),
+db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}"/>)]``, ',&#x0a;')}`)]``
 };
 
 (: this is slightly slower than the above. There seems to be no gain in doing a fork-join here. :)
@@ -129,7 +129,9 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
            then subsequence(for $key in collection('`{$dict}`__cache')//@`{$util:vleUtilSortKey||$alt-label-postfix}`
              order by data($key) `{_:sort-to-long-str($sort)}`
              return $key, `{$from}`, `{$num}`)/..
-           else db:attribute("`{$dict}`__cache", subsequence($all, `{$from}`, `{$num}`))[. instance of attribute(ID) or . instance of attribute(xml:id)]/..]``}`
+           else for $key in db:attribute("`{$dict}`__cache", subsequence($all, `{$from}`, `{$num}`))[. instance of attribute(ID) or . instance of attribute(xml:id)]/../@`{$util:vleUtilSortKey||$alt-label-postfix}`
+           order by data($key) `{_:sort-to-long-str($sort)}`
+           return $key/..]``}`
          else subsequence($all, `{$from}`, `{$num}`)
   } catch db:* | err:FODC0002 {
     error(xs:QName('cache:missing'),
