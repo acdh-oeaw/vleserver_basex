@@ -139,6 +139,7 @@
     </xsl:template>
 </xsl:stylesheet>
 </entryStyle>
+{{#if useCache}}<useCache/>{{/if}}
 <displayXPaths/>
 <doubleNLElements>cit,entry1,form,gramGrp,rating,re,sense,xr</doubleNLElements>
 <editorFonts/>

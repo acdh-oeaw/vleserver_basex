@@ -47,12 +47,14 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             'altDisplayString': {
                 'label': 'test',
                 'displayString': '//mds:titleInfo/mds:title'
-            }
+            },
+            'useCache': true
         });
         expect(testProfileTemplate).to.contain("<tableName>replaced</tableName>");
         expect(testProfileTemplate).to.contain('displayString>{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}<');
         expect(testProfileTemplate).to.contain('altDisplayString label="test">//mds:titleInfo/mds:title<');
         expect(testProfileTemplate).to.contain('mainLangLabel>aNCName<');
+        expect(testProfileTemplate).to.contain('useCache/>');
         var testEntryTemplate = fs.readFileSync('test/fixtures/testEntry.xml', 'utf8');
         expect(testEntryTemplate).to.contain('"http://www.tei-c.org/ns/1.0"');        
         expect(testEntryTemplate).to.contain('xml:id="{{xmlID}}"');
