@@ -125,25 +125,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
     });
     
-    describe('tests for post', function() {
-        // test if the adding of entries is possible also the validation is present now
-        it('should respond 201 for "Created"', function(){
-            var config = {
-                'body' : {
-                    "sid" : 'biyyah_001',
-                    "lemma" : "",
-                    "entry" : testEntryForValidation
-                },
-                'headers' : { "Accept" : "application/vnd.wde.v2+json", "Content-Type" : "application/json" },
-                'auth' : dictuserauth,
-                'time' : true 
-            },
-            response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config);
-            expect(response).to.have.status(201);
-            return chakram.wait();
-        });
-        
-        it('should respond 201 for "Created"', function() {
+    describe('tests for post', function() {        
+        it('should respond 201 for "Created" for a profile', function() {
             var config = { 
                 'body': {
                     "sid": "dictProfile",
@@ -167,6 +150,26 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             return chakram.wait()
         });
 
+        // test if the adding of entries is possible also the validation is present now
+        it('should respond 201 for "Created" for an entry', function(){
+            var config = {
+                'body' : {
+                    "sid" : 'biyyah_001',
+                    "lemma" : "",
+                    "entry" : testEntryForValidation
+                },
+                'headers' : { "Accept" : "application/vnd.wde.v2+json", "Content-Type" : "application/json" },
+                'auth' : dictuserauth,
+                'time' : true 
+            },
+            response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config);
+            expect(response).to.have.status(201);
+            expect(response).to.have.json(function(body){
+                expect(body.id).to.equal('biyyah_001')
+                expect(body.type).to.equal('entry')
+            })
+            return chakram.wait();
+        });
 
         xit('should respond 400 for "Client Error"', function() {
             var response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
@@ -274,6 +277,11 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 });
 
                 expect(response).to.have.status(422);
+                expect(response).to.have.json(function(body){
+                    expect(body.detail).to.contain('element "hom" not allowed anywhere')
+                    expect(body.detail).to.contain('expected the element end-tag or element');
+                    expect(body.detail).to.contain(', "entry"')
+                })
                 
                 return chakram.wait();
             });

@@ -16,5 +16,7 @@ describe('WDE REST API', function() {
     describe('User management - second part',require('./test/dicts-{dict_name}-users-{users_id}-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary data creation', require('./test/dicts-{dict_name}-entries-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary data creation with xsd', require('./test/dicts-{dict_name}-entries-test-with-xsd').curry(baseURI, basexAdminUser, basexAdminPW));
+    describe('Dictionary data creation with schematron', require('./test/dicts-{dict_name}-entries-test-with-schematron').curry(baseURI, basexAdminUser, basexAdminPW));
+    describe('Dictionary data creation with additional schematron schema', require('./test/dicts-{dict_name}-entries-test-with-additional-schema').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary data usage', require('./test/dicts-{dict_name}-entries-{entries_id}-test').curry(baseURI, basexAdminUser, basexAdminPW));
 })
