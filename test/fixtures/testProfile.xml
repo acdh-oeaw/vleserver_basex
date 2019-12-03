@@ -3,7 +3,7 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xhtml="http://www.w3.org/1999/xhtml"
  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
- xml:id="dictProfile-1" xml:space="preserve">
+ xml:id="dictProfile" xml:space="preserve">
 <basexRest>https://vle-curation.acdh.oeaw.ac.at</basexRest>
 <tableName>{{dictName}}</tableName>
 <namespaces>
