@@ -1,0 +1,292 @@
+<entry xmlns="http://www.tei-c.org/ns/1.0" xml:id="biyyah_001" type="irgendwas">
+    <form type="lemma">
+        <orth xml:lang="hbo">בייא</orth>
+        <orth type="transliteration" xml:lang="hbo-SHL">byyʾ</orth>
+        <pron notation="ipa">biyyah</pron>
+        
+        <gramGrp>
+            <gram type="pos">noun</gram>
+            <gram type="gen">f</gram>
+        </gramGrp>
+    </form>
+    <!-- here comes an error: hom not allowed in TEILex0 -->
+    <hom id="error-entry-1" xml:lang="de">irgendwas</hom>
+
+    <form type="variant">
+        <orth xml:lang="hbo">ביה</orth>
+        <orth type="transliteration" xml:lang="hbo-SHL">byh</orth>
+        <pron notation="ipa">biyyah</pron>
+        <pron/>
+    </form>
+    
+    <form type="equivalent">
+        <quote xml:lang="gr">βία</quote>
+    </form>
+    
+    <sense n="1" xml:id="biyyah_001_1">
+        <cit type="translation">
+            <quote xml:lang="en">injustice</quote>
+        </cit>
+        
+        <cit type="example">
+            <quote>
+                בי אדני
+                <app>
+                    <lem>בייא</lem>
+                    <rdg wit="#Vat1">ביה</rdg>
+                    <rdg wit="#Vat2">בייה</rdg>
+                    <rdg wit="#Ox1">ביה</rdg>
+                    <rdg wit="#Ox2">ביא</rdg>
+                    <rdg wit="#V">בייה</rdg>
+                </app>
+                את עביד
+                <app>
+                    <lem>לנו</lem>
+                    <rdg wit="#Vat1">ביה</rdg>
+                    <rdg wit="#Vat2"/>
+                    <rdg wit="#Ox1"/>
+                    <rdg wit="#Ox2"/>
+                    <rdg wit="#V"/>
+                    <rdg wit="#K"/>
+                </app>
+                אדני
+            </quote>
+            <bibl>
+                <ref type="bibliography">93,6</ref>
+                <ref type="bibliography">III 1155:2</ref>
+            </bibl>
+            
+            <cit type="translation">
+                <quote xml:lang="en">
+                    “Bi adoni – you do violence/injustice (biyyah) to us, my lord.”
+                </quote>
+                <bibl>
+                </bibl>
+            </cit>
+        </cit>
+    </sense>
+    
+    <sense n="2" xml:id="biyyah_001_2">
+        <cit type="translation">
+            <quote xml:lang="en">dominion</quote>
+        </cit>
+        
+        <cit type="example">
+            <quote>
+                אין כל מקום ומקום שאין לו ממונה על
+                <app>
+                    <lem>ביה</lem>
+                    <rdg wit="#Vat1">ביה</rdg>
+                    <rdg wit="#Vat2">בייה</rdg>
+                    <rdg wit="#Ox1">ביה</rdg>
+                    <rdg wit="#Ox2">ביא</rdg>
+                    <rdg wit="#V">בייה</rdg>
+                </app>
+                את עביד
+                <app>
+                    <lem>לנו</lem>
+                    <rdg wit="#Vat2">בייה</rdg>
+                    <rdg wit="#Ox2">ביא</rdg>
+                    <rdg wit="#V">בית</rdg>
+                </app>
+                <app>
+                    <lem>שלו</lem>
+                    <rdg wit="#Vat2">שלה</rdg>
+                </app>
+                ,
+                <ref type="entry">אגדיקוס</ref>
+                <app>
+                    <lem>ביה</lem>
+                    <rdg wit="#Vat2">בייה</rdg>
+                    <rdg wit="#Ox1">בית</rdg>
+                    <rdg wit="#Ox2">ביא </rdg>
+                    <rdg wit="#V">בית</rdg>
+                </app>
+                <app>
+                    <lem>שלה</lem>
+                    <rdg wit="#Ox1">לו</rdg>
+                    <rdg wit="#Ox2">של</rdg>
+                    <rdg wit="#V">שלו</rdg>
+                </app>
+                ,
+                <ref type="entry">אגבה בסטס</ref>
+                במדינה ממונה על
+                <app>
+                    <lem>ביה</lem>
+                    <rdg wit="#Vat2">בייה</rdg>
+                    <rdg wit="#Ox2">ביא</rdg>
+                    <rdg wit="#V">בית</rdg>
+                </app>
+                <app>
+                    <lem>שלה</lem>
+                    <rdg wit="#Ox2">שלו</rdg>
+                    <rdg wit="#V">שלו</rdg>
+                </app>
+                , כך מי ממונה על
+                <app>
+                    <lem>ביה</lem>
+                    <rdg wit="#Ox2">ביא</rdg>
+                    <rdg wit="#V">בית</rdg>
+                </app>
+                שלעולמו, הקב"ה ביה שמו
+                <app>
+                    <lem>ביה</lem>
+                    <rdg wit="#Vat2">בייה</rdg>
+                    <rdg wit="#Ox2">ביא</rdg>
+                </app>
+                <app>
+                    <lem>שמו</lem>
+                    <rdg wit="#K"/>
+                    <rdg wit="#V"/>
+                </app>
+            </quote>
+            <bibl>
+                <ref type="bibliography">93,6</ref>
+                <ref type="bibliography">III 1155:2</ref>
+            </bibl>
+            
+            <cit type="translation">
+                <quote xml:lang="en">
+                    “There is not a single place which does not have an appointed 
+                    [authority] over its dominion. The {egdiqos} in his province is appointed 
+                    over its dominion; the {agbah basṭes} in his province is appointed over its 
+                    dominion. Thus, who is appointed over the dominion of his world? 
+                    The Holy One, blessed be He, be-yah is his name, biyyah is his name.”
+                </quote>
+                <bibl>
+                </bibl>
+            </cit>
+        </cit>
+    </sense>
+    <note>
+        Since the lexeme allows several homographic and/or homophonic possibilities 
+        in Greek (and Latin), its interpretation is difficult: Whereas the meaning 1. 
+        is relatively clear, namely the well attested legal term Gr. βία ‘injustice’, 
+        the occurrence in 2. can be drawn only from the context. 
+        In 12,10 we consider the usage of Gr. βία in its neutral semantics ‘
+        force; dominion’ as the most plausible interpretation (following MY ad. loc.; 
+        Fishbane 2015: 86). For further suggestions for 2. cf. AC I: 45; Krauss, LW II: 
+        148 and Levy I: 216, who render with Gr. βίος ‘life, vital force, livelihood’, 
+        MGr. βιός ‘livelihood’. Jastrow, Dictionary: 158 interprets as Late Gr. βία ‘highway’ &amp;lt; Lat. via. An additional possibility of the attested exclamative particle בייא בייא!  ‘Woe!’ (bYom 69b, LevR 17,7 [=YalqEz 348]), which goes back either to Gr. βαβαί or βοή, cf. AC I s.v. ביאה; Levy I s.v., does not apply to the GenR passages due to semantic reasons.
+    </note>
+    <ref type="bibliography">
+        <bibl>
+            <title>Sperber 1984</title>
+            <citedRange>69</citedRange>
+            <title>Sokoloff DJPA</title>
+            <citedRange>95</citedRange>
+        </bibl>
+    </ref>
+    <fs type="change">
+        <f name="who">
+            <symbol value="charly"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_06_07"/>
+        </f>
+    </fs>
+    <fs type="create">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_09"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_09"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_09"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_09"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_09"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_13"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_13"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_07_13"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_09_25"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_09_25"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_09_25"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_09_25"/>
+        </f>
+    </fs>
+    <fs type="change">
+        <f name="who">
+            <symbol value="christina"/>
+        </f>
+        <f name="when">
+            <symbol value="2018_10_04"/>
+        </f>
+    </fs>
+</entry>

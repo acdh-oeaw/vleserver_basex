@@ -23,7 +23,7 @@ declare %private function _:start-eval-job($query as xs:string, $bindings as map
     let $too-many-jobs := if (count(jobs:list()) >= xs:integer(db:system()//parallel)) then 
                           error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests! (>='||db:system()//parallel||')') else (),
         $query-is-sane := $dontCheckQuery or _:query-is-sane($query)
-        (: $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG') :)
+        (: , $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG') :)
         return jobs:eval($query, $bindings, map {
           'cache': true(),
           'id': 'vleserver:'||$jobName||'-'||$subJobNumber||'-'||jobs:current(),
@@ -36,7 +36,7 @@ declare %private function _:query-is-sane($query as xs:string) as xs:boolean {
       $parsed-query := try {
         xquery:parse($query, map {'pass': true()})
       } catch * {error($error-class, ``[Query error:
-      `{$query}`
+      `{$query}` 
       `{$err:code}` `{$err:description}` `{$err:line-number}`/`{$err:column-number}`]``)},
       (: $log := l:write-log(serialize($parsed-query), 'DEBUG'), :)
       $contains-update := if ($parsed-query/@updating ne 'false') then error($error-class, 'Query is updating: '||$query) else (),
