@@ -17,7 +17,9 @@ import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/pr
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
 import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator.xqm';
+import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
+(: import module namespace schematron = "http://github.com/Schematron/schematron-basex"; :)
 
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace test = "http://exist-db.org/xquery/xqsuite";
@@ -263,6 +265,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
   let $start := prof:current-ns(),
       $userName := _:getUserNameFromAuthorization($auth_header),
       $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
+      (: $log := _:write-log(serialize($entry)), :)
       $status := $userData/json/status/text(),
       $owner := $userData/json/owner/text()
   return api-problem:or_result($start, _:create_new_entry#5, [$entry, $dict_name, $status, $owner, $userName], 201, cors:header(()))
@@ -302,19 +305,64 @@ declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $use
   "entry": "The entry as XML fragment."
 } object.&#x0a;]``||
                'JSON was: '||serialize($userData, map{'method': 'json'})),
-      $entry := try {parse-xml-fragment($userData/json/entry/text())/*
+      $entry := try {parse-xml-fragment($userData/json/entry/text())
         } catch * {
           error(xs:QName('response-codes:_422'),
-               'Entry is not paresable as XML',
+               'Entry is not parseable as XML'||$err:additional,
                'Need some well formed XML. '||
                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
                $err:additional) 
         },
-      $check_new_node_has_id := if (exists($entry/(@xml:id, @ID))) then true()
+       $testfortextnodeonly := if ($entry/child::node() instance of text()) then error(xs:QName('response-codes:_422'),'Error during parsing','Data consists only of text - no markup') else(),
+       $entry_type := types:get_data_type_of_document($entry),
+       $profile := profile:get($dict_name),
+       $schema_type := if (exists($profile//entrySchema)) then profile:get-schema-type($profile) else (),
+        (: $log := _:write-log("value of entry/profile " || $entry/profile), :)
+        (: $log := _:write-log("value of entry " || serialize($entry)), :)
+        (: $log := _:write-log(serialize(profile:get-schema($dict_name))), :)
+       $validation := if(exists($schema_type) and $entry_type = 'entry') then try {
+            switch($schema_type)
+                case 'rng' return validate:rng($entry,profile:get-rng-schema($profile))
+                case 'xsd' return validate:xsd($entry,profile:get-xsd-schema($profile))
+                case 'sch' return _:validate-with-schematron-schema($entry, profile:get-schematron-schema($profile),"basic")
+                default return ()
+        } catch validate:init {
+            error(xs:QName('response-codes:_422'),'Error during validation', 'The validation cannot be started.'||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional)
+        } catch validate:not-found {
+            error(xs:QName('response-codes:_422'),'Error during validation','No validator is available.'||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional)
+        (: } catch validate:version {
+            error(xs:QName('response-codes:_422'),'Error during validation','No validator is found for the specified version. '||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional) :)
+        } catch validate:error {
+            (: let $report := switch($schema_type)
+                case 'rng' return validate:rng-report($entry,profile:get-rng-schema($profile))
+                case 'xsd' return validate:xsd-report($entry,profile:get-xsd-schema($profile))
+                default return 'no report', :)
+            let $error := error(xs:QName('response-codes:_422'),'Error during validation',
+                'The document cannot be validated against the specified schema. '||
+                'XML was: '||$userData/json/entry/text()||'&#x0a;'||
+                $err:additional||'&#x0a;'(: ||
+                'Error report: '||$report :))
+            return $entry/*
+        },
+      $additional-validation := if ($entry_type = 'entry') then if (profile:is-additional-schema-available($profile))
+                then try {
+                    _:validate-with-schematron-schema($entry,profile:get-additional-schema($profile),"additional")
+                } catch * {
+                    let $error := error(xs:QName('response-codes:_422'),'Error during additional validation '||$err:additional,'Unknown error during additional validation.')
+                    return ()
+                }
+                else _:write-log('No additional schema available - skipping additional validation.','DEBUG') else (),
+      $check_new_node_has_id := if (exists($entry/*/(@ID, @xml:id))) then true()
         else error(xs:QName('response-codes:_422'),
-                  '@xml:id or @ID missing on data node',
+                  '@xml:id or @ID missing on data node'||serialize($entry),
                   'Element '||$entry/local-name()||' needs to have either an xml:id attribute or an ID attribute.')   
-  return $entry 
+  return $entry/*
 };
 
 declare %private function _:getUserNameFromAuthorization($auth_header as xs:string) as xs:string {
@@ -323,6 +371,34 @@ declare %private function _:getUserNameFromAuthorization($auth_header as xs:stri
   return $name_pw[1]
 };
 
+declare %private function _:validate-with-schematron-schema($entry as document-node(),$schema as element(),$type as xs:string){
+    try {
+        util:eval(``[import module namespace schematron = 'http://github.com/Schematron/schematron-basex';
+        import module namespace entries = 'https://www.oeaw.ac.at/acdh/tools/vle/entries' at 'entries.xqm';
+        declare namespace sch = "http://purl.oclc.org/dsdl/schematron";
+        declare variable $entry  as document-node() external;
+        declare variable $schema as element(sch:schema) external;
+        let $compiled-schema := schematron:compile($schema),
+        $message := schematron:validate($entry,$compiled-schema),
+        $validation-result := if (schematron:is-valid($message)) then () else entries:create-error-message-for-failed-schematron-validation($message,"`{$type}`")
+        return ()]``,map{'entry':$entry,'schema':$schema},'validate-with-schematron-schema',true())
+    } catch err:FOQM0002 {
+        error(xs:QName('response-codes:_422'),'Could not find library module for schematron validation.',
+        'Please install http://github.com/Schematron/schematron-basex with repo:install("https://github.com/Schematron/schematron-basex/raw/master/dist/schematron-basex-1.2.xar").')
+    }
+};
+
+declare function _:create-error-message-for-failed-schematron-validation($validation-result,$type as xs:string) {
+    util:eval(``[import module namespace schematron = 'http://github.com/Schematron/schematron-basex';
+    declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+    declare namespace svrl = "http://purl.oclc.org/dsdl/svrl";
+    declare variable $validation-result as document-node(element(svrl:schematron-output)) external;
+    let $error-message := for $message in schematron:messages($validation-result)
+        return concat(schematron:message-level($message), ': ',schematron:message-description($message)),
+    $error := error(xs:QName('response-codes:_422'),'Error during ' || "`{$type}`" || ' validation ',
+    'Error message:'||'&#x0a;'||$error-message)
+    return ()]``,map{'validation-result':$validation-result},'create-error-message-for-failed-schematron-validation',true())
+};
 
 (:~
  : Change a dictionary entry.
@@ -461,4 +537,8 @@ declare %private function _:delete_entry($dict as xs:string, $id as xs:string, $
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
+};
+
+declare %private function _:write-log($message as xs:string) {
+  if ($_:enable_trace) then admin:write-log($message, "TRACE") else ()
 };

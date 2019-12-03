@@ -33,7 +33,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
         newDictUserID,
         compiledProfileTemplate,
-        compiledEntryTemplate;
+        compiledEntryTemplate,
+        compiledProfileWithSchemaTemplate,
+        testEntryForValidation,
+        testEntryForValidationWithError;
     
     before('Read templated test data', function() {
         var testProfileTemplate = fs.readFileSync('test/fixtures/testProfile.xml', 'utf8');
@@ -73,6 +76,14 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         expect(testEntryTemplate).to.contain('>Test<');
         expect(testEntryTemplate).to.contain('>تست<');
         expect(testEntryTemplate).to.contain('>ṭēsṯ<');
+        // data for testing server side validation
+        var testProfileWithSchemaTemplate = fs.readFileSync('test/fixtures/testProfileWithSchema.xml','utf8');
+        expect(testProfileWithSchemaTemplate).to.contain("<tableName>{{dictname}}</tableName>");
+        compiledProfileWithSchemaTemplate = Handlebars.compile(testProfileWithSchemaTemplate);
+        testEntryForValidation = fs.readFileSync('test/fixtures/testEntryForValidation.xml','utf8');
+        expect(testEntryForValidation).to.contain('xml:id="biyyah_001"');
+        testEntryForValidationWithError = fs.readFileSync('test/fixtures/testEntryForValidationWithError.xml','utf8');
+        expect(testEntryForValidationWithError).to.contain('<hom id="error-entry-1" xml:lang="de">');
     });
 
     beforeEach(function(){
@@ -106,13 +117,23 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     'body': {"name": dictuser.table},
                     'time': true
                 })
+            })
+            .then(function(){
+                return request('post', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers' : {"Accept":"application/vnd.wde.v2+json","Content-Type":"application/json"},
+                    'auth' : dictuserauth,
+                    'body' : { "sid" : "dictProfile",
+                               "lemma" : "profile",
+                               "entry" : compiledProfileWithSchemaTemplate({ 'dictname' : dictuser.table }) },
+                    'time' : true 
+                })
             });
         });
         });
     });
     
-    describe('tests for post', function() {
-        it('should respond 201 for "Created"', function() {
+    describe('tests for post', function() {        
+        it('should respond 201 for "Created" for a profile', function() {
             var config = { 
                 'body': {
                     "sid": "dictProfile",
@@ -126,7 +147,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'auth': dictuserauth,
                 'time': true
             },
-                response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+                response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config);
 
             expect(response).to.have.status(201)
             expect(response).to.have.json(function(body){
@@ -137,9 +158,29 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             return chakram.wait()
         });
 
+        // test if the adding of entries is possible also the validation is present now
+        it('should respond 201 for "Created" for an entry', function(){
+            var config = {
+                'body' : {
+                    "sid" : 'biyyah_001',
+                    "lemma" : "",
+                    "entry" : testEntryForValidation
+                },
+                'headers' : { "Accept" : "application/vnd.wde.v2+json", "Content-Type" : "application/json" },
+                'auth' : dictuserauth,
+                'time' : true 
+            },
+            response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config);
+            expect(response).to.have.status(201);
+            expect(response).to.have.json(function(body){
+                expect(body.id).to.equal('biyyah_001')
+                expect(body.type).to.equal('entry')
+            })
+            return chakram.wait();
+        });
 
         xit('should respond 400 for "Client Error"', function() {
-            var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+            var response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
                 'body': {"sid":"cillum Ut","lemma":"proident officia dolore","entry":"eu et ipsum"},
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'time': true
@@ -151,7 +192,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
 
         it('should respond 401 for "Unauthorized"', function() {
-            var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+            var response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
                 'body': {
                     "sid":"mollit nostrud adipisicing",
                     "lemma":"sunt sint",
@@ -167,7 +208,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
 
         it('should respond 403 for "Forbidden"', function() {
-            var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+            var response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
                 'body': {
                     "sid":"magna in",
                     "lemma":"Duis",
@@ -184,7 +225,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
 
         it('should respond 404 "No function found that matches the request." for wrong accept', function() {
-            var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+            var response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
                 'body': {
                     "sid":"irure",
                     "lemma":"ut aliquip",
@@ -202,7 +243,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
 
         it('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', {
+            var response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', {
                 'json': false,
                 'body': "ut deserunt voluptate",
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -230,13 +271,35 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 expect(response).to.have.status(422);
                 return chakram.wait();
             });
+
+            it('if entry does not conform the schema"', function() {
+                var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
+                    'body': {
+                        "sid":"biyyah_001",
+                        "lemma":"",
+                        "entry": testEntryForValidationWithError
+                    },
+                    'headers': {"Accept":"application/vnd.wde.v2+json","Content-Type" : "application/json"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(422);
+                expect(response).to.have.json(function(body){
+                    expect(body.detail).to.contain('element "hom" not allowed anywhere')
+                    expect(body.detail).to.contain('expected the element end-tag or element');
+                    expect(body.detail).to.contain(', "entry"')
+                })
+                
+                return chakram.wait();
+            });
             
             it('if entry has no @xml:id"', function() {
                 var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
                     'body': {
                         "sid":"dictProfile",
                         "lemma":"",
-                        "entry": "<profile><tabeName></tableName></profile>"
+                        "entry": "<profile><tableName></tableName></profile>"
                     },
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': dictuserauth,
@@ -462,7 +525,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             it('filter by a comma separated list of ids', function () {
                 var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'qs': {"ids": "test01,dictProfile"},
+                    'qs': {"ids": "test01,dictProfile-1"},
                     'auth': dictuserauth,
                     'time': true
                 });
@@ -471,11 +534,11 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 expect(response).to.have.json(function(body){
                     expect(body.total_items).to.equal("2")
                     expect(body._embedded.entries).to.have.length(2)
-                    expect(body._embedded.entries[0].id).to.equal("dictProfile")
+                    expect(body._embedded.entries[0].id).to.equal("dictProfile-1")
                     expect(body._embedded.entries[1].id).to.equal("test01")
-                    expect(body._links.self.href).to.contain("ids=test01%2CdictProfile")
-                    expect(body._links.first.href).to.contain("ids=test01%2CdictProfile")
-                    expect(body._links.last.href).to.contain("ids=test01%2CdictProfile")
+                    expect(body._links.self.href).to.contain("ids=test01%2CdictProfile-1")
+                    expect(body._links.first.href).to.contain("ids=test01%2CdictProfile-1")
+                    expect(body._links.last.href).to.contain("ids=test01%2CdictProfile-1")
                 });
                 return chakram.wait();
             });

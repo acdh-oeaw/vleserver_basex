@@ -5,6 +5,9 @@ module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes';
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
 declare namespace mds = "http://www.loc.gov/mods/v3";
 
+declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+
+
 declare function _:get_data_type($data as element()) as xs:string {
   typeswitch ($data)
     case element(mds:mods) return 'mods'
@@ -20,8 +23,7 @@ declare function _:get_data_type($data as element()) as xs:string {
     case element(tei:xenoData) return 'xenoData'
     case element(_) return '_'
     default return error(
-      xs:QName('_:error'),
-      'Unknown data type',
+      xs:QName('response-codes:_422'), 'Unknown data type - Unprocessable entity',
       serialize(element {
         QName($data/namespace-uri(),
           if (in-scope-prefixes($data)[1] ne "")
@@ -30,6 +32,23 @@ declare function _:get_data_type($data as element()) as xs:string {
         )} {$data/@*}
       )
     )
+};
+
+declare function _:get_data_type_of_document($data as document-node()) as xs:string {
+  typeswitch ($data/*)
+    case element(mds:mods) return 'mods'
+    case element(mds:modsCollection) return 'modsCollection'
+    case element(tei:div) return 'div'
+    case element(tei:entry) return 'entry'
+    case element(tei:TEI) return 'TEI'
+    case element(tei:teiCorpus) return 'teiCorpus'
+    case element(profile) return 'profile'
+    case element(tei:header) return 'header'
+    case element(tei:cit) return 'example'
+    case element(tei:entryFree) return 'entryFree'
+    case element(tei:xenoData) return 'xenoData'
+    case element(_) return '_'
+    default return error(xs:QName('response-codes:_422'), 'Unknown data type - Unprocessable entity')
 };
 
 declare function _:get-parent-node-for-element($c as document-node()*, $dataType as xs:string) as node()* {

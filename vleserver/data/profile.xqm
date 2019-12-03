@@ -3,6 +3,12 @@ xquery version "3.1";
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/profile';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 
+declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+
+declare namespace xsd = "http://www.w3.org/2001/XMLSchema";
+declare namespace rng = "http://relaxng.org/ns/structure/1.0";
+declare namespace sch = "http://purl.oclc.org/dsdl/schematron";
+
 declare variable $_:default_split_every as xs:integer := 60000;
 declare variable $_:enable_trace := false();
 declare variable $_:sortValue := '  profile';
@@ -28,6 +34,40 @@ declare function _:check-contains-valid-dictname($profile as document-node()) as
 
 declare function _:get($dict_name as xs:string) as document-node() {
   util:eval(``[collection("`{$dict_name}`__prof")]``, (), 'get-profile')
+};
+
+declare function _:get-rng-schema($profile as document-node()) as element(rng:grammar) {
+  $profile//entrySchema/rng:grammar
+};
+
+declare function _:get-xsd-schema($profile as document-node()) as element(xsd:schema) {
+  $profile//entrySchema/xsd:schema
+};
+
+declare function _:get-schematron-schema($profile as document-node()) as element(sch:schema) {
+  $profile//entrySchema/sch:schema
+};
+
+declare function _:is-additional-schema-available($profile as document-node()) as xs:boolean {
+    let $is-available := if (exists($profile//additionalEntrySchema/sch:schema)) then true() else false(),
+    $log := _:write-log("additional schema exists: " ||$is-available,"DEBUG")
+    return $is-available
+};
+
+declare function _:get-additional-schema($profile as document-node()) as element(sch:schema) {
+    let $additional-schema := $profile//additionalEntrySchema/sch:schema
+    return $additional-schema
+};
+
+declare function _:get-schema-type($profile as document-node()) as xs:string {
+    (: let $schema := _:get($dict_name)/profile/entrySchema/*, :)
+    let $schema := $profile//entrySchema/*,
+        $schema_type := if ($schema instance of element(rng:grammar)) then 'rng'
+        else if ($schema instance of element(xsd:schema)) then 'xsd'
+        else if ($schema instance of element(sch:schema)) then 'sch'
+        else (),
+        $schema-is-of-valid-type := if (not(exists($schema_type))) then error(xs:QName('response-codes:_404'),'No schema for validation available','Need a relaxng grammar, a schematron schema, or a xml schema.') else ()
+    return $schema_type
 };
 
 declare function _:get-xquery-namespace-decls($profile as document-node()) as xs:string* {
@@ -125,4 +165,8 @@ return util:eval($extract-sort-values-xquery, map {'data': $data}, 'cache-update
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
+};
+
+declare %private function _:write-log($message as xs:string) {
+    admin:write-log($message,"trace")
 };

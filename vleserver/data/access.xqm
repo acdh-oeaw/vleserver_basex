@@ -321,10 +321,11 @@ declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre a
 declare %updating function _:insert-data($c as document-node()*, $data as element(), $dataType as xs:string) {
   let $parentNode := try {
         types:get-parent-node-for-element($c, $dataType)
-      } catch err:XPTY0004 (: multi part dict type :) {
+      } catch err:XPTY0004 { (: multi part dict type :)
         types:get-parent-node-for-element($c, "_")
       }
-    (: , $log := l:write-log('wde:insert-data doc '||base-uri($c)||' index '||$index, 'DEBUG') :)
+      (: let $log := _:write-log("method access:insert-data() - parent node: " || $parentNode || " data type: " || $dataType || " data: " || serialize($data)) :)
+      (: , $log := l:write-log('wde:insert-data doc '||base-uri($c)||' index '||$index, 'DEBUG') :)
   return if ($parentNode instance of document-node() and exists($parentNode/*)) then replace node $parentNode/* with $data
     else insert node $data into if(empty($parentNode)) then types:get-parent-node-for-element($c, "_") else $parentNode
 };
@@ -357,7 +358,7 @@ declare %private function _:create-new-data-db($profile as document-node()) as x
       $log := _:write-log('Trying to create '||$new-db-name, 'DEBUG'),
       (: TODO: read different options from profiles. :)
       $index-options := map:merge((map {}, $_:default_index_options)),
-      $create-new-data-db-script := ``[
+    $create-new-data-db-script := ``[
     import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     declare variable $index-options external;
     db:create("`{$new-db-name}`", document {<_ xmlns=""></_>}, "`{$new-db-name}`.xml", $index-options)
@@ -370,4 +371,7 @@ declare %private function _:create-new-data-db($profile as document-node()) as x
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
+};
+declare %private function _:write-log($message as xs:string) {
+    admin:write-log($message,"trace")
 };
