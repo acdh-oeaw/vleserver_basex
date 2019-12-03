@@ -378,7 +378,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                     'time': true
             });
         });
-        it('should respond 200 for "OK"', function() {
+        describe('should respond 200 for "OK"', function() {
+            it('when changing an entry', function(){
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/'+ entryID, { 
                 'body': {
                     "sid":entryID,
@@ -400,6 +401,49 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                 expect(body.lemma).to.equal("[]");
             })
             return chakram.wait();
+            });
+            it('when enabling caching', function(){
+            var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                'body': {
+                    "sid":"dictProfile",
+                    "lemma":"",
+                    "entry": compiledProfileTemplate({
+                        'dictName' : dictuser.table,
+                        'useCache' : true,
+                    })
+                },
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
+                'time': true
+                });
+                
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.id).to.equal('dictProfile');
+                    expect(body.lemma).to.equal("[]");
+                })
+            });
+            it('when disabling caching', function(){
+                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                'body': {
+                    "sid":"dictProfile",
+                    "lemma":"",
+                    "entry": compiledProfileTemplate({
+                        'dictName' : dictuser.table,
+                        'useCache' : true,
+                    })
+                },
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
+                'time': true
+                });
+                
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.id).to.equal('dictProfile');
+                    expect(body.lemma).to.equal("[]");
+                })
+            });
         });
 
 
