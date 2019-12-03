@@ -17,7 +17,6 @@ import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/pr
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
 import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator.xqm';
-import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 (: import module namespace schematron = "http://github.com/Schematron/schematron-basex"; :)
 
