@@ -19,10 +19,12 @@ declare
     %rest:header-param("Access-Control-Request-Headers", "{$requested-headers}")
     %rest:OPTIONS
 function _:cors_options_response($path as xs:string, $requested-method as xs:string+, $requested-headers as xs:string*) as element(rest:response){
-  let $config := <restCORSconfig/>
+  let $config := <restCORSconfig/>,
+      $origin := try { req:header("Origin") } catch basex:http {'urn:local'}
   return <rest:response>
     <http:response status="200" message="OK">
-      <http:header name="Access-Control-Allow-Origin" value="*"/>
+      <http:header name="Access-Control-Allow-Origin" value="{$origin}"/>
+      <http:header name="Access-Control-Allow-Credentials" value="true"/>
       <http:header name="Access-Control-Allow-Methods" value="{string-join($requested-method, ', ')}"/>
       {if (exists($requested-headers)) then <http:header name="Access-Control-Allow-Headers" value="{string-join($requested-headers, ', ')}"/> else ()}
       <http:header name="Access-Control-Max-Age" value="300"/>

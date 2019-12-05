@@ -18,6 +18,7 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
 };
 
 declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as xs:string, $_embedded as array(element(json)), $page_size as xs:integer, $total_items as xs:integer, $page as xs:integer, $additional_parameters as map(*)) as element(json) {
+(# db:copynode false #) {
   let $additional_parameters_for_uri := string-join(map:for-each($additional_parameters, function($k, $v){"&amp;"||$k||"="||encode-for-uri($v)}), ""),
       $_self_with_parameters := if ($page = 1) 
         then xs:anyURI($_self||'?pageSize='||$page_size||$additional_parameters_for_uri) 
@@ -37,7 +38,7 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
        <__embedded> {
            element {$_embedded_name} {
                attribute {'type'} {'array'},
-               $_embedded?*!<_>{./(@*|*)}</_>
+               $_embedded?*!<_>{(./@*, ./*)}</_> 
            }
        }</__embedded>
        <page__count>{$last_page}</page__count>
@@ -45,13 +46,16 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
        <total__items>{$total_items}</total__items>
        <page>{$page}</page>
    </json>
+}
 };
 
 declare function _:create_document($_self as xs:anyURI, $data as element()+) {
+(# db:copynode false #) {
   <json type='object'>
       {$data}
       <__links type='object'>
           <self type='object'>{_:create_link_object($_self)}</self>
       </__links>
   </json>
+}
 };

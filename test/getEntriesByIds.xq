@@ -3,5 +3,5 @@ let $entries := ("z866_qdb-d1e4283", "z866_qdb-d1e8246", "z866_qdb-d1e8306", "z8
 return entr:getDictDictNameEntries('_qdb-TEI-02', '',
                                   80, 1,
                                   (), string-join(subsequence($entries, 1, 82), ','),
-                                  (), "none",
+                                  (), "none", (),
                                   ())

@@ -3,7 +3,7 @@
  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
  xmlns:xhtml="http://www.w3.org/1999/xhtml"
  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
- xml:id="dictProfile-1" xml:space="preserve">
+ xml:id="dictProfile" xml:space="preserve">
 <basexRest>https://vle-curation.acdh.oeaw.ac.at</basexRest>
 <tableName>{{dictName}}</tableName>
 <namespaces>
@@ -30,6 +30,7 @@
 </queryTemplates>
 <mainLangLabel>{{mainLangLabel}}</mainLangLabel>
 <displayString>{{displayString}}</displayString>
+{{#if altDisplayString}}<altDisplayString label="{{altDisplayString/label}}">{{altDisplayString/displayString}}</altDisplayString>{{/if}}
 <entrySchema>
 <grammar xml:id="firstschema" xmlns="http://relaxng.org/ns/structure/1.0"
          xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -4525,6 +4526,7 @@ Sample values include: 1] homeoteleuton; 2] homeoarchy; 3] paleographicConfusion
     </xsl:template>
 </xsl:stylesheet>
 </entryStyle>
+{{#if useCache}}<useCache/>{{/if}}
 <displayXPaths/>
 <doubleNLElements>cit,entry1,form,gramGrp,rating,re,sense,xr</doubleNLElements>
 <editorFonts/>

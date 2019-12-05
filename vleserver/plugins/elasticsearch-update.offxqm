@@ -3,17 +3,19 @@ xquery version "3.1";
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/elasticsearch-update';
 import module namespace elasicsearch-export = "https://www.oeaw.ac.at/acdh/dboe_tei_modelling/xquery/elasticsearchExport" at "../../../dboe_tei_modelling/xquery/elasticsearchExport.xqm";
 
+declare namespace tei = "http://www.tei-c.org/ns/1.0";
+
 declare variable $_:index-name := 'dboe';
 declare variable $_:elasticsearch-bulk-href := 'http://localhost:9200/_bulk';
 declare variable $_:xslt := 'entry-to-ag5-fields.xsl';
 declare variable $_:log-elasticsearch-results := true();
 
 declare function _:after_created($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
-  _:write-log(_:sendToElasticasearch((_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data))))
+  if ($data instance of element(tei:entry)) then _:write-log(_:sendToElasticasearch((_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data)))) else ()
 };
 
 declare function _:after_updated($data as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
-  _:write-log(_:sendToElasticasearch((_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data))))
+  if ($data instance of element(tei:entry)) then _:write-log(_:sendToElasticasearch((_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data)))) else ()
 };
 
 declare function _:after_deleted($dict as xs:string, $id as xs:string, $changingUser as xs:string) as empty-sequence() {
