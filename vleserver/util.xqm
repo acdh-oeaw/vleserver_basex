@@ -15,7 +15,8 @@ declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as x
 };
 
 declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as xs:string, $dontCheckQuery as xs:boolean) as item()* {
-    let $j := _:start-eval-job($query, $bindings, $jobName, $dontCheckQuery, 0), $_ := jobs:wait($j)   
+    let (: $log := l:write-log($query, 'INFO'), :)
+        $j := _:start-eval-job($query, $bindings, $jobName, $dontCheckQuery, 0), $_ := jobs:wait($j)   
     return jobs:result($j)
 };
 
@@ -132,22 +133,21 @@ declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:stri
   return jobs:result($jid)    
 };
 
-declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as function(node()) as xs:string*?) as element(_:dryed)* {
+(: result is not sorted, most probably document order applies :)
+declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as function(node()) as attribute()*?) as element(_:dryed)* {
   for $nodes_in_db in $nodes
   group by $db_name := _:db-name($nodes_in_db)
   let $pres := db:node-pre($nodes_in_db)
-  return <_:dryed db_name="{$db_name}">
+  return (# db:copynode false #) { <_:dryed db_name="{$db_name}" order="none">
   {for $n at $i in $nodes_in_db
-    let $extracted-strings := try {
+    let $extracted-attrs := try {
       $data-extractor-xquery($n)
     } catch * {
       '  _error_: '||$err:description
-    },
-       $extracted-string := if (exists($extracted-strings)) then string-join($extracted-strings, ', ') else ()
-    order by $extracted-string ascending
-    return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{attribute {$_:vleUtilSortKey} {$extracted-string}}</_:d>
+    }
+    return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{$extracted-attrs}</_:d>
   }
-  </_:dryed>
+  </_:dryed> }
 };
 
 (: db:name causes global read lock :)
@@ -157,25 +157,24 @@ declare function _:db-name($n as node()) as xs:string {
 
 declare function _:hydrate($dryed as element(_:d)+) as node()* {
   let $queries := for $d in $dryed
-      let $db_name := $d/../@db_name
+      let $db_name := $d/@db_name
       group by $db_name
-      let $pre_seq := '("'||string-join($d/@pre, '","')||'")',
+      let $pre_seq := '('||string-join($d/@pre, ', ')||')',
           $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey]!
             (replace(., '"', '&amp;quot;', 'q') => replace('&amp;([^q])', '&amp;amp;$1')), '","')||'")'
       return ``[declare namespace  _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
     for $pre at $i in `{$pre_seq}`
-    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:open-pre("`{$db_name}`",  xs:integer($pre))}</_:h>
+    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:open-pre("`{$db_name}`", $pre)}</_:h>
   ]``
   return _:evals($queries, (), 'util:hydrate', false())
 };
-
 
 (: $filter_code is a XQuery function
    declare function filter($nodes as node()*) as node()* {()};
 :)
 declare function _:hydrate($dryed as element(_:d)+, $filter_code as xs:string) as node()* {
   let $queries := for $d in $dryed
-      let $db_name := $d/../@db_name
+      let $db_name := $d/@db_name
       group by $db_name
       let $pre_seq := '('||string-join($d/@pre, ',')||')',
           $sort_key_seq := '("'||string-join($d/@*[local-name() = $_:vleUtilSortKey]!

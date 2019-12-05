@@ -110,11 +110,13 @@ describe('tests for /dicts/{dict_name}/entries - with additional schema', functi
                 'time' : true 
             },
             response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config);
-            expect(response).to.have.status(201);
-            expect(response).to.have.json(function(body){
-                expect(body.id).to.equal('biyyah_001')
-                expect(body.type).to.equal('entry')
-            })
+            expect(response).to.have.json((body) => {
+                var statusCode = response.valueOf().response.statusCode;
+                expect(body).to.satisfy((body) =>{
+                    return (statusCode == 201 && body.id === 'biyyah_001' && body.type === 'entry') ||
+                           (statusCode == 503 && body.detail.includes('Please install') && body.detail.includes('http://github.com/Schematron/schematron-basex'))
+                });
+            });
             return chakram.wait();
         });
 
@@ -130,10 +132,13 @@ describe('tests for /dicts/{dict_name}/entries - with additional schema', functi
                     'time': true
                 });
 
-                expect(response).to.have.status(422);
-                expect(response).to.have.json(function(body){
-                    expect(body.detail).to.contain('Unknown error during additional validation.')
-                })
+                expect(response).to.have.json((body) => {
+                    var statusCode = response.valueOf().response.statusCode;
+                    expect(body.detail).to.satisfy((detail) =>{
+                        return statusCode == 422 && detail.includes('Unknown error during additional validation.') ||
+                               statusCode == 503 && detail.includes('Please install') && detail.includes('http://github.com/Schematron/schematron-basex')
+                    });
+                });
                 
                 return chakram.wait();
             });

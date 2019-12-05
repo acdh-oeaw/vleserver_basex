@@ -14,6 +14,7 @@ declare namespace rfc-7807 = "urn:ietf:rfc:7807";
 declare variable $_:basePath as xs:string := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:selfName as xs:string := tokenize(static-base-uri(), '/')[last()];
 declare variable $_:enable_trace := false();
+declare variable $_:max-direct-xml := 25;
 declare variable $_:default_index_options := map{'textindex': true(), 
                                                  'attrindex': true(),
                                                  'ftindex': true(), 'casesens': false(), 'diacritics': false(), 'language': 'en',
@@ -74,64 +75,74 @@ return if (exists($found-in-parts)) then $found-in-parts
 declare function _:get-all-entries($dict as xs:string) {
 let $dicts := _:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
-    $data-extractor-xquery := profile:get-lemma-xquery($profile),
+    $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
+    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict, $altLabels)
       else ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-            declare function local:extractor($node as node()) as xs:string* {
-              `{$data-extractor-xquery}`
-            };
+            `{profile:generate-local-extractor-function($profile)}`
             _:do-get-index-data(collection("`{$dict}`"), (), (), local:extractor#1)
             ]``,
-    $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, map {
-      'data-extractor-xquery': $data-extractor-xquery
-    }, 'get-all-entries-script', true()) else ()
+    $log-script1 := _:write-log($get-all-entries-scripts[1], 'INFO'),    
+    $log-scriptn := _:write-log($get-all-entries-scripts[2], 'INFO'),
+    $found-in-parts := if (exists($get-all-entries-scripts))
+      then util:evals($get-all-entries-scripts, (),
+        'get-all-entries-script', true()) else ()
 return $found-in-parts
 };
 
-declare function _:get-profile-with-sort-xquery($dict as xs:string) as xs:string {
-``[<_ db_name="`{$dict}`">{
-      collection("`{$dict}`")//profile transform with {
-        insert node attribute {"`{$util:vleUtilSortKey}`"} {"   profile"} as first into .
-     }}
-   </_>]``
+declare function _:count-all-entries($dict as xs:string) as xs:integer {
+let $xqueries := _:get-list-of-data-dbs($dict)!
+(if (ends-with(., '__prof')) then "1"
+ else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(types:get_all_entries(collection("`{.}`")))]``)
+return sum(util:evals($xqueries, (), 'count-all-entries', true()))  
+};
+
+declare function _:get-profile-with-sort-xquery($db_name as xs:string, $altLabels as xs:string*) as xs:string {
+let $labels := ('', $altLabels!('-'||.))
+return ``[<_ db_name="`{$db_name}`">{
+  collection("`{$db_name}`")//profile transform with {
+`{string-join($labels!``[    insert node attribute {"`{$util:vleUtilSortKey||.}`"} {"`{$profile:sortValue}`"} as first into .]``, ',&#x0a;')}`
+  }}
+</_>]``
 };
 
 (:~ 
- : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
  : This may throw FODC0002 if $dict||'__prof' does not exist
  :)
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+) {
-  _:get-entries-by-ids($dict, $ids, ())
+  _:get-entries-by-ids($dict, $ids, (), ())
 };
 
 (:~ 
- : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
  : This may throw FODC0002 if $dict||'__prof' does not exist
  :)
-declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $suggested_dbs as xs:string*) {
+declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $suggested_dbs as xs:string*, $max-direct-xml as xs:integer?) {
 let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $profile := profile:get($dict),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
+    $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
+    $max-direct-xml := if (exists($max-direct-xml)) then $max-direct-xml else $_:max-direct-xml,
     $get-entries-by-ids-scripts := for $dict in $dicts
     return if (ends-with($dict, '__prof')) then ``[
       if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`])
-      then `{_:get-profile-with-sort-xquery($dict)}`
+      then `{_:get-profile-with-sort-xquery($dict, $altLabels)}`
       else ()]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-        declare function local:extractor($node as node()) as xs:string* {
-          `{$data-extractor-xquery}`
-        };
+        `{profile:generate-local-extractor-function($profile)}`
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
-            $ret := if (count($results) > 25 and `{count($ids)}` > 25) then util:dehydrate($results, local:extractor#1)
+            $ret := if (count($results) > `{$max-direct-xml}` and `{count($ids) > $max-direct-xml}`()) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
-                return $r transform with {insert node attribute {$util:vleUtilSortKey} {local:extractor($r)} as first into . }
+                let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
+                return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
         return $ret]``,
@@ -144,26 +155,35 @@ return if (exists($found-in-parts)) then $found-in-parts
                            'IDs '||$ids_seq||' not found')
 };
 
+declare function _:count-entries-by-ids($dict as xs:string, $ids as xs:string+) {
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+    $xqueries := _:get-list-of-data-dbs($dict)!
+(if (ends-with(., '__prof')) then ``[if (exists(`{$ids_seq}`[. = 'dictProfile'])) then 1 else 0]``
+ else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(db:attribute("`{.}`", `{$ids_seq}`))]``)
+return sum(util:evals($xqueries, (), 'count-entries-by-ids', true()))  
+};
+
 (:~ 
- : If there are more than 25 results per DB then only a "dryed" representation is returned.
+ : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
  :)
 declare function _:get-entries-by-id-starting-with($dict_name as xs:string, $id_start as xs:string) {
 let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
     $profile := profile:get($dict_name),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
+    $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict)
+    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict, $altLabels)
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
-        declare function local:extractor($node as node()) as xs:string* {
-          `{$data-extractor-xquery}`
-        };
+        `{profile:generate-local-extractor-function($profile)}`
         let $results := collection("`{$dict}`")//*[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")],
-            $ret := if (count($results) > 25) then util:dehydrate($results, local:extractor#1)
+            $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
-                return $r transform with {insert node attribute {$util:vleUtilSortKey} {local:extractor($r)} as first into . }
+                let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
+                return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
         return $ret]``,
@@ -173,24 +193,37 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
 return $found-in-parts
 };
 
-declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as xs:string*?) {
-  let $start-time := prof:current-ms(),
-    (:, $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
+declare function _:count-entries-by-id-starting-with($dict_name as xs:string, $id_start as xs:string) {
+let $xqueries := _:get-list-of-data-dbs($dict_name)!
+(if (ends-with(., '__prof')) then ``[if (starts-with('dictProfile', "`{$id_start}`")) then 1 else 0]``
+ else ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+  count(index:attributes("`{.}`", "`{$id_start}`")!db:attribute("`{.}`", .)[. instance of attribute(xml:id) or attribute(ID)])]``)
+return sum(util:evals($xqueries, (), 'count-entries-by-id-starting-with', true()))  
+};
+
+declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?) {
+  _:do-get-index-data($c, $id, $dt, $data-extractor-xquery, $_:max-direct-xml)
+};
+
+declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?, $dehydrate-more-than-results as xs:integer) {
+  let (: $start-time := prof:current-ms(), :)
+      (: $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
       $all-entries := types:get_all_entries($c),
       $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())],
       (: $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'), :)
       (: does not work for 730 databases and ~2.5 Mio tags that would be processed to extract data :)
-      $ret := if (count($results) > 25) then util:dehydrate($results, $data-extractor-xquery) 
+      $ret := if (count($results) > $dehydrate-more-than-results) then util:dehydrate($results, $data-extractor-xquery) 
               else if (count($results) > 0) then <_ db_name="{util:db-name($c)}">{
                 for $r in $results
-                return $r transform with {insert node attribute {$util:vleUtilSortKey} {$data-extractor-xquery($r)} as first into . }
+                let $extracted-data := if (exists($data-extractor-xquery)) then $data-extractor-xquery($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))] else ()
+                return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
     (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)
   return $ret
 };
 
-declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element() {
+declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as map(xs:string, item()) {
   let $id := $data/(@xml:id, @ID),
       $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
       $dataType := types:get_data_type($data),
@@ -220,21 +253,32 @@ declare function _:create_new_entry($data as element(), $dict as xs:string, $sta
             db:optimize("`{$target-collection}`"),
             update:output($data-with-change))
           ]``
-        , $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG')
-          return (
+        (: , $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG') :)
+          return map {
+            'current': (
           if ($dataType = 'profile') then
           _:create-new-data-db(document{$data}) else "",
           util:eval($add-entry-todb-script, map {
             'data-with-change': $data-with-change
-          }, 'add-entry-todb', true()))[2]
+          }, 'add-entry-todb', true()))[2],
+            'db_name': $target-collection
+          }
 };
 
-declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as element() {
+(: Change an entry and return a map {
+     'before': element(),
+     'current': element(),
+     'db_name': xs:string
+  :)
+declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as map(xs:string, item()) {
   let $entryToReplace := _:find_entry_as_dbname_pre($dict, $id),
       $newEntryWithChange := if (types:get_data_type($newEntry) = 'profile') then $newEntry transform with { chg:add-change-record-to-profile(.) }
                              else $newEntry transform with { chg:add-change-record(., $entryToReplace[1], $entryToReplace[2], $status, $owner, $changingUser) }
-  return (chg:save-entry-in-history($dict, $entryToReplace[1], $entryToReplace[2]),
-          _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntryWithChange))
+  return map {
+    'before': chg:save-entry-in-history($dict, $entryToReplace[1], $entryToReplace[2]),
+    'current': _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntryWithChange),
+    'db_name': $entryToReplace[1]
+  }
 };
 
 declare %private function _:find_entry_as_dbname_pre($dict_name as xs:string, $id as xs:string) as xs:anyAtomicType+ {
@@ -242,7 +286,7 @@ util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/
     let $dict_name := data-access:get-real-dicts("`{$dict_name}`", "`{$id}`"),
         $entry := collection($dict_name)//*[(@xml:id, @ID) = "`{$id}`"] 
     return ($dict_name, db:node-pre($entry), $entry//*:fs[@type='change']/*[@name='owner']/*/@value/data())
-    ]``, (), 'find-entry-for-delete', true())  
+    ]``, (), 'find_entry_as_dbname_pre', true())  
 };
 
 declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre as xs:integer, $newEntry as element()) as element() {
@@ -253,10 +297,12 @@ declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre 
   ]``, map {'newEntry': $newEntry}, 'replace-entry-by-pre', true())  
 };
 
-declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) as element(rfc-7807:problem) {
+declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) as map(xs:string, item()) {
   let $entryToDelete := _:find_entry_as_dbname_pre($dict, $id)
-  return (chg:save-entry-in-history-before-deletion($dict, $entryToDelete[1], $entryToDelete[2], $changingUser),
-          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))
+  return map {'api-response': (chg:save-entry-in-history-before-deletion($dict, $entryToDelete[1], $entryToDelete[2], $changingUser),
+          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))[2],
+    'db_name': $entryToDelete[1]
+  }
 };
 
 declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre as xs:integer) as element(rfc-7807:problem) {

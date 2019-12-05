@@ -93,7 +93,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
     });
     
-    describe('tests for post', function() {
+    describe('tests for post with xsd', function() {
         // test if the adding of entries is possible also the validation is present now
         it('should respond 201 for "Created"', function(){
             var config = {
@@ -111,7 +111,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             return chakram.wait();
         });
 
-        describe('should respond 422 for "Unprocessable Entity"', function() {
+        describe('should respond 422 for "Unprocessable Entity" with xsd', function() {
             it('if entry does not conform the schema"', function() {
                 var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
                     'body': {
@@ -145,78 +145,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
     });
     
-    xdescribe('tests for patch', function() {
-        it('should respond 200 for "OK"', function() {
-            var response = request('patch', baseURI+'/dicts/nostrudsit/entries', { 
-                'body': {"sid":"est velit dolore","lemma":"eiusmod aliquip proident","entry":"esse"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(200);
-            return chakram.wait();
-        });
-
-
-        it('should respond 400 for "Client Error"', function() {
-            var response = request('patch', baseURI+'/dicts/eiusmodconsequ/entries', { 
-                'body': {"sid":"nostrud quis consequa","lemma":"ullamco qui dolore ipsum","entry":"consequat consectetur"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(400);
-            return chakram.wait();
-        });
-
-
-        it('should respond 401 for "Unauthorized"', function() {
-            var response = request('patch', baseURI+'/dicts/ametineuUt/entries', { 
-                'body': {"sid":"ut ut consectetur ad aliquip","lemma":"laborum proident","entry":"do nostrud qui"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(401);
-            return chakram.wait();
-        });
-
-
-        it('should respond 403 for "Forbidden"', function() {
-            var response = request('patch', baseURI+'/dicts/aute/entries', { 
-                'body': {"sid":"incididunt veniam aute sint ex","lemma":"irure","entry":"ut in qui et Ut"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(403);
-            return chakram.wait();
-        });
-
-
-        it('should respond 406 for "Not Acceptable"', function() {
-            var response = request('patch', baseURI+'/dicts/s/entries', { 
-                'body': {"sid":"co","lemma":"ut","entry":"magna sed"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(406);
-            return chakram.wait();
-        });
-
-
-        it('should respond 415 for "Unsupported Media Type"', function() {
-            var response = request('patch', baseURI+'/dicts/dolorecommodo/entries', { 
-                'body': {"sid":"reprehenderit sint","lemma":"dolor labore aliqua voluptate","entry":"sit in"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(415);
-            return chakram.wait();
-        });
-
+    xdescribe('tests for patch with xsd', function() {
 
         it('should respond 422 for "Unprocessable Entity"', function() {
             var response = request('patch', baseURI+'/dicts/magna/entries', { 

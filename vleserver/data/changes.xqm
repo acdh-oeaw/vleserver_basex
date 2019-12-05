@@ -26,7 +26,7 @@ declare function _:get-change-by-id-and-dt($db-base-name as xs:string, $id as xs
 };
 
 
-declare function _:save-entry-in-history($db-base-name as xs:string, $db-name as xs:string, $pre as xs:integer) {
+declare function _:save-entry-in-history($db-base-name as xs:string, $db-name as xs:string, $pre as xs:integer) as node() {
   util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
     _:save-entry-in-history("`{$db-base-name}`", db:open-pre("`{$db-name}`", `{$pre}`))]``, (), 'save-entry-in-history_3', true())
 };
@@ -37,14 +37,14 @@ declare function _:save-entry-in-history-before-deletion($db-base-name as xs:str
     return _:save-entry-in-history("`{$db-base-name}`", $e)]``, (), 'save-entry-in-history_4', true())
 };
 
-declare function _:save-entry-in-history($db-base-name as xs:string, $cur-nodes as node()+) as empty-sequence() {
+declare function _:save-entry-in-history($db-base-name as xs:string, $cur-nodes as node()+) as node()+ {
   let $hist-db-name := $db-base-name||'__hist',
       $hist-nodes := <_/> update {insert node $cur-nodes into .} update {./*!_:add-timestamp(.) }
-  return util:eval(``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/changes" at "data/changes.xqm";
+  return (util:eval(``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/changes" at "data/changes.xqm";
        declare variable $hist-nodes external;
        (: this job only locks $hist-db-name for writes. See also db:create docs. :)      
        try { _:_save-entry-in-history(collection("`{$hist-db-name}`"), "`{$hist-db-name}`", $hist-nodes) }
-       catch err:FODC0002 { db:create("`{$hist-db-name}`", <hist>{$hist-nodes/*}</hist>, "`{$hist-db-name}`.xml") }]``, map{'hist-nodes': $hist-nodes}, 'save-entry-in-history_2', true())
+       catch err:FODC0002 { db:create("`{$hist-db-name}`", <hist>{$hist-nodes/*}</hist>, "`{$hist-db-name}`.xml") }]``, map{'hist-nodes': $hist-nodes}, 'save-entry-in-history_2', true()), $cur-nodes)
 };
 
 declare %updating function _:add-change-record-to-profile($e as element(profile)) {
