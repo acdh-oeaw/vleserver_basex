@@ -2,7 +2,7 @@
 <package xmlns="http://expath.org/ns/pkg"
   name="https://www.oeaw.ac.at/acdh/tools/vle"
   abbrev="vleserver_basex"
-  version="0.3.0"
+  version="0.4.0"
   spec="1.0"
   xml:id="vleserver">
   <title>API Problem and JSON HAL based API for editing dictionary like XML datasets</title>
