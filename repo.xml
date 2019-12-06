@@ -8,6 +8,17 @@
     <type>application</type>
     <target>vleserver</target>
     <changelog>
+      <change version="0.4.0">
+        <ul xmlns="http://www.w3.org/1999/xhtml">
+          <li class="feat">Features
+            <ul style="margin-left: 15px;">
+              <li>Added a cache for a high number of entries</li>
+              <li>Implement actually showing a lemma or an alternative lemma as specified in profile</li>
+              <li>Schema validation using XSD, RelaxNG or Schematron</li>
+            </ul>
+          </li>
+        </ul>
+      </change>
       <change version="0.3.0">
         <ul xmlns="http://www.w3.org/1999/xhtml">
           <li class="feat">Features
