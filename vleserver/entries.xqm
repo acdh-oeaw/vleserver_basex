@@ -18,7 +18,6 @@ import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elem
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
 import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
-(: import module namespace schematron = "http://github.com/Schematron/schematron-basex"; :)
 
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace test = "http://exist-db.org/xquery/xqsuite";
@@ -338,15 +337,10 @@ declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $use
                 'XML was: '||$userData/json/entry/text()||'&#x0a;'||
                 $err:additional) :)
         } catch validate:error {
-            (: let $report := switch($schema_type)
-                case 'rng' return validate:rng-report($entry,profile:get-rng-schema($profile))
-                case 'xsd' return validate:xsd-report($entry,profile:get-xsd-schema($profile))
-                default return 'no report', :)
             let $error := error(xs:QName('response-codes:_422'),'Error during validation',
                 'The document cannot be validated against the specified schema. '||
                 'XML was: '||$userData/json/entry/text()||'&#x0a;'||
-                $err:additional||'&#x0a;'(: ||
-                'Error report: '||$report :))
+                $err:additional||'&#x0a;')
             return $entry/*
         },
       $additional-validation := if ($entry_type = 'entry') then if (profile:is-additional-schema-available($profile))
@@ -381,8 +375,8 @@ declare %private function _:validate-with-schematron-schema($entry as document-n
         $message := schematron:validate($entry,$compiled-schema),
         $validation-result := if (schematron:is-valid($message)) then () else entries:create-error-message-for-failed-schematron-validation($message,"`{$type}`")
         return ()]``,map{'entry':$entry,'schema':$schema},'validate-with-schematron-schema',true())
-    } catch err:FOQM0002 {
-        error(xs:QName('response-codes:_422'),'Could not find library module for schematron validation.',
+    } catch err:XQST0059 {
+        error(xs:QName('response-codes:_503'),'Could not find library module for schematron validation.',
         'Please install http://github.com/Schematron/schematron-basex with repo:install("https://github.com/Schematron/schematron-basex/raw/master/dist/schematron-basex-1.2.xar").')
     }
 };

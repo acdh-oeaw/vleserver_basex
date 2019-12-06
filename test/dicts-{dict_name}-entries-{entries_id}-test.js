@@ -402,47 +402,62 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             })
             return chakram.wait();
             });
-            it('when enabling caching', function(){
-            var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries', {
-                'body': {
-                    "sid":"dictProfile",
-                    "lemma":"",
-                    "entry": compiledProfileTemplate({
-                        'dictName' : dictuser.table,
-                        'useCache' : true,
-                    })
-                },
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': dictuserauth,
-                'time': true
+            it('when enabling caching', async function () {
+                await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': { 'lock': 2 },
+                    'auth': dictuserauth,
+                    'time': true
                 });
-                
+                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
+                    'body': {
+                        "sid": "dictProfile",
+                        "lemma": "",
+                        "entry": compiledProfileTemplate({
+                            'dictName': dictuser.table,
+                            'useCache': true,
+                        })
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
                 expect(response).to.have.status(200);
-                expect(response).to.have.json(function(body){
+                expect(response).to.have.json(function (body) {
                     expect(body.id).to.equal('dictProfile');
-                    expect(body.lemma).to.equal("[]");
-                })
+                    expect(body.lemma).to.equal("  profile");
+                });
+                await chakram.wait()
             });
-            it('when disabling caching', function(){
-                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries', {
-                'body': {
-                    "sid":"dictProfile",
-                    "lemma":"",
-                    "entry": compiledProfileTemplate({
-                        'dictName' : dictuser.table,
-                        'useCache' : true,
-                    })
-                },
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': dictuserauth,
-                'time': true
+
+            it('when disabling caching', async function(){
+                await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': { 'lock': 2 },
+                    'auth': dictuserauth,
+                    'time': true
                 });
-                
+                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
+                    'body': {
+                        "sid": "dictProfile",
+                        "lemma": "",
+                        "entry": compiledProfileTemplate({
+                            'dictName': dictuser.table,
+                            'useCache': true,
+                        })
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
                 expect(response).to.have.status(200);
-                expect(response).to.have.json(function(body){
+                expect(response).to.have.json(function (body) {
                     expect(body.id).to.equal('dictProfile');
-                    expect(body.lemma).to.equal("[]");
-                })
+                    expect(body.lemma).to.equal("  profile");
+                });
+                await chakram.wait()
             });
         });
 
@@ -576,20 +591,18 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             });
         });
 
-        afterEach('Remove test entry', function(){
-            return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
+        afterEach('Remove test entry', async function(){
+            await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'qs': {'lock': 2},
                 'auth': dictuserauth,
                 'time': true
-            })
-            .then(function(){
-            return request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
+            });
+            await request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'auth': dictuserauth,
                 'time': true
             });
-        });
         });   
     });
     
