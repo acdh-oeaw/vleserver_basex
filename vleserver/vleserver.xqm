@@ -47,7 +47,7 @@ function _:checkPermissions($_ as map(*)){
       if (not(exists($_('authorization'))) and exists(collection('dict_users')/users/user)) then
         error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
       else
-      let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($_('authorization'), '^Basic ', ''))), ':'),
+      let $name_pw := tokenize(util:basic-auth-decode($_('authorization')), ':'),
           $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])]          
       return if ((not(exists(collection('dict_users')/users/user)) and $dict = ("", "dict_users")) or
                  exists($user_tag[if ($dict ne "") then @dict = $dict else true()])) then () else

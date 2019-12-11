@@ -112,7 +112,7 @@ else
 
 declare function _:check_global_super_user() as empty-sequence() {
   util:eval(``[ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
-  let $name_pw := tokenize("`{convert:binary-to-string(xs:base64Binary(replace(request:header('Authorization', ''), '^Basic ', '')))}`", ':'),
+  let $name_pw := tokenize("`{util:basic-auth-decode(request:header('Authorization', ''))}`", ':'),
       $user_tag := try { collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2]) and 
                                                        @type="su" and @dict = "dict_users"] }
                    catch err:FODC0002 { (: Until dict_users is created everyone is superuser :) true() }          
@@ -188,7 +188,7 @@ declare
 (: This function is meant to have a global write lock. :)
 function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string) {
   let $start := prof:current-ns(),
-      $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($auth_header, '^Basic ', ''))), ':')
+      $name_pw := tokenize(util:basic-auth-decode($auth_header), ':')
   return if ($auth_header = '') then
     error(xs:QName('response-codes:_401'), $api-problem:codes_to_message(401))
   else if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = $dict_name and @type='su'])) then

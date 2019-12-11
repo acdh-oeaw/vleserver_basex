@@ -359,7 +359,7 @@ declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $use
 };
 
 declare %private function _:getUserNameFromAuthorization($auth_header as xs:string) as xs:string {
-  let $name_pw := tokenize(convert:binary-to-string(xs:base64Binary(replace($auth_header, '^Basic ', ''))), ':')
+  let $name_pw := tokenize(util:basic-auth-decode($auth_header), ':')
   (: Digest username="UserNameFromAuthorization", .... :)
   return $name_pw[1]
 };
