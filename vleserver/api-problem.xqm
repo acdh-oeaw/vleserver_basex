@@ -90,18 +90,29 @@ declare
 function _:error-handler($code as xs:string, $description, $value, $module, $line-number, $column-number, $additional) as item()+ {
         let $start-time-ns := prof:current-ns(),
             $origin := try { req:header("Origin") } catch basex:http {'urn:local'},
+            $type := try {
+              namespace-uri-from-QName(xs:QName($code))
+            } catch err:FONS0004 {
+              replace($code, '^[^:]+:', '')
+            },
+            $instance := try {
+              namespace-uri-from-QName(xs:QName($code))||"/"||local-name-from-QName(xs:QName($code))
+            } catch err:FONS0004 {
+              $code
+            },
             $status-code := 
-          let $status-code-from-local-name := replace(local-name-from-QName(xs:QName($code)), '_', '')
+          let $status-code-from-local-name := try {replace(local-name-from-QName(xs:QName($code)), '_', '')}
+          catch err:FONS0004 {$code}
           return if ($status-code-from-local-name castable as xs:integer and 
                      xs:integer($status-code-from-local-name) >= 400 and
                      xs:integer($status-code-from-local-name) < 511) then xs:integer($status-code-from-local-name) else
                      (500, admin:write-log($additional, 'ERROR'))
         return _:return_problem($start-time-ns,
                 <problem xmlns="urn:ietf:rfc:7807">
-                    <type>{namespace-uri-from-QName(xs:QName($code))}</type>
+                    <type>{$type}</type>
                     <title>{$description}</title>
                     <detail>{$value}</detail>
-                    <instance>{namespace-uri-from-QName(xs:QName($code))}/{local-name-from-QName(xs:QName($code))}</instance>
+                    <instance>{$instance}</instance>
                     <status>{$status-code}</status>
                     {if ($_:enable_trace) then <trace xml:space="preserve">{replace(replace($additional, '^.*Stopped at ', '', 's'), ':\n.*($|(\n\nStack Trace:(\n)))', '$3')}</trace> else ()}
                 </problem>, if (exists($origin)) then map{"Access-Control-Allow-Origin": $origin,

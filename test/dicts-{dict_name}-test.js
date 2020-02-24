@@ -103,6 +103,8 @@ describe('tests for /dicts/{dict_name}', function() {
                     expect(body.total_items).to.equal("2");
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.be.undefined;
+                    expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
+                    expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
                     expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
                 });
                 return chakram.wait();
@@ -118,6 +120,8 @@ describe('tests for /dicts/{dict_name}', function() {
                     expect(body.total_items).to.equal("2")
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.be.undefined;
+                    expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
+                    expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
                     expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
                 });
                 return chakram.wait();

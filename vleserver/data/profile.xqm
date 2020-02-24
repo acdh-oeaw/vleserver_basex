@@ -92,13 +92,19 @@ declare function _:template-to-template-string-transformation($template as xs:st
       $query_with_langid := if (exists($langId))
         then replace($query, '{langid}', $langId, 'iq')
         else replace($query, "\[\s*@xml:lang\s*=\s*['|&quot;]\{langid\}['|&quot;]\s*\]", '[1]', 'i'),
-      $query_as_template_string := if (contains($query_with_langid, '{'))
-      then '``['||$query_with_langid
+      $query_with_dict := replace($query_with_langid, "'{dict}'", '$__db__', 'q')
+        => replace('\s*declare\s+variable\s+\$__db__\s+external\s*;', '','i')
+        => replace('$__db__', "'{$__db__}'", 'q')
+        => replace('contains\s+text\s([^\{]*)\{subQuery\}', 'contains text $1{\$noSubstQuery}')
+        => replace('{subQuery}', '{$subQuery}', 'q')
+        => replace('{noSubstQuery}', '{$noSubstQuery}', 'q'),
+      $query_as_template_string := if (contains($query_with_dict, '{'))
+      then '``['||$query_with_dict
         => replace('{', '`{', 'q')
         => replace('`{/', '`{$node/', 'q')
         => replace('}', '}`', 'q')||']``'
-      else if (starts-with($query_with_langid, '/'))
-      then $query_with_langid
+      else if (starts-with($query_with_dict, '/'))
+      then $query_with_dict
         => replace('^/', '\$node/')
       else ()
   return $query_as_template_string
@@ -110,6 +116,37 @@ let $langId := if (normalize-space($profile//mainLangLabel) ne '') then normaliz
 return map:merge((for $altDisplayString in $profile//altDisplayString
   where normalize-space($altDisplayString) ne ''
   return map{xs:string($altDisplayString/@label): _:template-to-template-string-transformation($altDisplayString, $langId)}))
+};
+
+declare function _:get-query-templates($profile as document-node()) as map(xs:string, xs:string) {
+  let $queryTemplates := $profile//queryTemplates/queryTemplate
+  return map:merge($queryTemplates!map{xs:string(./@label): xs:string(_:template-to-template-string-transformation(./text(), ''))})
+};
+
+declare function _:create-sub-query($noSubstQuery as xs:string) as xs:string {
+  let $q := _:remove-wildcards($noSubstQuery)
+  return switch (true()) 
+    case (starts-with($noSubstQuery, '.*') or starts-with($noSubstQuery, '*')) and ends-with($noSubstQuery, '*')
+      return "contains(., '"||$q||"')"
+    case starts-with($noSubstQuery, '.*') or starts-with($noSubstQuery, '*')
+      return "starts-with(., '"||$q||"')"
+    case ends-with($noSubstQuery, '*')
+      return "starts-with(., '"||$q||"')"
+    default return ".='"||$q||"'"
+};
+
+declare function _:remove-wildcards($s as xs:string) as xs:string {
+  replace($s, '\.?\*', '')
+  =>replace("'",'&amp;apos;', 'q')
+};
+
+declare function _:create-queries-for-dbs($profile as document-node(), $noSubstQuery as xs:string, $template as xs:string, $count_only as xs:boolean) as xs:string+ {
+  let $dbs as xs:string+ := _:get-list-of-data-dbs($profile),
+      $template_query as xs:string := ``[declare variable $dbs as xs:string+ external;
+declare variable $noSubstQuery as xs:string external;
+declare variable $subQuery as xs:string external;
+for $__db__ in $dbs return ]``|| $template
+  return util:eval($template_query, map{'$dbs': $dbs, '$noSubstQuery': $noSubstQuery, '$subQuery': _:create-sub-query($noSubstQuery)}, 'create-queries-for-db')
 };
 
 declare function _:get-list-of-data-dbs($profile as document-node()) as xs:string* {

@@ -75,7 +75,7 @@ declare
     %rest:produces('application/problem+xml')
 function _:getRoot() as item()+ {
   api-problem:or_result(prof:current-ns(), json-hal:create_document_list#6, [rest:uri(), '_', [
-    json-hal:create_document(xs:anyURI(rest:uri()||'/dicts'), <note>all dictionaries</note>)], 1, 1, 1], cors:header(()))
+    json-hal:create_document(xs:anyURI(rest:uri()||'dicts'), <note>all dictionaries</note>)], 1, 1, 1], cors:header(()))
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
