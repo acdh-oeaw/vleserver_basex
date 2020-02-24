@@ -22,6 +22,7 @@ import module namespace admin = "http://basex.org/modules/admin"; (: for logging
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace test = "http://exist-db.org/xquery/xqsuite";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+declare namespace entries = "https://www.oeaw.ac.at/acdh/tools/vle/entries";
 
 declare variable $_:enable_trace := false();
 declare variable $_:max_results_with_entries := 1000;
@@ -43,8 +44,13 @@ declare variable $_:dont_try_to_return_more_than := 200000;
  : @param $page The page page to return based on the given pageSize
  : @param $id Filter by ids starting with this string
  : @param $ids Return entries matching exactly the ids provided as a comma separated list
- : @param $q XPath or XQuery to exeute as filter (only admins for this dict)
- : @param $sort XPath or XQuery to execute for sorting the filtered results (only admins for this dict)
+ : @param $q A name of a query template stored in the profile (everyone) or
+ : an XPath or XQuery to exeute as filter (only admins for this dict)
+ : @param $sort One of "asc", "desc" or "none" (everyone) or
+ : an XPath or XQuery to execute for sorting the filtered results (only admins for this dict)
+ : @param $altLemma A name of an alternative lemma definition to use (specified in profile)
+ : @param $auth_header Used to determine if user is allowed to use any XQuery or XPath for q and sort
+ : @param $accept Used to determine if the user was authenticated or is anonymous.
  : @return A JSON HAL based list of entry URIs.
  :)
 declare
@@ -73,20 +79,29 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
                                   $altLemma as xs:string?, $accept as xs:string*) {
   let $start-fun := prof:current-ns(),
       $start := $start-fun,
-      $check_authenticated_for_q_sort_xquery := if ((exists($q) or
+      $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
+      else error(xs:QName('response-codes:_404'), 
+         $api-problem:codes_to_message(404),
+         'Dictionary '||$dict_name||' does not exist'),
+      $profile := profile:get($dict_name),
+      $query-templates := profile:get-query-templates($profile),
+      $query-template-name := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$1'),
+      $query-value := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$2'),
+      $check_authenticated_for_q_sort_xquery := if ((
+        (exists($q) and not($query-template-name = map:keys($query-templates))) or
         (exists($sort) and not($sort = ("none", "asc", "desc"))))
         and not($accept = 'application/vnd.wde.v2+json'))
       then error(xs:QName('response-codes:_403'), 
          $api-problem:codes_to_message(403),
          'XQuery for sort or q is only allowed if authenticated')
       else true(),
-      $additional_ret_query_parameters := if ($ids) then map {'ids': $ids}
+      $q_is_a_query_template := if (exists($q) and not($query-template-name = map:keys($query-templates))) then
+        error(xs:QName('entries:not_implemented'), 'Not yet implemented')
+      else true(),
+      $additional_ret_query_parameters := if ($q) then map {'q': $q}
+        else if ($ids) then map {'ids': $ids}
         else if ($id) then map {"id": $id}
         else map {},
-      $check_dict_exists := if (util:eval(``[db:exists("`{$dict_name}`__prof")]``, (), 'check-dict-'||$dict_name)) then true()
-      else error(xs:QName('response-codes:_404'), 
-         $api-problem:codes_to_message(404),
-         'Dictionary '||$dict_name||' does not exist'),      
       $id-is-not-empty-or-no-filter :=
         if ($ids instance of xs:string) then
             if ($ids ne '') then true()
@@ -103,11 +118,13 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
             if ($id ne '') then true()
             else error(xs:QName('response-codes:_404'),
             $api-problem:codes_to_message(404),
-            'id= does not select anything'),
+            'id= does not select anything')
+         else true(),
       $userName := _:getUserNameFromAuthorization($auth_header),
-      $profile := profile:get($dict_name),
       $total_items := 
-          if ($ids instance of xs:string) then
+          if ($q instance of xs:string) then
+            data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates($query-template-name), $query-value)
+          else if ($ids instance of xs:string) then
             data-access:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
           else if ($id instance of xs:string) then
             if (ends-with($id, '*')) then
@@ -117,12 +134,17 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
           else if (exists($profile//useCache))
             then cache:count-all-entries($dict_name)
             else data-access:count-all-entries($dict_name),
+      $some_items_found := if ($total_items > 0) then true()
+        else error(xs:QName('response-codes:_404'),
+            $api-problem:codes_to_message(404),
+            'Your query did not yield any items.'),
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
+      $query-template := if (empty($query-template-name)) then () else $query-templates($query-template-name),
       $relevant_nodes_or_dryed := if (exists($profile//useCache))
-          then _:get-dryed-from-cache($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
-          else _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items),
+          then _:get-dryed-from-cache($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
+          else _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items),
       $relevant_dbs := distinct-values($relevant_nodes_or_dryed/@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $relevant_ids := for $nd in $relevant_nodes_or_dryed
@@ -155,11 +177,14 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
 };
 
 declare function _:get-dryed-from-cache($dict_name as xs:string,
+  $profile as document-node(), $query-template as xs:string?, $query-value as xs:string?,
   $id as xs:string?, $ids as xs:string*,
   $sort as xs:string?, $label as xs:string?,
   $from as xs:integer, $num as xs:integer, $total_items_expected as xs:integer) {
     try {
-        if ($ids instance of xs:string) then
+        if ($query-template instance of xs:string) then
+          error(xs:QName('cache:missing'), 'Not implemented yet')
+        else if ($ids instance of xs:string) then
           cache:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'), $from, $num, $sort, $label, $total_items_expected)
         else if ($id instance of xs:string) then
           if (ends-with($id, '*')) then
@@ -169,11 +194,12 @@ declare function _:get-dryed-from-cache($dict_name as xs:string,
         else cache:get-all-entries($dict_name, $from, $num, $sort, $label, $total_items_expected)
     } catch cache:missing {
        _:write-log('cache miss', 'INFO'),
-       _:get-nodes-or-dryed-direct($dict_name, $id, $ids, $sort, $label, $from, $num, $total_items_expected)
+       _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $label, $from, $num, $total_items_expected)
     }
 };
 
 declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
+  $profile as document-node(), $query-template as xs:string?, $query-value as xs:string?,
   $id as xs:string?, $ids as xs:string*,
   $sort as xs:string?, $label as xs:string?,
   $from as xs:integer, $num as xs:integer,
@@ -188,7 +214,9 @@ let (: $start := prof:current-ns(), :)
             'Use caching if you need to browse more entries.'),
     $label := if (exists($label)) then '-'||$label else '',
     $nodes_or_dryed := try {
-        if ($ids instance of xs:string) then
+        if ($query-template instance of xs:string) then
+          data-access:get-entries-selected-by-query($dict_name, $profile, $query-template, $query-value)
+        else if ($ids instance of xs:string) then
           data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
         else if ($id instance of xs:string) then
           if (ends-with($id, '*')) then
@@ -342,7 +370,7 @@ declare %private function _:checkPassedDataIsValid($dict_name as xs:string, $use
                 'XML was: '||$userData/json/entry/text()||'&#x0a;'||
                 $err:additional||'&#x0a;')
             return $entry/*
-        },
+        } else (),
       $additional-validation := if ($entry_type = 'entry') then if (profile:is-additional-schema-available($profile))
                 then try {
                     _:validate-with-schematron-schema($entry,profile:get-additional-schema($profile),"additional")

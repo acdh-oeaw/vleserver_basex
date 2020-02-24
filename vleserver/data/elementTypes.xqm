@@ -68,6 +68,19 @@ declare function _:get-parent-node-for-element($c as document-node()*, $dataType
         default return $c/tei:TEI/tei:text/tei:body
 };
 
+declare function _:get-first-parent-node-to-return($e as element()) as element() {
+ (($e/ancestor::profile,
+   $e/ancestor::tei:entry,
+   $e/ancestor::tei:entryFree,
+   $e/ancestor::tei:cit[@type='example'],
+   $e/ancestor::tei:form[@type = 'lemma'],
+   $e/ancestor::tei:teiHeader,
+   $e/ancestor::tei:TEI,
+   $e/ancestor::mds:mods,   
+   $e/ancestor::hist)[@ID or @xml:id],
+   $e)[1]
+};
+
 declare function _:get_parent_node_for_change_log($e as element()) {
   typeswitch ($e)  
     case element(mds:mods) return ($e/mds:extension/*:history, $e/mds:extension)[1]

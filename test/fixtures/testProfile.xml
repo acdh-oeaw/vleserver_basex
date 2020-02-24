@@ -12,17 +12,49 @@
 </namespaces>
 <queryTemplates>
 
-<queryTemplate label="tx_names">
+<queryTemplate label="tei_all">
+   collection($__db__)//tei:entry/.//node()[text() contains text "{subQuery}" using wildcards] | 
+   collection($__db__)//tei:cit[@type='example']/tei:quote[text() contains text "{subQuery}" using wildcards]
+</queryTemplate>
+
+<queryTemplate label="tei_lem">
+   declare namespace tei = 'http://www.tei-c.org/ns/1.0';
+   declare variable $__db__ external;
+   collection($__db__)//tei:entry/tei:form[@type='lemma']/tei:orth[text() contains text "{subQuery}" using wildcards] |
+   collection($__db__)//tei:entry/tei:form[@type='multiWordUnit']/tei:orth[text() contains text "{subQuery}" using wildcards]
+</queryTemplate>
+
+<queryTemplate label="tei_sid">
+   declare namespace tei = 'http://www.tei-c.org/ns/1.0';
+   declare variable $__db__ external;
+   collection($__db__)//tei:entry[contains(@xml:id,{noSubstQuery})] | 
+   collection($__db__)//tei:teiHeader[contains(@xml:id,{noSubstQuery})] | 
+   collection($__db__)//tei:cit[contains(@xml:id,{noSubstQuery})] 
+</queryTemplate>
+
+<queryTemplate label="tei_pos">
+   declare namespace tei = 'http://www.tei-c.org/ns/1.0';
+   declare variable $__db__ external;
+   collection($__db__)//tei:entry[tei:gramGrp/tei:gram[@type='pos'][{subQuery}]]
+</queryTemplate>
+
+<queryTemplate label="tei_tr">
+   declare namespace tei = 'http://www.tei-c.org/ns/1.0';
+   declare variable $__db__ external;
+   collection($__db__)//tei:entry/tei:sense/tei:cit/tei:quote[text() contains text "{subQuery}" using wildcards]
+</queryTemplate>
+
+<queryTemplate label="mds_names">
    declare namespace mds = 'http://www.loc.gov/mods/v3';   
    collection('{dict}')//mds:mods[mds:name/mds:namePart[text() contains text "{subQuery}" using wildcards]]
 </queryTemplate>
                                                      
-<queryTemplate label="tx_any">
+<queryTemplate label="mds_any">
    declare namespace mds = 'http://www.loc.gov/mods/v3';   
    collection('{dict}')//mds:mods[*/node()[text() contains text "{subQuery}" using wildcards]]
 </queryTemplate>
                                                      
-<queryTemplate label="tx_title">
+<queryTemplate label="mds_title">
    declare namespace mds = 'http://www.loc.gov/mods/v3';   
    collection('{dict}')//mds:mods[*/*/mds:title[text() contains text "{subQuery}" using wildcards]]
 </queryTemplate>

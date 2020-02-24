@@ -68,8 +68,8 @@ declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName 
     return _:throw-on-error-in-returns($ret)
 };
 
-declare function _:get-batch-size() {
-  floor((xs:integer(db:system()//parallel) - count(jobs:list())) * 1 div 3)
+declare function _:get-batch-size() as xs:integer {
+  xs:integer(floor((xs:integer(db:system()//parallel) - count(jobs:list())) * 1 div 3))
 };
 
 declare function _:get-results-or-errors($js as xs:string*) {

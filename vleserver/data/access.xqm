@@ -108,6 +108,40 @@ return ``[<_ db_name="`{$db_name}`">{
 </_>]``
 };
 
+declare function _:get-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-template as xs:string, $query-value as xs:string) as element()* {
+  let $get-entries-selected-by-query-scritps := _:create-queries-for-dbs($dict, $profile, $query-value, $query-template, false()),
+    $log-script1 := _:write-log($get-entries-selected-by-query-scritps[1], 'INFO'),
+    $found-in-parts := if (exists($get-entries-selected-by-query-scritps))
+      then util:evals($get-entries-selected-by-query-scritps, (),
+        'get-entries-selected-by-query-scritps', true()) else ()
+return $found-in-parts
+};
+
+declare function _:create-queries-for-dbs($dict as xs:string, $profile as document-node(), $noSubstQuery as xs:string, $template as xs:string, $count_only as xs:boolean) {
+let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $template, $count_only),
+    $node-queries-without-prolog := $node-queries!replace(., '((xquery)|(declare)|(module)|(import))[^;]+;\s+', '', 'm'),
+    $parent-queries := for $q at $p in $node-queries
+     return ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+       import module namespace types = 'https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes' at 'data/elementTypes.xqm';
+     `{if (matches($q, '^\s*declare\s+namespace\s')) then '(: using namespace declared in template :)'
+       else string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`]``||
+     replace($q, $node-queries-without-prolog[$p], ``[
+       `{profile:generate-local-extractor-function($profile)}`
+       let $results := `{$node-queries-without-prolog[$p]}`,
+           $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
+           (: parent count, not query result count :)
+       `{if ($count_only) then ``[return count($parent-nodes-to-return)]``
+                else ``[, $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
+              else if (count($results) > 0) then <_ db_name="`{$dict}`">{
+                for $r in $parent-nodes-to-return
+                let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
+                return $r transform with {insert node $extracted-data as first into . }
+              }</_>
+              else ()
+        return $ret]``}`]``, 'q')
+  return $parent-queries
+};
+
 (:~ 
  : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
@@ -126,7 +160,6 @@ declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $s
 let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $profile := profile:get($dict),
-    $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $max-direct-xml := if (exists($max-direct-xml)) then $max-direct-xml else $_:max-direct-xml,
     $get-entries-by-ids-scripts := for $dict in $dicts
@@ -155,7 +188,12 @@ return if (exists($found-in-parts)) then $found-in-parts
                            'IDs '||$ids_seq||' not found')
 };
 
-declare function _:count-entries-by-ids($dict as xs:string, $ids as xs:string+) {
+declare function _:count-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-template as xs:string, $query-value as xs:string) as xs:integer {
+  let $xqueries := _:create-queries-for-dbs($dict, $profile, $query-value, $query-template, true())
+  return sum(util:evals($xqueries, (), 'count-entries-selected-by-query', true()))
+};
+
+declare function _:count-entries-by-ids($dict as xs:string, $ids as xs:string+) as xs:integer {
 let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $xqueries := _:get-list-of-data-dbs($dict)!
 (if (ends-with(., '__prof')) then ``[if (exists(`{$ids_seq}`[. = 'dictProfile'])) then 1 else 0]``
