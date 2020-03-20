@@ -5,6 +5,7 @@ import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'elementTypes.xqm';
 import module namespace chg = "https://www.oeaw.ac.at/acdh/tools/vle/data/changes" at 'changes.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
+import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
 declare namespace mds = "http://www.loc.gov/mods/v3";
@@ -83,8 +84,8 @@ let $dicts := _:get-list-of-data-dbs($dict),
             `{profile:generate-local-extractor-function($profile)}`
             _:do-get-index-data(collection("`{$dict}`"), (), (), local:extractor#1)
             ]``,
-    $log-script1 := _:write-log($get-all-entries-scripts[1], 'INFO'),    
-    $log-scriptn := _:write-log($get-all-entries-scripts[2], 'INFO'),
+    (: $log-script1 := _:write-log($get-all-entries-scripts[1], 'INFO'),    
+    $log-scriptn := _:write-log($get-all-entries-scripts[2], 'INFO'), :)
     $found-in-parts := if (exists($get-all-entries-scripts))
       then util:evals($get-all-entries-scripts, (),
         'get-all-entries-script', true()) else ()
@@ -110,7 +111,7 @@ return ``[<_ db_name="`{$db_name}`">{
 
 declare function _:get-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-template as xs:string, $query-value as xs:string) as element()* {
   let $get-entries-selected-by-query-scritps := _:create-queries-for-dbs($dict, $profile, $query-value, $query-template, false()),
-    $log-script1 := _:write-log($get-entries-selected-by-query-scritps[1], 'INFO'),
+    (: $log-script1 := _:write-log($get-entries-selected-by-query-scritps[1], 'INFO'), :)
     $found-in-parts := if (exists($get-entries-selected-by-query-scritps))
       then util:evals($get-entries-selected-by-query-scritps, (),
         'get-entries-selected-by-query-scritps', true()) else ()
@@ -179,8 +180,8 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
               }</_>
               else ()
         return $ret]``,
-    $log_script1 :=  _:write-log($get-entries-by-ids-scripts[1], "INFO"),
-    $log_script2 :=  _:write-log($get-entries-by-ids-scripts[2], "INFO"),
+    (: $log_script1 :=  _:write-log($get-entries-by-ids-scripts[1], "INFO"),
+    $log_script2 :=  _:write-log($get-entries-by-ids-scripts[2], "INFO"), :)
     $found-in-parts := if (exists($get-entries-by-ids-scripts)) then util:evals($get-entries-by-ids-scripts, (), if (exists($suggested_dbs)) then 'get-limited-entries-by-ids-script' else 'get-entries-by-ids-script', true()) else ()
 return if (exists($found-in-parts)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
@@ -225,7 +226,7 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
               }</_>
               else ()
         return $ret]``,
-    $log_scripts :=  _:write-log($get-all-entries-scripts[1]||"&#x0a;"||$get-all-entries-scripts[2], "INFO"),
+    (: $log_scripts :=  _:write-log($get-all-entries-scripts[1]||"&#x0a;"||$get-all-entries-scripts[2], "INFO"), :)
     $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, (),    
     'get-entries-by-id-starting-with', true()) else ()
 return $found-in-parts
@@ -261,91 +262,145 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, 
   return $ret
 };
 
-declare function _:create_new_entry($data as element(), $dict as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as map(xs:string, item()) {
-  let $id := $data/(@xml:id, @ID),
-      $db-exists := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
-      $dataType := types:get_data_type($data),
+(: $data: map {'id': map {entry: <xml></xml>
+                    status: ""
+                    owner: ""}
+         'id': ...}
+:)
+
+declare function _:create_new_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) as map(xs:string, map(xs:string, map(xs:string, item()?))) {
+  let $ids_seq := ``[("`{string-join(map:keys($data), '","')}`")]``,
+      $dict-is-db := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
+      $dataType := distinct-values(for $entry in $data?*?entry return types:get_data_type($entry)),
       $dicts := if ($dataType = 'profile') then $dict||'__prof'      
-                else if ($db-exists) then $dict
+                else if ($dict-is-db) then $dict
                 else _:get-list-of-data-dbs($dict),  
     (: iterate over all databases for the current dictionary and look for ID duplicates :)
       $collection-with-existing-id-scripts := for $dict in $dicts
-        return ``[collection("`{$dict}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]/db:name(.)]``,
-        $log := _:write-log("acc:add-entry-todb "||$collection-with-existing-id-scripts[1], "DEBUG"),
-        $collection-with-existing-id := util:evals(
+        return ``[collection("`{$dict}`")//*[@xml:id = `{$ids_seq}` or @ID = `{$ids_seq}`]/db:name(.)]``,
+      (: $log := _:write-log("acc:add-entry-todb "||$collection-with-existing-id-scripts[1], "DEBUG"), :)
+      $collection-with-existing-id := util:evals(
             $collection-with-existing-id-scripts, (),
             'existing-ids', true()
         ),
       $check_new_node_has_unique_id := if (not(exists($collection-with-existing-id))) then true()
         else error(xs:QName('response-codes:_409'),
                   'Duplicate @xml:id or @ID',
-                   $id||" already exists in collection '"||string-join(distinct-values($collection-with-existing-id), ',')||"'"),                  
-     
-       (: TODO: There should be some heuristic to decide whether the new entry should go into a new database or not. :)
-       $target-collection := _:get-collection-name-for-insert-data($dict, $dataType),
-       $data-with-change := if ($dataType = 'profile') then $data transform with { chg:add-change-record-to-profile(.) }
-                            else $data transform with { chg:add-change-record(., .//*:fs[@type = 'change'], $status, $owner, $changingUser) },
-       $add-entry-todb-script := ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+                  "One of "||$ids_seq||" already exists in collection '"||string-join(distinct-values($collection-with-existing-id), ',')||"'"),
+      $check_only_one_dataType := if (count($dataType) = 1) then true()
+        else error(xs:QName('response-codes:_422'),
+                  'Cannot handle entries with multiple dataTypes',
+                  "There are entries of the follwing types: "||string-join($dataType, ', ')),  
+      (: TODO: Should we split a sequence of new entries so the maximum number of entries per db is never exceeded? :)
+      $target-collection := _:get-collection-name-for-insert-data($dict, $dataType),
+      $data-with-change := map:merge(map:for-each($data, function ($id, $data){ _:add-change-records($id, $data, $dataType, $changingUser)})),
+      $add-entry-todb-script := ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare variable $data-with-change external;
-            (_:insert-data(collection("`{$target-collection}`"), $data-with-change, "`{$dataType}`"),
+            (_:insert-data(collection("`{$target-collection}`"), $data-with-change?*?entry, "`{$dataType}`"),
             db:optimize("`{$target-collection}`"),
-            update:output($data-with-change))
-          ]``
-        (: , $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data := '||serialize($data), 'DEBUG') :)
-          return map {
-            'current': (
-          if ($dataType = 'profile') then
-          _:create-new-data-db(document{$data}) else "",
-          util:eval($add-entry-todb-script, map {
+            update:output(map:merge(for $id in map:keys($data-with-change)
+              return map {$id: map:merge((map{'db_name': "`{$target-collection}`"}, $data-with-change($id)))})))
+          ]``,
+        (: $log := _:write-log('acc:add-entry-todb $add-entry-todb-script := '||$add-entry-todb-script||' $data-with-change := '||serialize($data-with-change, map{'method': 'basex'}), 'DEBUG'), :)
+      $create_data_db := if ($dataType = 'profile') then _:create-new-data-db(document{$data?*?entry}) else (),
+      $script_ret := util:eval($add-entry-todb-script, map {
             'data-with-change': $data-with-change
-          }, 'add-entry-todb', true()))[2],
-            'db_name': $target-collection
-          }
+          }, 'add-entry-todb', true())
+    (: , $log := _:write-log('acc:add-entry-todb $script_ret := '||serialize($script_ret, map{'method': 'basex'}), 'DEBUG') :)
+return map {'current':$script_ret}
 };
 
-(: Change an entry and return a map {
-     'before': element(),
-     'current': element(),
-     'db_name': xs:string
-  :)
-declare function _:change_entry($newEntry as element(), $dict as xs:string, $id as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as map(xs:string, item()) {
-  let $entryToReplace := _:find_entry_as_dbname_pre($dict, $id),
-      $newEntryWithChange := if (types:get_data_type($newEntry) = 'profile') then $newEntry transform with { chg:add-change-record-to-profile(.) }
-                             else $newEntry transform with { chg:add-change-record(., $entryToReplace[1], $entryToReplace[2], $status, $owner, $changingUser) }
+(: returns map {'current': map {'$id': map {'entry': <entry/>,
+                                            'db_name': $target-collection}},
+                                '$id': ...}
+:)
+
+declare %private function _:add-change-records($id as xs:string, $data as map(*), $dataType as xs:string, $changingUser as xs:string) {
+  map {$id: if ($dataType = 'profile') then map:merge((map{ 'entry': $data?entry transform with { chg:add-change-record-to-profile(.) }}, $data))
+  else map:merge((map{ 'entry': $data?entry transform with { chg:add-change-record(., .//*:fs[@type = 'change'], $data?status, $data?owner, $changingUser) }}, $data))}
+};
+
+(: $data: map {'id': map {entry: <xml></xml>
+                    status: ""
+                    owner: ""}
+         'id': ...}
+:)
+
+declare function _:change_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) as map(xs:string, map(xs:string, map(xs:string, item()?))) {
+  let $entriesToReplace := _:find_entry_as_dbname_pre($dict, map:keys($data)),
+      $db_names := map:keys($entriesToReplace),
+      $newEntriesWithChange := map:merge(for $db_name in $db_names return
+        for $id in map:keys($entriesToReplace($db_name)) return
+          map{xs:string($id): 
+            if (types:get_data_type($data($id)?entry) = 'profile') then $data($id)?entry transform with { chg:add-change-record-to-profile(.) }
+            else $data($id)?entry transform with { chg:add-change-record(map:merge((map{'entry':.}, $data($id))), $db_name, $entriesToReplace($db_name)($id)("pre"), $changingUser) }
+          }
+        )
+  return for $db_name in $db_names
+  let $ids := map:keys($entriesToReplace($db_name))
   return map {
-    'before': chg:save-entry-in-history($dict, $entryToReplace[1], $entryToReplace[2]),
-    'current': _:do-replace-entry-by-pre($entryToReplace[1], $entryToReplace[2], $newEntryWithChange),
-    'db_name': $entryToReplace[1]
+    'before': chg:save-entry-in-history($dict, $db_name, $ids),
+    'current': _:do-replace-entry-by-id($db_name, $ids, $newEntriesWithChange)
   }
 };
 
-declare %private function _:find_entry_as_dbname_pre($dict_name as xs:string, $id as xs:string) as xs:anyAtomicType+ {
-util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-    let $dict_name := data-access:get-real-dicts("`{$dict_name}`", "`{$id}`"),
-        $entry := collection($dict_name)//*[(@xml:id, @ID) = "`{$id}`"] 
-    return ($dict_name, db:node-pre($entry), $entry//*:fs[@type='change']/*[@name='owner']/*/@value/data())
+(: returns map {'current': map {'$id': map {'entry': <entry/>,
+                                            'db_name': $target-collection}},
+                                '$id': ...},
+                'before': map {'$id': map {'entry': <entry/>,
+                                            'db_name': $target-collection}},
+                                '$id': ...}
+:)
+
+declare function _:find_entry_as_dbname_pre($dict_name as xs:string, $ids as xs:string+) as map(xs:string, map(xs:string, item())) {
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``
+return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+    let $db_names := data-access:get-real-dicts("`{$dict_name}`", `{$ids_seq}`),
+        $entries := $db_names!map{.: data-access:find_entry_as_dbname_pre_with_collection(collection(.), `{$ids_seq}`)}
+    return map:merge($entries)
     ]``, (), 'find_entry_as_dbname_pre', true())  
 };
 
-declare %private function _:do-replace-entry-by-pre($db-name as xs:string, $pre as xs:integer, $newEntry as element()) as element() {
-  util:eval(``[declare variable $newEntry as element() external;
-    replace node db:open-pre("`{$db-name}`", `{$pre}`) with $newEntry,
+(: returns map {$db_name: map {$id: map {'pre': $pre,
+                                         'owner': $owner},
+                               $id: ...},
+                $db_name: ...}               
+:)
+
+declare function _:find_entry_as_dbname_pre_with_collection($collection as document-node()*, $ids as xs:string+) as map(*)+ {
+  let $entries := $collection//*[(@xml:id, @ID) = $ids] 
+  return map:merge($entries!map{xs:string(./(@xml:id, @ID)): map {"pre": db:node-pre(.), 'owner': ./*:fs[@type='change']/*[@name='owner']/*/@value/data()}})
+};
+
+declare %private function _:do-replace-entry-by-id($db-name as xs:string, $ids as xs:string+, $newEntries as map(xs:string, item())) as map(xs:string, map(xs:string, item()?)) {
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``
+return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+    declare variable $newEntries as map(xs:string, item()) external;
+    let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), `{$ids_seq}`)
+      (: , $log := data-access:write-log(serialize($entriesToChange, map{'method': 'basex'}), 'INFO')
+      , $log := data-access:write-log(serialize($newEntries, map{'method': 'basex'}), 'INFO') :)
+    return for $id in map:keys($entriesToChange) return replace node db:open-pre("`{$db-name}`", $entriesToChange($id)?pre) with $newEntries($id),
     db:optimize("`{$db-name}`"),
-    update:output($newEntry)
-  ]``, map {'newEntry': $newEntry}, 'replace-entry-by-pre', true())  
+    update:output(map:merge(for $id in map:keys($newEntries)
+     return map{xs:string($id): map{'entry': $newEntries($id),
+                         'db_name': "`{$db-name}`"}}))
+  ]``, map {'newEntries': $newEntries}, 'replace-entry-by-id', true())  
 };
 
 declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) as map(xs:string, item()) {
-  let $entryToDelete := _:find_entry_as_dbname_pre($dict, $id)
-  return map {'api-response': (chg:save-entry-in-history-before-deletion($dict, $entryToDelete[1], $entryToDelete[2], $changingUser),
-          _:do-delete-entry-by-pre($entryToDelete[1], $entryToDelete[2]))[2],
-    'db_name': $entryToDelete[1]
+  let $entryToDelete := _:find_entry_as_dbname_pre($dict, $id),
+      $db-name := map:keys($entryToDelete)
+  return map {'api-response': (chg:save-entry-in-history-before-deletion($dict, $db-name, $id, $changingUser),
+          _:do-delete-entry-by-id($db-name, $id))[2],
+    'db_name': $db-name
   }
 };
 
-declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre as xs:integer) as element(rfc-7807:problem) {
+declare %private function _:do-delete-entry-by-id($db-name as xs:string, $id as xs:string) as element(rfc-7807:problem) {
   util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
-    delete node db:open-pre("`{$db-name}`", `{$pre}`),
+    import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+    let $entryToDelete := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), "`{$id}`")
+    return delete node db:open-pre("`{$db-name}`", $entryToDelete?*("pre")),
     db:optimize("`{$db-name}`"),
     update:output(<problem xmlns="urn:ietf:rfc:7807">
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
@@ -353,10 +408,10 @@ declare %private function _:do-delete-entry-by-pre($db-name as xs:string, $pre a
        <status>204</status>
     </problem>
   )
-  ]``, (), 'delete-entry-by-pre', true())
+  ]``, (), 'delete-entry-by-id', true())
 };
 
-declare %updating function _:insert-data($c as document-node()*, $data as element(), $dataType as xs:string) {
+declare %updating function _:insert-data($c as document-node()*, $data as element()+, $dataType as xs:string) {
   let $parentNode := try {
         types:get-parent-node-for-element($c, $dataType)
       } catch err:XPTY0004 { (: multi part dict type :)
@@ -393,7 +448,7 @@ declare %private function _:create-new-data-db($profile as document-node()) as x
   let $check-profile-contains-valid-dictname := profile:check-contains-valid-dictname($profile),
       $current-dict-parts := profile:get-list-of-data-dbs($profile),
       $new-db-name := profile:get-name-for-new-db($profile, count($current-dict-parts)),
-      $log := _:write-log('Trying to create '||$new-db-name, 'DEBUG'),
+      (: $log := _:write-log('Trying to create '||$new-db-name, 'DEBUG'), :)
       (: TODO: read different options from profiles. :)
       $index-options := map:merge((map {}, $_:default_index_options)),
     $create-new-data-db-script := ``[
@@ -402,12 +457,12 @@ declare %private function _:create-new-data-db($profile as document-node()) as x
     db:create("`{$new-db-name}`", document {<_ xmlns=""></_>}, "`{$new-db-name}`.xml", $index-options)
   ]``,
     $create-new-data-db := util:eval($create-new-data-db-script, map{'index-options': $index-options}, 'create-new-data-db', true()),
-    $ret := profile:get-list-of-data-dbs($profile)[last()],
-    $retLog := _:write-log('Created '||$new-db-name, 'DEBUG')
+    $ret := profile:get-list-of-data-dbs($profile)[last()]
+    (: , $retLog := _:write-log('Created '||$new-db-name, 'DEBUG') :)
   return $ret
 };
 
-declare %private function _:write-log($message as xs:string, $severity as xs:string) {
+declare (: %private :) function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
 };
 declare %private function _:write-log($message as xs:string) {

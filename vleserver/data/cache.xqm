@@ -5,6 +5,7 @@ import module namespace data-access = 'https://www.oeaw.ac.at/acdh/tools/vle/dat
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
 
+declare variable $_:logging-enabled := false();
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:sortMaxSize := 15000;
 declare variable $_:optimizeOptions := "map {'updindex': true(), 'attrindex': true(), 'attrinclude': 'Q{http://www.w3.org/XML/1998/namespace}id, ID, order, label, db_name'}";
@@ -67,8 +68,8 @@ let $sorted-ascending`{$alt-label-postfix}` := for $d in $ds
   order by data($d/@`{$util:vleUtilSortKey||$alt-label-postfix}`) ascending
   return $d]``}`
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
-return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}"/>),
-db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}"/>)]``, ',&#x0a;')}`)]``
+return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}" created="{current-dateTime()}"/>),
+db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}" created="{current-dateTime()}"/>)]``, ',&#x0a;')}`)]``
 };
 
 (: this is slightly slower than the above. There seems to be no gain in doing a fork-join here. :)
@@ -98,15 +99,18 @@ declare function _:order-by-key-ids-asc($name as xs:string, $key-attrs as attrib
 };
 
 declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string, $labels-to-sort as xs:string*) {
-let $dbs:= data-access:get-list-of-data-dbs($dict),
+let $start := prof:current-ns(),
+    $dbs:= data-access:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
     $query := (util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at "util.xqm";
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
-            let $dryed as element(util:dryed) := data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)
-            return db:replace("`{$dict||'__cache'}`", $dryed/@db_name||'_cache.xml', $dryed)]``, (), "refresh-cache-db-"||$db_name, true()), if (exists($labels-to-sort)) then _:sort($dict, $labels-to-sort) else ())
-   return $query
+            let $dryed as element(util:dryed)? := data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)
+            return if (exists($dryed)) then db:replace("`{$dict||'__cache'}`", "`{$db_name}`_cache.xml", $dryed)
+            else db:delete("`{$dict||'__cache'}`", "`{$db_name}`_cache.xml")]``, (), "refresh-cache-db-"||$db_name, true()), if (exists($labels-to-sort)) then _:sort($dict, $labels-to-sort) else ()),
+    $log := _:write-log('Refresh took: '||((prof:current-ns() - $start) idiv 10000) div 100|| ' ms', 'INFO')
+return $query
 };
 
 declare function _:get-all-entries($dict as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
@@ -211,4 +215,9 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
 
 declare function _:remove($dict as xs:string) {
   util:eval(``[db:drop("`{$dict||'__cache'}`")]``, (), 'remove-cache', true())
+};
+
+declare function _:write-log($message as xs:string, $level as xs:string) as empty-sequence() {
+  let $ns := replace(namespace-uri(<_:_/>), 'https://www.oeaw.ac.at/acdh/tools/vle/', '')
+  return if ($_:logging-enabled) then admin:write-log($ns||':'||$message, $level) else ()
 };
