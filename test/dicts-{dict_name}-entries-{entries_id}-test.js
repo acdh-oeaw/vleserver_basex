@@ -30,8 +30,19 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             "writeown": "n",
             "table": "enimmollitirure"
         },
+        dictuser2 = {
+            "id": "",
+            "userID": 'testUser1',
+            "pw": 'PassW0rd',
+            "read": "y",
+            "write": "y",
+            "writeown": "y",
+            "table": "enimmollitirure"
+        },
         dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
+        dictuserauth2 = {"user":dictuser2.userID, "pass":dictuser.pw},
         newDictUserID,
+        newDictUserID2,
         compiledProfileTemplate,
         compiledEntryTemplate;
     
@@ -57,52 +68,59 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         expect(testEntryTemplate).to.contain('>Test<');
     });
 
-    beforeEach('Set up dictionary and users', function(){
-        // I think here is a contradiction: It should not be possible to create any table without credentials. <-> The dict_users table manages credentials. The dict_users table has to be present before any access is possible and at least the superuser must be in the table.
-        return request('post', baseURI + '/dicts', {
-        'headers': {"Accept":"application/vnd.wde.v2+json",
-                    "Content-Type":"application/json"},
-        'body': {'name': 'dict_users'},
-        'time': true
-        })
-        .then(function(dictUsersCreated){
-        return request('post', baseURI + '/dicts/dict_users/users', { 
-            'headers': {"Accept":"application/vnd.wde.v2+json",
-                        "Content-Type":"application/json"},
+    beforeEach('Set up dictionary and users', async function(){
+        await request('post', baseURI + '/dicts', {
+            'headers': {
+                "Accept": "application/vnd.wde.v2+json",
+                "Content-Type": "application/json"
+            },
+            'body': { 'name': 'dict_users' },
+            'time': true
+        });
+        var userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', {
+            'headers': {
+                "Accept": "application/vnd.wde.v2+json",
+                "Content-Type": "application/json"
+            },
             'body': superuser,
             'time': true
-        })
-        .then(function(userCreateResponse) {
-            newSuperUserID = userCreateResponse.body.id;
-            return request('post', baseURI + '/dicts/dict_users/users', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json",
-                            "Content-Type":"application/json"},
-                'auth': superuserauth,
-                'body': dictuser,
-                'time': true
-                })
-                .then(function(userCreateResponse) {
-                    newDictUserID = userCreateResponse.body.id;               
-                    return request('post', baseURI + '/dicts', {
-                        'headers': {"Accept":"application/vnd.wde.v2+json"},
-                        'auth': superuserauth,
-                        'body': {"name": dictuser.table},
-                        'time': true
-                    })
-                    .then(function(dictCreatedResponse){
-                        return request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
-                            'body': {
-                                "sid":"dictProfile",
-                                "lemma":"",
-                                "entry": compiledProfileTemplate({'dictName' : dictuser.table})
-                            },
-                            'headers': {"Accept":"application/vnd.wde.v2+json"},
-                            'auth': dictuserauth,
-                            'time': true
-                            });                    
-                    });            
-            });            
         });
+        newSuperUserID = userCreateResponse.body.id;
+        userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', {
+            'headers': {
+                "Accept": "application/vnd.wde.v2+json",
+                "Content-Type": "application/json"
+            },
+            'auth': superuserauth,
+            'body': dictuser,
+            'time': true
+        });
+        newDictUserID = userCreateResponse.body.id;
+        userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', {
+            'headers': {
+                "Accept": "application/vnd.wde.v2+json",
+                "Content-Type": "application/json"
+            },
+            'auth': superuserauth,
+            'body': dictuser2,
+            'time': true
+        });
+        newDictUserID2 = userCreateResponse.body.id;
+        await request('post', baseURI + '/dicts', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'body': { "name": dictuser.table },
+            'time': true
+        });
+        await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', {
+            'body': {
+                "sid": "dictProfile",
+                "lemma": "",
+                "entry": compiledProfileTemplate({ 'dictName': dictuser.table })
+            },
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': dictuserauth,
+            'time': true
         });
     });
     describe('tests for get', function() {
@@ -186,6 +204,27 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
+        it('should respond 422 for "Unprocessable Entity"', async function() {
+            await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'qs': {'lock': 2},
+                'auth': dictuserauth,
+                'time': true
+            })
+            var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries/' + entryID, {
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'qs': {'lock': 2},
+                'auth': dictuserauth2,
+                'time': true
+            });
+
+            expect(response).to.have.status(422);
+            expect(response).to.have.json(function(body){
+                expect(body.detail).to.contain("testUser0");
+            });
+            return chakram.wait();
+        });
+
         afterEach('Remove test entry', function(){
             return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -203,8 +242,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
     });
     
-    describe('tests for patch', function() {
-        // added T.K. start - create an entry which could be changed with patch
+    xdescribe('tests for patch', function() { // not implemented yet
         var entryID = 'testentry';
         beforeEach('Add a test entry', function(){
             return request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
@@ -222,8 +260,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                     'time': true
             })
         });
-        // added T.K. end
-        // try to change an existing entry - test fails: returned status code is 404 (?)
+        // try to change an existing entry?
         xit('should respond 200 for "OK"', function() {
             var response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries/' + entryID, { 
                 'body': {"sid" : "in","lemma" : "qui velit sunt","entry" : "irure quis pariatur"},
@@ -236,7 +273,6 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
-        // don't know which case should give this error
         xit('should respond 400 for "Client Error"', function() {
             var response = request('patch', baseURI+'/dicts/'+dictuser.table+'/entries/laboristempormollitet', { 
                 'body': {"sid":"laboris reprehenderit sed eiusmod amet","lemma":"consectetur velit","entry":"ad est"},
@@ -248,7 +284,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
-        // try to change an entry without credentials - test fails: returns status code 404 (?)
+        // try to change an entry without credentials
         xit('should respond 401 for "Unauthorized"', function() {
             var response = request('patch', baseURI + '/dicts/'+ dictuser.table + '/entries/' + entryID, { 
                 'body': {"sid":"minim nulla reprehende","lemma":"in do","entry":"qui quis vo"},
@@ -260,7 +296,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
-        // try to change an entry without sufficient credentials - is this appropriatelly understood? Either one user is authorized or not unauthorized for a particular database. What should forbidden mean?
+        // try to change an entry without sufficient credentials
         xit('should respond 403 for "Forbidden"', function() {
             var response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries/' + entryID, { 
                 'body': {"sid":"non laboris culpa est","lemma":"sint commodo Lorem et","entry":"pari"},
@@ -311,7 +347,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
-        // try to access an entry with a wrong media type - test fails: returned status code is 404
+        // try to access an entry with a wrong media type
         xit('should respond 415 for "Unsupported Media Type"', function() {
             var response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries/' + entryID, { 
                 'body' : {"sid":"in ea","lemma":"veniam sed Duis","entry":"irure eiusmod e"},
@@ -324,7 +360,6 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
-        // this test seems to be for a write lock on the server - needs more setup
         xit('should respond 422 for "Unprocessable Entity"', function() {
             var response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries/' + entryID, { 
                 'body': {"sid":"cillum sed","lemma":"elit nostrud","entry":"proident eiusmod nostrud"},
@@ -335,7 +370,6 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             expect(response).to.have.status(422);
             return chakram.wait();
         });
-        // added T.K. start - delete test entry
         afterEach('Remove test entry', function(){
             return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -351,7 +385,6 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             })
         });
         });
-        // added T.K. end
     });
     
     describe('tests for put', function() {
@@ -459,19 +492,157 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                 });
                 await chakram.wait()
             });
-        });
 
+            it('when changing status', async function(){
+                await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': { 'lock': 5 },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+                await request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'body': {
+                        "sid": "",
+                        "lemma": "",
+                        "entry": compiledEntryTemplate({
+                            'xmlID': entryID,
+                            'translation_en': 'changed',
+                            'translation_de': 'verändert',
+                            }),
+                        "status": 'unreleased'
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'body': {
+                        "sid": "",
+                        "lemma": "",
+                        "entry": compiledEntryTemplate({
+                            'xmlID': entryID,
+                            'translation_en': 'changed 2',
+                            'translation_de': 'verändert 2',
+                            }),
+                        "status": 'released'
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
 
-        xit('should respond 400 for "Client Error"', function() {
-            var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/exer', { 
-                'body': {"sid":"non culpa sit cillum amet","lemma":"ipsum","entry":"sit consectetur deserunt incididunt"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function (body) {
+                    expect(body.id).to.equal(entryID);
+                    expect(body.lemma).to.equal("[]");
+                    expect(body.status).to.equal("released")
+                });
+                await chakram.wait()
             });
+            it('when leaving status alone', async function(){
+                await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': { 'lock': 5 },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+                await request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'body': {
+                        "sid": "",
+                        "lemma": "",
+                        "entry": compiledEntryTemplate({
+                            'xmlID': entryID,
+                            'translation_en': 'changed',
+                            'translation_de': 'verändert',
+                            }),
+                        "status": 'unreleased'
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'body': {
+                        "sid": "",
+                        "lemma": "",
+                        "entry": compiledEntryTemplate({
+                            'xmlID': entryID,
+                            'translation_en': 'changed 2',
+                            'translation_de': 'verändert 2',
+                            })
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
 
-            expect(response).to.have.status(400);
-            return chakram.wait();
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function (body) {
+                    expect(body.id).to.equal(entryID);
+                    expect(body.lemma).to.equal("[]");
+                    expect(body.status).to.equal("unreleased")
+                });
+                await chakram.wait()
+            });
+            it('when settinge status to ""', async function(){
+                await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': { 'lock': 5 },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+                await request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'body': {
+                        "sid": "",
+                        "lemma": "",
+                        "entry": compiledEntryTemplate({
+                            'xmlID': entryID,
+                            'translation_en': 'changed',
+                            'translation_de': 'verändert',
+                            }),
+                        "status": 'unreleased'
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                    'body': {
+                        "sid": "",
+                        "lemma": "",
+                        "entry": compiledEntryTemplate({
+                            'xmlID': entryID,
+                            'translation_en': 'changed 2',
+                            'translation_de': 'verändert 2',
+                            }),
+                        "status": ''
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function (body) {
+                    expect(body.id).to.equal(entryID);
+                    expect(body.lemma).to.equal("[]");
+                    expect(body.status).to.equal("")
+                });
+                await chakram.wait()
+            });
         });
+
+
+        // xit('should respond 400 for "Client Error"', function() {
+        //     var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/exer', { 
+        //         'body': {"sid":"non culpa sit cillum amet","lemma":"ipsum","entry":"sit consectetur deserunt incididunt"},
+        //         'headers': {"Accept":"application/vnd.wde.v2+json"},
+        //         'time': true
+        //     });
+
+        //     expect(response).to.have.status(400);
+        //     return chakram.wait();
+        // });
 
 
         it('should respond 401 for "Unauthorized"', function() {
@@ -506,27 +677,17 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             return chakram.wait();
         });
 
-
-        xit('should respond 404 for "Not Found"', function() {
-            var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/laborumlaboreExcepteurad', { 
-                'body': {"sid":"nulla ullamco laboris anim","lemma":"dolor","entry":"occaecat magna"},
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
-            });
-
-            expect(response).to.have.status(404);
-            return chakram.wait();
-        });
-
+        // There is a 404 response when trying to lock the entry. If some entry can not be found is changed
+        // then the lock is missing (and cannot be acquired)
 
         it('should respond 404 "No function found that matches the request." for wrong accept', function() {
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/deseruntenimeu', { 
                 'body': {
-                    "sid":"voluptate est",
-                    "lemma":"labore sint",
-                    "entry":"occaecat nisi aliqua"
+                    "sid": "",
+                    "lemma": "",
+                    "entry": ""
                 },
-                'headers': {"Accept":"application/vnd.wde.v8+json"},
+                'headers': { "Accept": "application/vnd.wde.v8+json" },
                 'auth': dictuserauth,
                 'time': true
             });
@@ -713,41 +874,38 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
     
     });   
-    afterEach('Tear down dictionary and usesrs', function(){
-        return request('get', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', { 
-            'headers': {"Accept":"application/vnd.wde.v2+json"},
-            'qs': {'lock': 2},
+    afterEach('Tear down dictionary and usesrs', async function(){
+        await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'qs': { 'lock': 2 },
             'auth': dictuserauth,
             'time': true
-        })
-        .then(function(){       
-        return request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', { 
-            'headers': {"Accept":"application/vnd.wde.v2+json"},
-            'auth': dictuserauth,
-            'time': true
-        })
-        .then(function(){       
-            return request('delete', baseURI + '/dicts/' + dictuser.table, { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': dictuserauth,
-                'time': true
-            })
-            .then(function(){
-                return request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, { 
-                    'headers': {"Accept":"application/vnd.wde.v2+json"},
-                    'auth': superuserauth,
-                    'time': true
-                })
-                .then(function(){
-                    return request('delete', baseURI + '/dicts/dict_users', { 
-                        'headers': {"Accept":"application/vnd.wde.v2+json"},
-                        'auth': superuserauth,
-                    'time': true
-                    });
-                });
-            });
         });
-    });
+        await request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': dictuserauth,
+            'time': true
+        });
+        await request('delete', baseURI + '/dicts/' + dictuser.table, {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': dictuserauth,
+            'time': true
+        });
+        await request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'time': true
+        });
+        await request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID2, {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'time': true
+        });
+        await request('delete', baseURI + '/dicts/dict_users', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'time': true
+        });
     });
 });
 };

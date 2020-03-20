@@ -26,6 +26,7 @@
         <function name="_:getDictDictNameEntries"/>
         <function name="_:createEntry"/>
         <function name="_:changeEntry"/>
+        <function name="_:changeEntries"/>
         <function name="_:getDictDictNameEntry"/>
         <function name="_:deleteDictDictNameEntry"/>
     </tag>

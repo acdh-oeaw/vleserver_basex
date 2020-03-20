@@ -138,7 +138,7 @@ declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as functi
   for $nodes_in_db in $nodes
   group by $db_name := _:db-name($nodes_in_db)
   let $pres := db:node-pre($nodes_in_db)
-  return (# db:copynode false #) { <_:dryed db_name="{$db_name}" order="none">
+  return (# db:copynode false #) { <_:dryed db_name="{$db_name}" order="none" created="{current-dateTime()}">
   {for $n at $i in $nodes_in_db
     let $extracted-attrs := try {
       $data-extractor-xquery($n)
