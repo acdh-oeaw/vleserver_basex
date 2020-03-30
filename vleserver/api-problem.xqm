@@ -66,7 +66,7 @@ declare %private function _:return_result($to_return as node()) {
 };
 
 declare %private function _:inject-runtime($start as xs:integer, $ret) {
-  if ($ret instance of map(*)) then map:merge($ret, map {'took': _:runtime($start)})
+  if ($ret instance of map(*)) then map:merge(($ret, map {'took': _:runtime($start)}))
   else if ($ret instance of element(json)) then $ret transform with { insert node <took>{_:runtime($start)}</took> as last into . }
   else $ret
 };
