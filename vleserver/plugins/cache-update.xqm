@@ -5,30 +5,31 @@ import module namespace cache = 'https://www.oeaw.ac.at/acdh/tools/vle/data/cach
 import module namespace profile = 'https://www.oeaw.ac.at/acdh/tools/vle/data/profile' at '../data/profile.xqm';
 import module namespace util = 'https://www.oeaw.ac.at/acdh/tools/vle/util' at '../util.xqm';
 
-declare variable $_:logging-enabled := true();
+declare variable $_:logging-enabled := false();
 
-declare function _:after_created($data as element(), $dict as xs:string, $id as xs:string, $db_name as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
+declare function _:after_created($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
 let $profile := profile:get($dict)
 return if (profile:use-cache($profile))
-  then if ($data instance of element(profile))
+  then if ($data?current?*?entry instance of element(profile))
     then cache:cache-all-entries($dict)
   else cache:refresh-cache-db($dict, $db_name, ("", map:keys(profile:get-alt-lemma-xqueries($profile))))
   else ()
 };
 
-declare function _:after_updated($data-current as element(), $data-before as element(), $dict as xs:string, $id as xs:string, $db_name as xs:string, $status as xs:string?, $owner as xs:string?, $changingUser as xs:string) as empty-sequence() {
-let $profile := profile:get($dict)
-return if (profile:use-cache($profile)) then
-    if ($data-current instance of element(profile))
+declare function _:after_updated($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
+let $profile := profile:get($dict),
+    $changes := map:merge(for $id in map:keys($data?current) return
+    if ($data?current($id)?entry instance of element(profile))
     then
-      let $profile := document {$data-current},
-          $old-profile := document {$data-before},
+      let $profile := document {$data?current($id)?entry},
+          $old-profile := document {$data?before($id)?entry},
           $cache-flag-changed := profile:use-cache($profile) != profile:use-cache($old-profile)
           (:, $log-cache-flag := _:write-log('cache flag changed: '||$cache-flag-changed||' current: '||profile:use-cache($profile)||' before: '||profile:use-cache($old-profile), 'INFO') :)
       return if ($cache-flag-changed) then
-        if (profile:use-cache($profile))
-        then cache:cache-all-entries($dict)
-        else cache:remove($dict)
+        let $create-or-destroy-cache := if (profile:use-cache($profile))
+            then cache:cache-all-entries($dict)
+            else cache:remove($dict)
+        return ()
       else let $alt-lemma-xqueries := profile:get-alt-lemma-xqueries($profile),
           $old-alt-lemma-xqueries := profile:get-alt-lemma-xqueries($old-profile),
           $lemma-xquery-changed := profile:get-lemma-xquery($profile) != profile:get-lemma-xquery($old-profile),
@@ -40,10 +41,10 @@ return if (profile:use-cache($profile)) then
           $log-alt-lemma-xqueries := for $key in $alt-lemma-xquery-changed
             return _:write-log('current lemma xquery '||$key||': '||$alt-lemma-xqueries($key)||' before: '||$old-alt-lemma-xqueries($key), 'INFO'), :)
           $log-sort-keys := _:write-log('refreshing caches: '||string-join($sort-keys!(if (. = '') then 'default' else .), ', '), 'INFO')
-      return cache:refresh-cache-db($dict, $db_name, $sort-keys)
-    else
+      return map {$db_name: $sort-keys}
+    else if (profile:use-cache($profile)) then
       let $sort-keys := ("", map:keys(profile:get-alt-lemma-xqueries($profile))),
-          $extracted-sort-values := profile:extract-sort-values($profile, ($data-current, $data-before)),
+          $extracted-sort-values := profile:extract-sort-values($profile, ($data?current($id)?entry, $data?before($id)?entry)),
           (: $log-sort-valus := _:write-log('sort values: '||serialize($extracted-sort-values), 'INFO'), :)
           $alt-label-postfixes := $sort-keys!(if (. ne "") then '-'||. else ''),
           $changed-values := for $alt-label-postix in $alt-label-postfixes
@@ -51,8 +52,9 @@ return if (profile:use-cache($profile)) then
                   $extracted-sort-values[2]/@*[local-name() = $util:vleUtilSortKey||$alt-label-postix]
             return $alt-label-postix => replace('^-', ''),
           $log-changed-values := _:write-log('changed values: '||string-join($changed-values!(if (. = '') then 'default' else .), ', '), 'INFO')
-      return cache:refresh-cache-db($dict, $db_name, $changed-values)
-  else ()
+      return map {$db_name: $changed-values}
+    else (), map{'duplicates': 'combine'})
+  for $db_name in map:keys($changes) return cache:refresh-cache-db($dict, $db_name, distinct-values($changes($db_name)))
 };
 
 declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
