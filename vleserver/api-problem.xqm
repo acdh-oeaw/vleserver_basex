@@ -23,7 +23,8 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
 declare function _:or_result($start-time-ns as xs:integer, $api-function as function(*)*, $parameters as array(*), $ok-status as xs:integer?, $header-elements as map(xs:string, xs:string)?) as item()+ {
     try {
         let $ok-status := if ($ok-status > 200 and $ok-status < 300) then $ok-status else 200,
-            $ret := apply($api-function, $parameters)
+            $ret := apply($api-function, $parameters),
+            $ret := if ($ret instance of map(*) and $ret?value) then $ret?value else $ret
         return if ($ret instance of element(rfc7807:problem)) then _:return_problem($start-time-ns, $ret,$header-elements)
         else        
           (web:response-header(map {'method': 'json'}, $header-elements, map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),

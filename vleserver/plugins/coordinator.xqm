@@ -31,8 +31,8 @@ cache-update:after_created($data, "`{$dict}`", "`{$db_name}`", "`{$changingUser}
                 }
 :)
 
-declare function _:after_updated($data, $dict as xs:string, $changingUser as xs:string) as empty-sequence() {
-for $data_per_db in map:for-each($data?current, function ($id, $data) {map{$id:$data}})
+declare function _:after_updated($data, $dict as xs:string, $changingUser as xs:string) as map(*) {
+let $ret := for $data_per_db in map:for-each($data?current, function ($id, $data) {map{$id:$data}})
 group by $db_name := $data_per_db?*?db_name
 let $currentData := map:merge($data_per_db),
     $beforeData := map:merge(map:for-each($data?before, function($id, $data) {if ($id = map:keys($currentData)) then map {$id: $data} else ()}))
@@ -40,11 +40,27 @@ return
   util:eval(``[import module namespace example = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/example' at 'plugins/example.xqm';
 import module namespace cache-update = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/cache-update' at 'plugins/cache-update.xqm';
 declare variable $data external;
-example:after_updated($data, "`{$dict}`", "`{$db_name}`", "`{$changingUser}`"),
-cache-update:after_updated($data, "`{$dict}`", "`{$db_name}`", "`{$changingUser}`")]``, map {
+let $example-after_updated := prof:track(example:after_updated($data, "`{$dict}`", "`{$db_name}`", "`{$changingUser}`")),
+    $cache-update-after_updated := prof:track(cache-update:after_updated($data, "`{$dict}`", "`{$db_name}`", "`{$changingUser}`"))
+return map {
+  'value': ($example-after_updated?value, $cache-update-after_updated?value),
+  'time': map {
+    'example-after_updated': $example-after_updated?time,
+    'cache-update-after_updated': $cache-update-after_updated?time
+  },
+  'memory': map {}
+ }]``, map {
             'data':  map {'current': $currentData,
                           'before': $beforeData }
-          }, 'after_updated', true())  
+          }, 'after_updated', true())
+return map {
+  'value': $ret?value,
+  'time': map {
+    '@coordinator@after_updated:example-after_updated': sum($ret?time?example-after_updated),
+    '@coordinator@after_updated:cache-update-after_updated': sum($ret?time?cache-update-after_updated)
+  },
+  'memory': map {}
+}
 };
 
 declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {

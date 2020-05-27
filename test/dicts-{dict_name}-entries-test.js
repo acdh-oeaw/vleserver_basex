@@ -772,7 +772,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
     async function remove_test_data() {
         // chakram.stopDebug();
-        var ids = "";
+        var ids = "dictProfile,";
         for (let i = 1; i < 10; i++) {
             ids += 'test0' + i + ','
         }
@@ -791,6 +791,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'auth': dictuserauth
             }));
         }
+        deleteRequests.push(request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': dictuserauth
+        }));
         await Promise.all(deleteRequests);
         // especially using cache needs a bit of time to finish removing all the database files.
         // if no pause is here there are 500 errors complaining about renaming if xxx.cache.0
@@ -910,6 +914,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json(function (body) {
+                    fs.writeFileSync(useCache ? 'patch-result-with-cache.json' : 'patch-result.json', JSON.stringify(body, undefined, 2))
                     expect(body.total_items).to.equal("2")
                     expect(body._embedded.entries).to.have.length(2)
                     expect(body._embedded.entries[0].id).to.equal("test03")

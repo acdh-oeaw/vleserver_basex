@@ -17,7 +17,11 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
   _:create_document_list($_self, $_embedded_name, $_embedded, $page_size, $total_items, $page, map {})
 };
 
-declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as xs:string, $_embedded as array(element(json)), $page_size as xs:integer, $total_items as xs:integer, $page as xs:integer, $additional_parameters as map(*)) as element(json) {
+declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as xs:string, $_embedded as array(element(json)), $page_size as xs:integer, $total_items as xs:integer, $page as xs:integer, $additional_parameters as map(*)) {
+  _:create_document_list($_self, $_embedded_name, $_embedded, $page_size, $total_items, $page, $additional_parameters, ())
+};
+
+declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as xs:string, $_embedded as array(element(json)), $page_size as xs:integer, $total_items as xs:integer, $page as xs:integer, $additional_parameters as map(*), $timings as map(xs:string, xs:decimal)?) as element(json) {
 (# db:copynode false #) {
   let $additional_parameters_for_uri := string-join(map:for-each($additional_parameters, function($k, $v){"&amp;"||$k||"="||encode-for-uri($v)}), ""),
       $_self_with_parameters := if ($page = 1) 
@@ -28,7 +32,7 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
       $_last := xs:anyURI($_self||'?page='||$last_page||'&amp;pageSize='||$page_size||$additional_parameters_for_uri),
       $_next := if ($page + 1 <= $last_page) then xs:anyURI($_self||'?page='||$page + 1||'&amp;pageSize='||$page_size||$additional_parameters_for_uri) else ()
   return
-   <json type='object' objects='__links self first last next __embedded'>
+   <json type='object' objects='__links self first last next __embedded timings'>
        <__links>
            <self>{_:create_link_object($_self_with_parameters)}</self>
            <first>{_:create_link_object($_first)}</first>
@@ -45,6 +49,7 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
        <page__size>{$page_size}</page__size>
        <total__items>{$total_items}</total__items>
        <page>{$page}</page>
+       {if (exists($timings)) then <timings>{for $k in map:keys($timings) return element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a')} {xs:string($timings($k))} }</timings>}
    </json>
 }
 };

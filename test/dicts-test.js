@@ -17,9 +17,6 @@ describe('tests for /dicts', function() {
       },
         superuserauth = {"user":superuser.userID, "pass":superuser.pw},
         newSuperUserID;
-    // added T.K. start
-    // try if it is possible to create the dict_users table
-    // this works, however, it should not be possible to create the dict_users table without authentification
     describe('test the creation of the dict_users table - it is possible to create the dict-users table without credentials if the table does not exist', function(){
         it('should response 200 for "OK"',function(){
             var response = request('post', baseURI + '/dicts', {
@@ -29,7 +26,6 @@ describe('tests for /dicts', function() {
                 'time': true
                 })
                 .then(function(dictUsersCreated){
-                    // why is it possible to add an user without authentification? Probably because it is the first user.
                     return request('post', baseURI + '/dicts/dict_users/users', { 
                         'headers': {"Accept":"application/vnd.wde.v2+json",
                                     "Content-Type":"application/json"},
@@ -39,6 +35,8 @@ describe('tests for /dicts', function() {
                 });
 
             expect(response).to.have.status(200);
+            expect(response).to.have.json((body) => {
+            });
             return chakram.wait();
         });
         // delete the dict_users table after the test

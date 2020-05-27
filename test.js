@@ -9,7 +9,7 @@ const _ = '_'
 require('./test/utilSetup')
 
 describe('WDE REST API', function() {
-    this.timeout(20000);
+    this.timeout(30000);
     describe('Dictionary listing and creation', require('./test/dicts-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary management', require('./test/dicts-{dict_name}-test').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('User management - first part', require('./test/dicts-{dict_name}-users-test').curry(baseURI, basexAdminUser, basexAdminPW));
