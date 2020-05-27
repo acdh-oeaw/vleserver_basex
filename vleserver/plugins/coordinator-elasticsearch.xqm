@@ -43,7 +43,7 @@ declare variable $data external;
 let $esrch-after_updated := prof:track(esrch:after_updated($data, "`{$dict}`", "`{$db_name}`", "`{$changingUser}`")),
     $cache-update-after_updated := prof:track(cache-update:after_updated($data, "`{$dict}`", "`{$db_name}`", "`{$changingUser}`"))
 return map {
-  'value': ($example-after_updated?value, $cache-update-after_updated?value),
+  'value': ($esrch-after_updated?value, $cache-update-after_updated?value),
   'time': map {
     'esrch-after_updated': $esrch-after_updated?time,
     'cache-update-after_updated': $cache-update-after_updated?time

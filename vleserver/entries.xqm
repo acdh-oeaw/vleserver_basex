@@ -482,7 +482,7 @@ function _:changeEntries($dict_name as xs:string, $userData, $content-type as xs
      ,  $checkLockedByCurrentUser := if ($userName = $lockedBy?value?*) then true()
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for all the entries',
-                   'Entries are currently locked by "'||string-join($lockedBy?*, '", "')||'"'),
+                   'Entries are currently locked by "'||string-join($lockedBy?value?*, '", "')||'"'),
       (: $changes_data as map(xs:string, map(xs:string, item()?)) := :)
       $changes_data := prof:track(map:merge(for $entry in $entries?value
         return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
