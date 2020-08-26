@@ -33,7 +33,8 @@ declare function _:xml($profile as document-node(), $entry as document-node()) {
                 $err:additional) :)
         } catch validate:error {
             let $error := error(xs:QName('response-codes:_422'),'Error during validation',
-                'The document cannot be validated against the specified schema. '||
+                'The document cannot be validated against the specified schema. &#x0a;'||
+                $err:description||'&#x0a;'||
                 'XML was: '||serialize($entry, map{'method': 'xml', 'indent': 'yes'})||'&#x0a;'||
                 $err:additional||'&#x0a;')
             return $entry/*
