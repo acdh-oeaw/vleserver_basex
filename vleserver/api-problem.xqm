@@ -24,11 +24,12 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     try {
         let $ok-status := if ($ok-status > 200 and $ok-status < 300) then $ok-status else 200,
             $ret := apply($api-function, $parameters),
-            $ret := if ($ret instance of map(*) and $ret?value) then $ret?value else $ret
+            $timings := if ($ret instance of map(*) and exists($ret?time)) then $ret?time else (),
+            $ret := if ($ret instance of map(*) and exists($ret?value)) then $ret?value else $ret
         return if ($ret instance of element(rfc7807:problem)) then _:return_problem($start-time-ns, $ret,$header-elements)
         else        
           (web:response-header(map {'method': 'json'}, $header-elements, map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
-          _:inject-runtime($start-time-ns, $ret)
+          _:inject-runtime($start-time-ns, $ret, $timings)
           )
     } catch * {
         let $status-code := if (namespace-uri-from-QName($err:code) eq 'https://tools.ietf.org/html/rfc7231#section-6') then
@@ -66,9 +67,10 @@ declare %private function _:return_result($to_return as node()) {
   $to_return
 };
 
-declare %private function _:inject-runtime($start as xs:integer, $ret) {
+declare %private function _:inject-runtime($start as xs:integer, $ret, $timings as map(*)?) {
   if ($ret instance of map(*)) then map:merge(($ret, map {'took': _:runtime($start)}))
-  else if ($ret instance of element(json)) then $ret transform with { insert node <took>{_:runtime($start)}</took> as last into . }
+  else if ($ret instance of element(json)) then $ret transform with { insert node <took>{_:runtime($start)}</took> as last into .,
+  if (exists($timings)) then insert node <timings type='object'>{for $k in map:keys($timings) return element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a')} {xs:string($timings($k))} }</timings> as last into .}
   else $ret
 };
 

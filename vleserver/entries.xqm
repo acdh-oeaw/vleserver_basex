@@ -137,7 +137,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
             'id= does not select anything')
          else true(),
       $userName := _:getUserNameFromAuthorization($auth_header),
-      $total_items := 
+      $total_items := prof:track(
           if ($q instance of xs:string) then
             data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates($query-template-name), $query-value)
           else if ($ids instance of xs:string) then
@@ -149,46 +149,52 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
               data-access:count-entries-by-ids($dict_name, $id)
           else if (exists($profile//useCache))
             then cache:count-all-entries($dict_name)
-            else data-access:count-all-entries($dict_name),
-      $some_items_found := if ($total_items > 0) then true()
+            else data-access:count-all-entries($dict_name)
+          ),
+      $some_items_found := if ($total_items?value > 0) then true()
         else error(xs:QName('response-codes:_404'),
             $api-problem:codes_to_message(404),
             'Your query did not yield any items.'),
       $pageSize := max(($pageSize, 1)),
-      $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
+      $page := min((xs:integer(ceiling($total_items?value div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
       $query-template := if (empty($query-template-name)) then () else $query-templates($query-template-name),
-      $relevant_nodes_or_dryed := if (exists($profile//useCache))
-          then _:get-dryed-from-cache($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
-          else _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items),
-      $relevant_dbs := distinct-values($relevant_nodes_or_dryed/@db_name/data()),
+      $relevant_nodes_or_dryed := prof:track(
+          if (exists($profile//useCache))
+          then _:get-dryed-from-cache($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items?value)
+          else _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items?value)),
+      $relevant_dbs := distinct-values($relevant_nodes_or_dryed?value/@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
-      $relevant_ids := for $nd in $relevant_nodes_or_dryed
+      $relevant_ids := for $nd in $relevant_nodes_or_dryed?value
         return typeswitch ($nd)
           case  element(util:d) return $nd/(@xml:id|@ID)
           default return $nd/(@xml:id|@ID),
    (: $log := _:write-log('After relevant entries as attributes: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
       $start := prof:current-ns(), :)
       (: $log := _:write-log('Relevant IDs: '||string-join(data($relevant_ids), ', '), 'INFO'), :)
-      $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), data($relevant_ids), current-dateTime() + $lockDuration) else (),
+      $lockEntry := prof:track(
+        if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), data($relevant_ids), current-dateTime() + $lockDuration) else ()),
       $locked_entries := lcks:get_user_locking_entries($dict_name, data($relevant_ids)),
-      $xml_snippets := if ($pageSize <= $_:max_results_with_entries) 
+      $xml_snippets_without_sort_key := prof:track(        
+        let $xml_snippets := if ($pageSize <= $_:max_results_with_entries) 
         then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries)/*
-        else (),
-      $xml_snippets_without_sort_key := $xml_snippets transform with {
+        else ()
+        return $xml_snippets transform with {
           delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]
-        },
-   (: $log := _:write-log('Before entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
-      $start := prof:current-ns(), :)
+        }),
       $label := if (exists($altLemma)) then '-'||$altLemma else '',
-      $entries_as_documents := for $id in $relevant_ids
+      $entries_as_documents := prof:track(for $id in $relevant_ids
         (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
-        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id))
- (: , $log := _:write-log('Generate entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO') :)
+        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key?value[(@xml:id, @ID) = data($id)], $locked_entries($id)))
   return api-problem:or_result($start-fun,
-    json-hal:create_document_list#7, [
-      try {rest:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents}, $pageSize,
-      $total_items, $page, $additional_ret_query_parameters
+    json-hal:create_document_list#8, [
+      try {rest:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents?value}, $pageSize,
+      $total_items?value, $page, $additional_ret_query_parameters,
+      map:merge((map{'@entries@getDictDictNameEntries@total_items': $total_items?time},
+                 map{'@entries@getDictDictNameEntries@relevant_nodes_or_dryed': $relevant_nodes_or_dryed?time},
+                 map{'@entries@getDictDictNameEntries@lockEntry': $lockEntry?time},
+                 map{'@entries@getDictDictNameEntries@xml_snippets_without_sort_key': $xml_snippets_without_sort_key?time},
+                 map{'@entries@getDictDictNameEntries@entries_as_documents': $entries_as_documents?time}))
     ], cors:header(())
   )
 };
