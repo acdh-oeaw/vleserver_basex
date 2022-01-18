@@ -1,10 +1,11 @@
 'use strict';
-var mocha = require('mocha');
-var chakram = require('chakram');
-var request = chakram.request;
-var expect = chakram.expect;
-var fs = require('fs');
-var Handlebars = require('handlebars');
+const mocha = require('mocha');
+const chakram = require('chakram');
+const assert = require('chai').assert;
+const request = chakram.request;
+const expect = chakram.expect;
+const fs = require('fs');
+const Handlebars = require('handlebars');
 
 require('./utilSetup');
 
@@ -266,7 +267,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json(
+                (value) => assert(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                );
             return chakram.wait();
         });
 
@@ -666,7 +670,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json(
+                (value) => assert(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                );
             return chakram.wait();
         });
     
@@ -978,7 +985,10 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json(
+                (value) => assert(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                );
             return chakram.wait();
         });
 
