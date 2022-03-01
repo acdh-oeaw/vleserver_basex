@@ -1,0 +1,60 @@
+name: Build vleserver_basex
+env:
+  BUILDPACK_URL: https://github.com/simar0at/heroku-buildpack-basex
+  DOCKER_TAG: ghcr.io/acdh-oeaw/vleserver_basex
+on:
+  push: {}
+  repository_dispatch:
+    types: [run]
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: generate build instructions using herokuish
+        run: |
+          cat <<EOF > Dockerfile  
+          FROM gliderlabs/herokuish as builder
+          COPY . /tmp/app
+          ARG BUILDPACK_URL
+          ENV USER=herokuishuser
+          RUN /bin/herokuish buildpack build
+          
+          FROM gliderlabs/herokuish
+          COPY --chown=herokuishuser:herokuishuser --from=builder /app /app
+          ENV PORT=5000
+          ENV USER=herokuishuser
+          EXPOSE 5000
+          CMD ["/bin/herokuish", "procfile", "start", "web"]
+          EOF
+      - name: login to github container registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build and push to ghcr.io      
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          build-args: |
+            BUILDPACK_URL=${{ env.BUILDPACK_URL }}
+          tags: |
+            ${{ env.DOCKER_TAG }}:${{ github.ref_name }}
+          push: true
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Run tests using heroku buildpack
+        run: |
+          cat <<EOF > Dockerfile  
+          FROM gliderlabs/herokuish
+          COPY . /tmp/app
+          ENV BUILDPACK_URL=${{ env.BUILDPACK_URL }}
+          ENV USER=herokuishuser
+          EOF
+          docker build --tag ${{ env.DOCKER_TAG }}:${{ github.ref_name }}-test .
+          docker run --rm -t ${{ env.DOCKER_TAG }}:${{ github.ref_name }}-test /bin/herokuish buildpack test
