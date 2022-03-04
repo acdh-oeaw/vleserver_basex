@@ -35,22 +35,28 @@ declare
     %rest:produces('application/problem+xml')
 function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
   let $start := prof:current-ns(),
-      $users := try { util:eval(``[collection("dict_users")/users/user]``, (), 'get-users') }
+      $users := try { util:eval(``[collection("dict_users")/users]``, (), 'get-users') }
       catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
                        'Not found',
                        $err:additional)
       },
-      (: FIXME: get the ids right. For $u at $p in $users where $p >= (($page - 1) * $pageSize) + 1 and $p <= (($page - 1) * $pageSize) + $pageSize ... :)
-      $entries_as_documents := subsequence($users, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||./position())} catch basex:http {xs:anyURI('urn:local')}, .)
-  return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users), $page], cors:header(()))
+      (: ./position() is completely broken in sequences of elements in at least
+         BaseX 9.3 and < 9.6. This includes for at.
+         This hopefully never gets really huge so add the position/id in memory.
+      :)
+      $users := $users update
+        for $user at $i in ./*
+        return insert node attribute {'id'} {$i} as first into $user,
+      $entries_as_documents := subsequence($users/*, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||./@id)} catch basex:http {xs:anyURI('urn:local')}, .)
+  return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users/*), $page], cors:header(()))
 };
 
 declare
   %private
 function _:userAsDocument($_self as xs:anyURI, $user as element()?) {
   json-hal:create_document($_self, (
-    <id>{$user/position()}</id>,
+    <id>{data($user/@id)}</id>,
     <userID>{data($user/@name)}</userID>,
     <dict>{data($user/@dict)}</dict>,
     <type>{data($user/@type)}</type>,
