@@ -33,8 +33,8 @@ declare
 function _:getDictDictNameEntryIDChanges($dict_name as xs:string, $id as xs:string, $pageSize as xs:integer, $page as xs:integer) {
   let $start := prof:current-ns(),
       $entries_pres := data-changes:get-pre-and-dt-for-changes-by-id($dict_name, $id),
-      $entries_as_documents := subsequence($entries_pres, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data(./dt))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-changes:get-change-by-pre($dict_name, ./p) else ())
-  return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_pres), $page], cors:header(()))
+      $entries_as_documents := subsequence($entries_pres, (($page - 1) * $pageSize) + 1, $pageSize)!_:entryAsDocument(try {xs:anyURI(util:uri()||'/'||data(./dt))} catch basex:http {xs:anyURI('urn:local')}, ., if ($pageSize <= 10) then data-changes:get-change-by-pre($dict_name, ./p) else ())
+  return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), 'entries', array{$entries_as_documents}, $pageSize, count($entries_pres), $page], cors:header(()))
 };
 
 declare
@@ -62,5 +62,5 @@ function _:getDictDictNameEntryIDChange($dict_name as xs:string, $id as xs:strin
        else error(xs:QName('response-codes:_404'),
                            'Not found',
                            'ID '||$id||' timestamp '||$change_timestamp||' not found')
-  return api-problem:or_result($start, _:entryAsDocument#3, [rest:uri(), $entry, $entry/entry/*], cors:header(()))
+  return api-problem:or_result($start, _:entryAsDocument#3, [util:uri(), $entry, $entry/entry/*], cors:header(()))
 };
