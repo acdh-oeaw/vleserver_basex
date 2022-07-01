@@ -9,6 +9,7 @@ import module namespace l = "http://basex.org/modules/admin";
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
 declare variable $_:selfName := tokenize(static-base-uri(), '/')[last()];
 declare variable $_:vleUtilSortKey := "vutlsk";
+declare variable $_:ignoreSortValue := '   ignore';
 
 declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as xs:string) as item()* {
   _:eval($query, $bindings, $jobName, false())
@@ -138,17 +139,21 @@ declare function _:get-xml-file-or-default($fn as xs:string, $default as xs:stri
 declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as function(node()) as attribute()*?) as element(_:dryed)* {
   for $nodes_in_db in $nodes
   group by $db_name := _:db-name($nodes_in_db)
-  let $pres := db:node-pre($nodes_in_db)
-  return (# db:copynode false #) { <_:dryed db_name="{$db_name}" order="none" created="{current-dateTime()}">
+  let $pres := db:node-pre($nodes_in_db),
+      $ret := (# db:copynode false #) { <_:dryed db_name="{$db_name}" created="{current-dateTime()}">
   {for $n at $i in $nodes_in_db
     let $extracted-attrs := try {
       $data-extractor-xquery($n)
     } catch * {
       '  _error_: '||$err:description
-    }
-    return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{$extracted-attrs}</_:d>
+    },
+        $order-value := if ($extracted-attrs[local-name() = $_:vleUtilSortKey]/data() eq $_:ignoreSortValue)
+        then () 
+        else attribute {'order'} {'none'}
+    return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{($order-value, $extracted-attrs)}</_:d>
   }
   </_:dryed> }
+  return $ret update insert node attribute {'count'} {count(./_:d[@order])} as first into .
 };
 
 (: db:name causes global read lock :)
@@ -219,4 +224,8 @@ declare function _:basic-auth-decode($encoded-auth as xs:string) as xs:string {
   } catch convert:string {
     convert:binary-to-string($base64, 'ISO-8859-1')
   }
+};
+
+declare function _:uri() as xs:anyURI {
+  if (ends-with(rest:uri(), '/')) then rest:uri() else xs:anyURI(rest:uri()||'/')
 };
