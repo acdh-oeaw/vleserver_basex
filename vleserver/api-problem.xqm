@@ -50,6 +50,16 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     }
 };
 
+declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)) as map(xs:string, item()*) {
+  if ($trace-result?value instance of map(*) and $trace-result?value?value)
+    then let $times := map:remove($trace-result?value, 'value')
+      return map:merge((map{'value': $trace-result?value?value,
+             $description: sum($trace-result?time)},
+             $times))
+    else map{'value': $trace-result?value,
+             $description: $trace-result?time}
+};
+
 declare function _:return_problem($start-time-ns as xs:integer, $problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
 let $accept-header := try { req:header("ACCEPT") } catch basex:http { 'application/problem+xml' },
     $header-elements := map:merge(($header-elements, map{'Content-Type': if (matches($accept-header, '[+/]json')) then 'application/problem+json' else if (matches($accept-header, 'application/xhtml\+xml')) then 'application/xml' else 'application/problem+xml'})),
