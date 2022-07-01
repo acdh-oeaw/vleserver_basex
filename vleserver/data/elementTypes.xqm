@@ -64,12 +64,14 @@ declare function _:get-parent-node-for-element($c as document-node()*, $dataType
         case "cit"  return ($c/tei:TEI/tei:text/tei:body/tei:div[@type='examples'],$c/tei:TEI/tei:text/tei:body)[1]
         case "entry"  return ($c/tei:TEI/tei:text/tei:body/tei:div[@type='entries'],$c/tei:TEI/tei:text/tei:body)[1] 
         case "entryFree"  return ($c/tei:TEI/tei:text/tei:body/tei:div[@type='entries'],$c/tei:TEI/tei:text/tei:body)[1]
+        case "xenoData" return $c/tei:TEI/tei:teiHeader
         case "_" return ($c/*:_, $c)[1]
         default return $c/tei:TEI/tei:text/tei:body
 };
 
 declare function _:get-first-parent-node-to-return($e as element()) as element() {
  (($e/ancestor::profile,
+   $e/ancestor::tei:xenoData,
    $e/ancestor::tei:entry,
    $e/ancestor::tei:entryFree,
    $e/ancestor::tei:cit[@type='example'],
@@ -95,5 +97,6 @@ declare function _:get_all_entries($c as document-node()*) as element()* {
    $c//tei:form[@type = 'lemma'],
    $c//mds:mods,
    $c//tei:entry,
-   $c//tei:entryFree)[@ID or @xml:id]
+   $c//tei:entryFree,
+   $c//tei:xenoData)[@ID or @xml:id]
 };

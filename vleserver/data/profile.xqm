@@ -176,11 +176,15 @@ return ``[declare function local:extractor($node as node()) as attribute()* {
   attribute {"`{$util:vleUtilSortKey}`"} {
     if ($node instance of element(profile))
     then "`{$_:sortValue}`"
+    else if ($node instance of element(tei:xenoData))
+    then "`{$util:ignoreSortValue}`"
     else string-join(`{$data-extractor-xquery}`!normalize-space(.), ', ')
   }`{if (exists($alt-extractor-xqueries?*)) then ",&#x0a;"||string-join(for $label in map:keys($alt-extractor-xqueries)
     return ``[attribute {"`{$util:vleUtilSortKey||'-'||$label}`"} {
     if ($node instance of element(profile))
     then "`{$_:sortValue}`"
+    else if ($node instance of element(tei:xenoData))
+    then "`{$util:ignoreSortValue}`"
     else string-join(`{$alt-extractor-xqueries($label)}`!normalize-space(.), ', ')
   }]``, ",&#x0a;") 
     else () }` 
@@ -197,7 +201,7 @@ let $extract-sort-values-xquery := ``[`{string-join(_:get-xquery-namespace-decls
              declare variable $data as element()+ external;
              `{_:generate-local-extractor-function($profile)}`
              $data!<_>{local:extractor(.)}</_>]``
-return util:eval($extract-sort-values-xquery, map {'data': $data}, 'cache-update-extract-sort-values', true())
+return util:eval($extract-sort-values-xquery, map {'data': $data}, 'profile-extract-sort-values', true())
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
