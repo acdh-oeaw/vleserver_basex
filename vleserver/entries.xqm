@@ -137,20 +137,32 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
             'id= does not select anything')
          else true(),
       $userName := _:getUserNameFromAuthorization($auth_header),
-      $total_items := prof:track(
+      $total_items := 
+      api-problem:trace-info('@entries@getDictDictNameEntries@total_items',
+          prof:track(
           if ($q instance of xs:string) then
             data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates($query-template-name), $query-value)
           else if ($ids instance of xs:string) then
-            data-access:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+           if (exists($profile//useCache))
+            then cache:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+            else api-problem:trace-info('@access@count-entries-by-ids',
+              prof:track(data-access:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))))
           else if ($id instance of xs:string) then
             if (ends-with($id, '*')) then
-              data-access:count-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
-            else
-              data-access:count-entries-by-ids($dict_name, $id)
+            if (exists($profile//useCache))
+              then cache:count-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
+              else api-problem:trace-info('@access@count-entries-by-id-starting-with',
+              prof:track(data-access:count-entries-by-id-starting-with($dict_name, substring-before($id, '*'))))
+            else if (exists($profile//useCache))
+              then cache:count-entries-by-ids($dict_name, $id)
+              else api-problem:trace-info('@access@count-entries-by-ids',
+              prof:track(data-access:count-entries-by-ids($dict_name, $id)))
           else if (exists($profile//useCache))
             then cache:count-all-entries($dict_name)
             else data-access:count-all-entries($dict_name)
-          ),
+          )
+        )
+          ,
       $some_items_found := if ($total_items?value > 0) then true()
         else error(xs:QName('response-codes:_404'),
             $api-problem:codes_to_message(404),
@@ -159,10 +171,11 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $page := min((xs:integer(ceiling($total_items?value div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
       $query-template := if (empty($query-template-name)) then () else $query-templates($query-template-name),
-      $relevant_nodes_or_dryed := prof:track(
+      $relevant_nodes_or_dryed := api-problem:trace-info('@entries@getDictDictNameEntries@relevant_nodes_or_dryed',
+        prof:track(
           if (exists($profile//useCache))
           then _:get-dryed-from-cache($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items?value)
-          else _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items?value)),
+          else _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items?value))),
       $relevant_dbs := distinct-values($relevant_nodes_or_dryed?value/@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $relevant_ids := for $nd in $relevant_nodes_or_dryed?value
@@ -175,35 +188,53 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $lockEntry := prof:track(
         if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), data($relevant_ids), current-dateTime() + $lockDuration) else ()),
       $locked_entries := lcks:get_user_locking_entries($dict_name, data($relevant_ids)),
-      $xml_snippets_without_sort_key := prof:track(        
-        let $xml_snippets := if ($pageSize <= $_:max_results_with_entries) 
-        then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries)/*
+      $xml_snippets_without_sort_key :=
+      (: api-problem:trace-info('@entries@getDictDictNameEntries@xml_snippets_without_sort_key', :)
+      prof:track(        
+        if ($pageSize <= $_:max_results_with_entries) 
+        then _:to-map-by-id(data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries))
         else ()
-        return $xml_snippets transform with {
-          delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]
-        }),
+       )
+     (: ) :),
       $label := if (exists($altLemma)) then '-'||$altLemma else '',
-      $entries_as_documents := prof:track(for $id in $relevant_ids
+      $entries_as_documents := api-problem:trace-info('@entries@getDictDictNameEntries@entries_as_documents',
+        prof:track(
+        let $base_uri := (try {util:uri()} catch basex:http {'urn:local'})||'/'
+        return
+        for $id in $relevant_ids
         (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
-        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key?value[(@xml:id, @ID) = data($id)], $locked_entries($id)))
-  return api-problem:or_result($start-fun,
+        let $lemma := $id/../@*[local-name() = $util:vleUtilSortKey||$label],
+            $entry := $xml_snippets_without_sort_key?value($id),
+            $ret := _:entryAsDocument(xs:anyURI($base_uri||data($id)), $id, $lemma, $entry, $locked_entries($id))
+        return map{'value': $ret?value,
+                   'timings': array:join(($ret?timings))} (:array{$lemma?timings?*} ,  :)
+        ))
+  return
+  (: serialize($entries_as_documents, map {'method': 'basex'}) :)
+  api-problem:or_result($start-fun,
     json-hal:create_document_list#8, [
-      try {rest:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents?value}, $pageSize,
+      try {util:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents?value}, $pageSize,
       $total_items?value, $page, $additional_ret_query_parameters,
-      map:merge((map{'@entries@getDictDictNameEntries@total_items': $total_items?time},
-                 map{'@entries@getDictDictNameEntries@relevant_nodes_or_dryed': $relevant_nodes_or_dryed?time},
-                 map{'@entries@getDictDictNameEntries@lockEntry': $lockEntry?time},
-                 map{'@entries@getDictDictNameEntries@xml_snippets_without_sort_key': $xml_snippets_without_sort_key?time},
-                 map{'@entries@getDictDictNameEntries@entries_as_documents': $entries_as_documents?time}))
-    ], cors:header(())
+      array{$total_items?timings?*, $relevant_nodes_or_dryed?timings?*, map{'@entries@getDictDictNameEntries@lockEntry': $lockEntry?time},
+            $xml_snippets_without_sort_key?timings?*, $entries_as_documents?timings?*}
+    ], cors:header(()) 
   )
+};
+
+declare function _:to-map-by-id($found-in-parts as node()*) as map(*)? {
+  if (exists($found-in-parts)) then map:merge((map{'db_names': $found-in-parts/@db_name}, $found-in-parts/*!map{data(./(@xml:id, @ID)): . transform with {
+          delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]
+        }}))
+  else ()
 };
 
 declare function _:get-dryed-from-cache($dict_name as xs:string,
   $profile as document-node(), $query-template as xs:string?, $query-value as xs:string?,
   $id as xs:string?, $ids as xs:string*,
   $sort as xs:string?, $label as xs:string?,
-  $from as xs:integer, $num as xs:integer, $total_items_expected as xs:integer) {
+  $from as xs:integer, $num as xs:integer, $total_items_expected as xs:integer) as map(*) {
+api-problem:trace-info('@entries@get-dryed-from-cache',
+            prof:track(
     try {
         if ($query-template instance of xs:string) then
           error(xs:QName('cache:missing'), 'Not implemented yet')
@@ -216,9 +247,9 @@ declare function _:get-dryed-from-cache($dict_name as xs:string,
             cache:get-entries-by-ids($dict_name, $id, $from, $num, $sort, $label, $total_items_expected)
         else cache:get-all-entries($dict_name, $from, $num, $sort, $label, $total_items_expected)
     } catch cache:missing {
-       _:write-log('cache miss', 'INFO'),
+       _:write-log('cache miss '||$err:description, 'INFO'),
        _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $label, $from, $num, $total_items_expected)
-    }
+    }))
 };
 
 declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
@@ -227,14 +258,16 @@ declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
   $sort as xs:string?, $label as xs:string?,
   $from as xs:integer, $num as xs:integer,
   $total_items_expected as xs:integer)
-  as element()* {
+  as map(*) {
+api-problem:trace-info('@entries@get-nodes-or-dryed-direct',
+            prof:track(
 let (: $start := prof:current-ns(), :)
     $total-items-expected-is-not-more-than := if ($total_items_expected <= $_:dont_try_to_return_more_than) then true()
           else error(xs:QName('response-codes:_413'), 
             $api-problem:codes_to_message(413),
             'You selected '||$total_items_expected||' entries which is more than the server can deliver ('||
             $_:dont_try_to_return_more_than||').'||
-            'Use caching if you need to browse more entries.'),
+            ' Use caching if you need to browse more entries.'),
     $label := if (exists($label)) then '-'||$label else '',
     $nodes_or_dryed := try {
         if ($query-template instance of xs:string) then
@@ -264,12 +297,14 @@ let (: $start := prof:current-ns(), :)
         default return for $n in $nodes_or_dryed/*
         order by $n/@*[local-name() = $util:vleUtilSortKey||$label]
         return $n
-  return subsequence($nodes_or_dryed_sorted, $from, $num)
+  return subsequence($nodes_or_dryed_sorted, $from, $num)))
 };
 
 declare
   %private
 function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?) {
+api-problem:trace-info('@entries@entryAsDocument',
+            prof:track(
 (# db:copynode false #) {
   json-hal:create_document($_self, (
     <id>{$id}</id>,
@@ -284,10 +319,11 @@ function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $lemma as xs:s
       let $entry_as_txt := serialize($entry)
       return (
       <type>{types:get_data_type($entry)}</type>,
-      <entry>{$entry_as_txt}</entry>,
-      <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt)))}</storedEntryMd5>)
+      <entry>{$entry_as_txt}</entry>
+      , <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt)))}</storedEntryMd5> 
+      )
     else ()))
-}
+}))
 };
 
 (:~
@@ -333,13 +369,13 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
       return _:checkPassedDataIsValid($dict_name, $entryData, $content-type, $wanted-response)
   return if (exists($entries)) then
   let $create_new_data as map(xs:string, map(xs:string, item()?)) := map:merge(for $entry in $entries
-    return map {$entry?id: map:merge((map { "as_document": _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
+    return map {$entry?id: map:merge((map { "as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
           profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ())}, $entry))}),
       (: $log := _:write-log(serialize($create_new_data, map {'method': 'basex'}), 'INFO'), :)
       $create_new := _:create_new_entries($create_new_data, $dict_name, $userName)
   return api-problem:or_result($start,
     json-hal:create_document_list#7, [
-      try {rest:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$create_new_data?*?as_document}, map:size($create_new_data),
+      try {util:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$create_new_data?*?as_document}, map:size($create_new_data),
       map:size($create_new_data), 1, map {}
     ], cors:header(())
   )
@@ -361,7 +397,7 @@ declare %private function _:create_new_entries($data as map(xs:string, map(xs:st
   let $savedEntries := data-access:create_new_entries($data, $dict, $changingUser),
       $run_plugins := plugins:after_created($savedEntries, $dict, $changingUser)
     (: , $log := _:write-log('entries:create_new_entries() $savedEntries := '||serialize($savedEntries, map{'method': 'basex'}), "DEBUG") :)
-  return map:for-each($savedEntries('current'), function($id, $savedEntry) {_:entryAsDocument(xs:anyURI(rest:uri()||'/'||$id), $id, 
+  return map:for-each($savedEntries('current'), function($id, $savedEntry) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $id, 
   profile:extract-sort-values(profile:get($dict), $savedEntry?entry)/@*[local-name() = $util:vleUtilSortKey],
   $savedEntry?entry, ())})     
 };
@@ -491,13 +527,13 @@ function _:changeEntries($dict_name as xs:string, $userData, $content-type as xs
                    'Entries are currently locked by "'||string-join($lockedBy?value?*, '", "')||'"'),
       (: $changes_data as map(xs:string, map(xs:string, item()?)) := :)
       $changes_data := prof:track(map:merge(for $entry in $entries?value
-        return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
+        return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
           profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ())}, $entry))})),
       (: $log := _:write-log(serialize($changes_data, map {'method': 'basex'}), 'INFO'), :)
       $entries_as_documents := _:change_entries($changes_data?value, $dict_name, $userName)
   return api-problem:or_result($start,
     json-hal:create_document_list#8, [
-      try {rest:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents?value}, count($entries_as_documents?value),
+      try {util:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents?value}, count($entries_as_documents?value),
       count($entries_as_documents?value), 1, map {}, map:merge((map {'@entries@changeEntries:check_entries': $entries?time, '@entries@changeEntries:check_locking': $lockedBy?time, '@entries@changeEntries:changes_data': $changes_data?time}, $entries_as_documents?time))
     ], cors:header(())
   )
@@ -507,7 +543,7 @@ declare %private function _:change_entries($data as map(xs:string, map(xs:string
   let $savedEntry := data-access:change_entries($data, $dict, $changingUser),
       (: $log := _:write-log(serialize($savedEntry?value, map{'method': 'basex'}), 'INFO'), :)
       $run_plugins := plugins:after_updated($savedEntry?value, $dict, $changingUser),
-      $ret := prof:track(map:for-each($savedEntry?value('current'), function($id, $data) {_:entryAsDocument(xs:anyURI(rest:uri()||'/'||$id), $id, 
+      $ret := prof:track(map:for-each($savedEntry?value('current'), function($id, $data) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $id, 
   profile:extract-sort-values(profile:get($dict), $data?entry)/@*[local-name() = $util:vleUtilSortKey],
   $data?entry, ())}))
   return  map{'value': $ret?value , 'time': map:merge((map {'@entries@change_entries:create_documents': $ret?time}, $savedEntry?time, $run_plugins?time)), 'memory': map:merge(())}    
@@ -609,7 +645,7 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return api-problem:or_result($start, _:entryAsDocument#5, [rest:uri(), $entry/(@xml:id, @ID), 
+  return api-problem:or_result($start, _:entryAsDocument#5, [util:uri(), $entry/(@xml:id, @ID), 
   profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
   $entry, $lockedBy], cors:header(()))
   } catch lcks:held {
