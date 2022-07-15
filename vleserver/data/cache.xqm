@@ -4,6 +4,7 @@ module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/cache';
 import module namespace data-access = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access' at 'access.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
+import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '../api-problem.xqm';
 
 declare variable $_:logging-enabled := false();
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
@@ -61,7 +62,7 @@ let $profile := profile:get($dict),
     $alt-label-postfixes := $alt-labels!(if (. ne "") then '-'||. else ''),
     $alt-label-attributes := $alt-labels!(if (. ne "") then ``[ label="`{.}`"]`` else "")
 return ``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
-let $ds := collection('`{$dict}`__cache')//*[@order="none"]/_:d
+let $ds := collection('`{$dict}`__cache')//_:d[@order="none"]
 `{for $alt-label-postfix in $alt-label-postfixes
 return ``[
 let $sorted-ascending`{$alt-label-postfix}` := for $d in $ds
@@ -120,7 +121,10 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
-  let $all := collection("`{$dict}`__cache")//_:dryed[@order='`{_:sort-to-long-str($sort)}`' `{$label-pred-part}`]/(_:d, tokenize(@ids)),
+  let $all := collection("`{$dict}`__cache")//*[@order='`{_:sort-to-long-str($sort)}`' `{$label-pred-part}`]/(self::_:d, tokenize(@ids)),
+      $not_out_of_range := if ('`{_:sort-to-long-str($sort)}`' eq 'none' or `{$from + $num}` <= `{$_:sortMaxSize}`) then true()
+      else error(xs:QName('cache:missing'),
+           'cache is limited to '||`{$_:sortMaxSize}`||' sorted items'),
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
@@ -156,9 +160,19 @@ declare %private function _:label-to-pred-part($label as xs:string?) as xs:strin
   if (exists($label)) then "and @label = '"||$label||"'" else "and not(@label)"
 };
 
-declare function _:count-all-entries($dict as xs:string) as xs:integer {
-  util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
-  count(collection("`{$dict}`__cache")//_:dryed[@order='none']/_:d)]``, (), 'count-all-entries')
+declare function _:count-all-entries($dict as xs:string) as map(*) {
+  (: count(db:attribute("`{$dict}`__cache", "none", "order")) :)
+  api-problem:trace-info('@cache@count-all-entries',
+    prof:track(util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+    sum(collection("`{$dict}`__cache")/_:dryed/@count/data()!xs:integer(.))]``, (), 'count-all-entries'))
+  )
+};
+
+declare function _:count-entries-by-ids($dict as xs:string, $ids as xs:string+) as map(*) {
+  api-problem:trace-info('@cache@count-entries-by-ids',
+    prof:track(util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+    count(db:attribute("`{$dict}`__cache", ("`{string-join($ids, '","')}`"))[local-name() = ('ID', 'id')])]``, (), 'count-entries-by-ids'))
+  )  
 };
 
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
@@ -168,7 +182,7 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
-  let $all := db:attribute("`{$dict}`__cache", `{$ids_seq}`)[local-name() = ('ID', 'id') and ancestor::_:dryed[@order='none']]/..,
+  let $all := db:attribute("`{$dict}`__cache", `{$ids_seq}`)[local-name() = ('ID', 'id') and ancestor::*[@order='none']]/..,
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
@@ -187,6 +201,13 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
   map {'total_items_expected': $total_items_expected}, 'cache-get-entries-by-ids')
 };
 
+declare function _:count-entries-by-id-starting-with($dict as xs:string, $id_start as xs:string) as map(*) {
+  api-problem:trace-info('@cache@count-entries-by-id-starting-with',
+    prof:track(util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+    count(db:attribute("`{$dict}`__cache", index:attributes("`{$dict}`__cache", '`{$id_start}`')/text())[local-name() = ('ID', 'id')])]``, (), 'count-entries-by-id-starting-with'))
+  )  
+};
+
 declare function _:get-entries-by-id-starting-with($dict as xs:string, $id_start as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
 let $alt-label-postfix :=if ($label ne "") then '-'||$label else ''
 return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
@@ -194,7 +215,7 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
   declare variable $total_items_expected as xs:integer external;
   try {
   let $values := index:attributes("`{$dict}`__cache", "`{$id_start}`")/text(),
-      $all := db:attribute("`{$dict}`__cache", $values)[local-name() = ('ID', 'id') and ancestor::_:dryed[@order='none']]/..,
+      $all := db:attribute("`{$dict}`__cache", $values)[local-name() = ('ID', 'id')]/..,
       $any_found := if (count($all) > 0) then true()
       else error(xs:QName('cache:missing'),
            'expected any result from cache got 0'),
@@ -209,7 +230,8 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
   } catch db:* | err:FODC0002 {
     error(xs:QName('cache:missing'),
            'expected any result from cache got 0')
-  }]``,
+  }
+  ]``,
   map {'total_items_expected': $total_items_expected}, 'cache-get-entries-by-id-starting-with')
 };
 
