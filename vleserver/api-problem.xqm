@@ -50,14 +50,24 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     }
 };
 
-declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)) as map(xs:string, item()*) {
+declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)+) as map(xs:string, item()*) {
+  if ($trace-result?value instance of map(*)*)
+  then map{'value': $trace-result?value?value,
+           'timings': array{(map {$description: $trace-result?time},
+           (: map {$description||'@sum': sum($trace-result?value?timings?*?*)}, :)
+           for $v at $i in $trace-result?value return for $t in $v?timings?* return map:keys($t)!map{.||'@'||$i: $t(.)})}}
+  else if ($trace-result?value instance of item()* and exists($trace-result[1]?timings))
+  then map{'value': if ($trace-result[1]?value instance of map(*)) then $trace-result!.?value?value else $trace-result!.?value,
+           'timings': array{(map {$description: sum($trace-result!.?timings?*?*)},           
+           (for $res at $i in $trace-result return map{map:keys($res?timings?*)[1]||'@'||$i: $res?timings?*?*}))}}
+  else
   if ($trace-result?value instance of map(*) and $trace-result?value?value)
-    then let $times := map:remove($trace-result?value, 'value')
-      return map:merge((map{'value': $trace-result?value?value,
-             $description: sum($trace-result?time)},
-             $times))
+    then map{'value': $trace-result?value?value,
+             'timings': array{(map {$description: $trace-result?time},
+             map {$description||'@sum': sum($trace-result?value?timings?*!.?*)},
+             $trace-result?value?timings?*)}}
     else map{'value': $trace-result?value,
-             $description: $trace-result?time}
+             'timings': array{map{$description: $trace-result?time}}}
 };
 
 declare function _:return_problem($start-time-ns as xs:integer, $problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
