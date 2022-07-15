@@ -8,6 +8,9 @@ var Handlebars = require('handlebars');
 
 require('./utilSetup');
 
+const wrong_accept_basex_9 = "No function found that matches the request."
+const wrong_accept_basex_9_7 = "Service not found."
+
 module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
 describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
     var superuser = {
@@ -192,7 +195,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         });
 
         // try to get a dictionary entry in a format that is not supported
-        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+        it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
             var response = request('get', baseURI+'/dicts/'+dictuser.table+'/entries/' + entryID, { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'auth': dictuserauth,
@@ -200,7 +203,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json('' + wrong_accept_basex_9_7 + '')
             return chakram.wait();
         });
 
@@ -680,7 +683,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
         // There is a 404 response when trying to lock the entry. If some entry can not be found is changed
         // then the lock is missing (and cannot be acquired)
 
-        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+        it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
             var response = request('put', baseURI+'/dicts/'+dictuser.table+'/entries/deseruntenimeu', { 
                 'body': {
                     "sid": "",
@@ -693,7 +696,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json('' + wrong_accept_basex_9_7 + '')
             return chakram.wait();
         });
 

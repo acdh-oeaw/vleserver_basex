@@ -4,6 +4,9 @@ var chakram = require('chakram');
 var request = chakram.request;
 var expect = chakram.expect;
 
+const wrong_accept_basex_9 = "No function found that matches the request."
+const wrong_accept_basex_9_7 = "Service not found."
+
 module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
 describe('tests for /dicts', function() {
     var superuser = {
@@ -62,13 +65,13 @@ describe('tests for /dicts', function() {
             expect(response).to.comprise.of.json({
                 "_links": {
                     "self": {
-                        "href": "/restvle/dicts?pageSize=25"
+                        "href": "/restvle/dicts/?pageSize=25"
                     },
                     "first": {
-                        "href": "/restvle/dicts?page=1&pageSize=25"
+                        "href": "/restvle/dicts/?page=1&pageSize=25"
                     },
                     "last": {
-                        "href": "/restvle/dicts?page=0&pageSize=25"
+                        "href": "/restvle/dicts/?page=0&pageSize=25"
                     }
                 },
                 "_embedded": {
@@ -136,14 +139,14 @@ describe('tests for /dicts', function() {
         // Accept will now select a particular function the %rest:produces that mime type.
         // Else the less useful 404 No function found that matches the request. is returned.
         // So 406 can not occur anymore.
-        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+        it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
             var response = request('get', baseURI + '/dicts', { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json('' + wrong_accept_basex_9_7 + '')
             return chakram.wait();
         });
          
@@ -262,7 +265,7 @@ describe('tests for /dicts', function() {
         });
 
 
-        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+        it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
             var response = request('post', baseURI + '/dicts', { 
                 'body': {"name":"anim labore pariatur"},
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
@@ -270,7 +273,7 @@ describe('tests for /dicts', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json('' + wrong_accept_basex_9_7 + '')
             return chakram.wait();
         });
 

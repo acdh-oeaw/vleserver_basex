@@ -8,6 +8,9 @@ var Handlebars = require('handlebars');
 
 require('./utilSetup');
 
+const wrong_accept_basex_9 = "No function found that matches the request."
+const wrong_accept_basex_9_7 = "Service not found."
+
 module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
 describe('tests for /dicts/{dict_name}/entries', function() {
     var superuser = {
@@ -253,7 +256,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
 
-        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+        it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
             var response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', { 
                 'body': {
                     "sid":"irure",
@@ -266,7 +269,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json('' + wrong_accept_basex_9_7 + '')
             return chakram.wait();
         });
 
@@ -659,14 +662,14 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             afterEach('Remove test data', remove_test_data);
         });
 
-        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+        it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
             var response = request('get', baseURI + '/dicts/inmollit/entries', { 
                 'headers': {"Accept":"application/vnd.wde.v8+json"},
                 'time': true
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json('' + wrong_accept_basex_9_7 + '')
             return chakram.wait();
         });
     
@@ -967,7 +970,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             return chakram.wait();
         });
 
-        it('should respond 404 "No function found that matches the request." for wrong accept', function() {
+        it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
             var response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', {  
                 'body': {
                     "entries": [{
@@ -983,7 +986,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
 
             expect(response).to.have.status(404);
-            expect(response).to.have.json('No function found that matches the request.')
+            expect(response).to.have.json('' + wrong_accept_basex_9_7 + '')
             return chakram.wait();
         });
 
