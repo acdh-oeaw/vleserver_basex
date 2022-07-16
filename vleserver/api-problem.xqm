@@ -50,18 +50,21 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     }
 };
 
-declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)+) as map(xs:string, item()*) {
-  if ($trace-result?value instance of map(*)*)
+declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)+) as map(xs:string, item()*) {  
+  (: We have a sequenze of maps with a value each as value :)
+  if ($trace-result?value instance of map(*)* and (every $v in $trace-result?value satisfies exists($v?value)))
   then map{'value': $trace-result?value?value,
            'timings': array{(map {$description: $trace-result?time},
            (: map {$description||'@sum': sum($trace-result?value?timings?*?*)}, :)
            for $v at $i in $trace-result?value return for $t in $v?timings?* return map:keys($t)!map{.||'@'||$i: $t(.)})}}
-  else if ($trace-result?value instance of item()* and exists($trace-result[1]?timings))
-  then map{'value': if ($trace-result[1]?value instance of map(*)) then $trace-result!.?value?value else $trace-result!.?value,
+  (: We have a sequence of anything as value and an array of timings:)
+  (: else if ($trace-result?value instance of item()* and $trace-result?timings instance of array(map(xs:string, xs:decimal)))
+  then map{'value': $trace-result!.?value,
            'timings': array{(map {$description: sum($trace-result!.?timings?*?*)},           
-           (for $res at $i in $trace-result return map{map:keys($res?timings?*)[1]||'@'||$i: $res?timings?*?*}))}}
+           (for $res at $i in $trace-result return map{map:keys($res?timings?*)[1]||'@'||$i: $res?timings?*?*}))}} :)
   else
   if ($trace-result?value instance of map(*) and $trace-result?value?value)
+  (: We have a map as value :)
     then map{'value': $trace-result?value?value,
              'timings': array{(map {$description: $trace-result?time},
              map {$description||'@sum': sum($trace-result?value?timings?*!.?*)},
