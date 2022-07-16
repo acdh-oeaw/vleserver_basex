@@ -375,7 +375,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
       $create_new := _:create_new_entries($create_new_data, $dict_name, $userName)
   return api-problem:or_result($start,
     json-hal:create_document_list#7, [
-      try {util:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$create_new_data?*?as_document}, map:size($create_new_data),
+      try {util:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$create_new_data?*?as_document?value}, map:size($create_new_data),
       map:size($create_new_data), 1, map {}
     ], cors:header(())
   )
@@ -526,27 +526,37 @@ function _:changeEntries($dict_name as xs:string, $userData, $content-type as xs
                    'You don&apos;t own the lock for all the entries',
                    'Entries are currently locked by "'||string-join($lockedBy?value?*, '", "')||'"'),
       (: $changes_data as map(xs:string, map(xs:string, item()?)) := :)
-      $changes_data := prof:track(map:merge(for $entry in $entries?value
+      $changes_data := api-problem:trace-info('@entries@changeEntries@changes_data',
+              prof:track(map:merge(for $entry in $entries?value
         return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
-          profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ())}, $entry))})),
+          profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ())}, $entry))}))),
       (: $log := _:write-log(serialize($changes_data, map {'method': 'basex'}), 'INFO'), :)
-      $entries_as_documents := _:change_entries($changes_data?value, $dict_name, $userName)
+      $entries_as_documents := 
+      api-problem:trace-info('@entries@changeEntries@entries_as_documents',
+              prof:track(
+                _:change_entries($changes_data?value, $dict_name, $userName)
+              ))
   return api-problem:or_result($start,
     json-hal:create_document_list#8, [
       try {util:uri()} catch basex:http {xs:anyURI('urn:local')}, 'entries', array{$entries_as_documents?value}, count($entries_as_documents?value),
-      count($entries_as_documents?value), 1, map {}, map:merge((map {'@entries@changeEntries:check_entries': $entries?time, '@entries@changeEntries:check_locking': $lockedBy?time, '@entries@changeEntries:changes_data': $changes_data?time}, $entries_as_documents?time))
+      count($entries_as_documents?value), 1, map {}, array{(map {'@entries@changeEntries:check_entries': $entries?time, '@entries@changeEntries:check_locking': $lockedBy?time}, $changes_data?timings?*, $entries_as_documents?timings?*)}
     ], cors:header(())
   )
 };
 
 declare %private function _:change_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) {
-  let $savedEntry := data-access:change_entries($data, $dict, $changingUser),
+  let $savedEntry := api-problem:trace-info('@entries@change_entries@savedEntry',
+      prof:track(data-access:change_entries($data, $dict, $changingUser))),
       (: $log := _:write-log(serialize($savedEntry?value, map{'method': 'basex'}), 'INFO'), :)
-      $run_plugins := plugins:after_updated($savedEntry?value, $dict, $changingUser),
-      $ret := prof:track(map:for-each($savedEntry?value('current'), function($id, $data) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $id, 
+      $run_plugins := api-problem:trace-info('@entries@change_entries@run_plugins',
+      prof:track(plugins:after_updated($savedEntry?value, $dict, $changingUser))),
+      $ret := api-problem:trace-info('@entries@change_entries@create_documents',
+      prof:track(map:for-each($savedEntry?value('current'), function($id, $data) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $id, 
   profile:extract-sort-values(profile:get($dict), $data?entry)/@*[local-name() = $util:vleUtilSortKey],
-  $data?entry, ())}))
-  return  map{'value': $ret?value , 'time': map:merge((map {'@entries@change_entries:create_documents': $ret?time}, $savedEntry?time, $run_plugins?time)), 'memory': map:merge(())}    
+  $data?entry, ())})))
+  (: return $ret :)
+  return map{'value': $ret?value,
+             'timings': array:join(($ret?timings, $savedEntry?timings, $run_plugins?timings))}    
 }; 
 
 (:~
