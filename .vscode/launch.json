@@ -10,6 +10,9 @@
             "name": "Launch Tests",
             "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
             "args": ["test.js"]
+//            ,"runtimeArgs": [
+//                "--harmony_regexp_property"
+//            ]
         },
     ]
 }
