@@ -24,12 +24,23 @@ declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as x
 declare %private function _:start-eval-job($query as xs:string, $bindings as map(*)?, $jobName as xs:string, $dontCheckQuery as xs:boolean, $subJobNumber as xs:integer) as xs:string {
     let $too-many-jobs := if (count(jobs:list()) >= xs:integer(db:system()//parallel)) then 
                           error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests! (>='||db:system()//parallel||')') else (),
-        $query-is-sane := $dontCheckQuery or _:query-is-sane($query)
-        (: , $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG') :)
-        return jobs:eval($query, $bindings, map {
+        $query-is-sane := $dontCheckQuery or _:query-is-sane($query),
+        $jobId := 'vle'||replace(jobs:current(), 'job', '')||':'||$jobName||'-'||$subJobNumber,
+        (: $log := l:write-log($jobId, 'DEBUG'), :)
+        $ret := try {
+          jobs:eval($query, $bindings, map {
           'cache': true(),
-          'id': 'vleserver:'||$jobName||'-'||$subJobNumber||'-'||jobs:current(),
+          'id': $jobId,
           'base-uri': $_:basePath||'/vleserver_'||$jobName||'-'||$subJobNumber||'.xq'})
+        } catch jobs:id {
+          (: l:write-log('jobs:id already exists for '|| $jobId || '. Retrying', 'DEBUG'), :)
+          prof:sleep(500),
+          jobs:eval($query, $bindings, map {
+          'cache': true(),
+          'id': $jobId,
+          'base-uri': $_:basePath||'/vleserver_'||$jobName||'-'||$subJobNumber||'.xq'})
+        }
+        return $ret
 };
 
 (: throws wde:dubious-query :)
