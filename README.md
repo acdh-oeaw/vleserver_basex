@@ -5,17 +5,11 @@
 * API Problem [(RFC 7807)](https://tools.ietf.org/html/rfc7807)
 * [JSON Hypertext Application Language](https://tools.ietf.org/html/draft-kelly-json-hal-08)
 
-## Endpoint examples
+## Running the server
 
-* https://basex-dboe.herkules.arz.oeaw.ac.at/restvle : DBÖ production
-* https://dboe-webtest.herkules.arz.oeaw.ac.at/restvle : DBÖ development
+`docker run --rm -it -p 8984:5000 ghcr.io/acdh-oeaw/vleserver_basex`
 
-## Rendered openapi documentation
+## API spec
 
-* https://basex-dboe.herkules.arz.oeaw.ac.at/openapi
-* https://dboe-webtest.herkules.arz.oeaw.ac.at/openapi
-
-## Redmine service issues
-
-* https://redmine.acdh.oeaw.ac.at/issues/7821
-* https://redmine.acdh.oeaw.ac.at/issues/6401
+An automatically generated OpenAPI spec is available at `/restvle/openapi.json`
+For example: `http://localhost:8984/restvle/openapi.json`
