@@ -293,7 +293,7 @@ declare function _:create_new_entries($data as map(xs:string, map(xs:string, ite
                   "There are entries of the follwing types: "||string-join($dataType, ', ')),  
       (: TODO: Should we split a sequence of new entries so the maximum number of entries per db is never exceeded? :)
       $target-collection := _:get-collection-name-for-insert-data($dict, $dataType),
-      $data-with-change := map:merge(map:for-each($data, function ($id, $data){ _:add-change-records($id, $data, $dataType, $changingUser)})),
+      $data-with-change := map:merge(map:for-each($data, function ($id, $data){ _:add-change-records($id, $data, map{'entry': ()}, $dataType, $changingUser)})),
       $add-entry-todb-script := ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare variable $data-with-change external;
             (_:insert-data(collection("`{$target-collection}`"), $data-with-change?*?entry, "`{$dataType}`"),
@@ -315,9 +315,9 @@ return map {'current':$script_ret}
                                 '$id': ...}
 :)
 
-declare %private function _:add-change-records($id as xs:string, $data as map(*), $dataType as xs:string, $changingUser as xs:string) {
+declare %private function _:add-change-records($id as xs:string, $data as map(*), $oldData as map(*), $dataType as xs:string, $changingUser as xs:string) {
   map {$id: if ($dataType = 'profile') then map:merge((map{ 'entry': $data?entry transform with { chg:add-change-record-to-profile(.) }}, $data))
-  else map:merge((map{ 'entry': $data?entry transform with { chg:add-change-record(., .//*:fs[@type = 'change'], $data?status, $data?owner, $changingUser) }}, $data))}
+  else map:merge((map{ 'entry': $data?entry transform with { chg:add-change-record(., $oldData?entry//*:fs[@type = ('create', 'change', 'status')], $data?status, $data?owner, $changingUser) }}, $data))}
 };
 
 (: $data: map {'id': map {entry: <xml></xml>
@@ -330,24 +330,27 @@ declare function _:change_entries($data as map(xs:string, map(xs:string, item()?
 (: value as map(xs:string, map(xs:string, map(xs:string, item()?))) :)
   let $entriesToReplace := prof:track(_:find_entry_as_dbname_pre($dict, map:keys($data))),
       $db_names := map:keys($entriesToReplace?value),
+      $befores := map:merge((for $db_name in $db_names
+        let $ids := map:keys($entriesToReplace?value($db_name))
+        return chg:save-entry-in-history($dict, $db_name, $ids))),
+      (: $_ := _:write-log(serialize($data, map{'method': 'basex'})), :)
       $newEntriesWithChange := prof:track(map:merge(for $db_name in $db_names return
         for $id in map:keys($entriesToReplace?value($db_name)) return
-          map{xs:string($id): 
-            if (types:get_data_type($data($id)?entry) = 'profile') then $data($id)?entry transform with { chg:add-change-record-to-profile(.) }
-            else $data($id)?entry transform with { chg:add-change-record(map:merge((map{'entry':.}, $data($id))), $db_name, $entriesToReplace?value($db_name)($id)("pre"), $changingUser) }
-          }
+           _:add-change-records($id, $data($id), $befores($id), types:get_data_type($data($id)?entry), $changingUser)
         )),
+      (: $_ := _:write-log(serialize($newEntriesWithChange, map{'method': 'basex'})), :)
       $ret := for $db_name in $db_names
         let $ids := map:keys($entriesToReplace?value($db_name)),
-            $before := prof:track(chg:save-entry-in-history($dict, $db_name, $ids)),
+            $before := map:merge((for $k in map:keys($befores)
+              where $befores($k)?db_name = $db_name
+              return map{$k: $befores($k)})),
             $current := prof:track(_:do-replace-entry-by-id($db_name, $ids, $newEntriesWithChange?value))
         return map{
           'value': map {
-          'before': $before?value,
+          'before': $before,
           'current': $current?value
           },
           'time': map {
-            'save_to_history': $before?time,
             'replace_entry': $current?time
           },
           'memory': map{}}
@@ -391,16 +394,17 @@ declare function _:find_entry_as_dbname_pre_with_collection($collection as docum
 };
 
 declare %private function _:do-replace-entry-by-id($db-name as xs:string, $ids as xs:string+, $newEntries as map(xs:string, item())) as map(xs:string, map(xs:string, item()?)) {
-let $ids_seq := ``[("`{string-join($ids, '","')}`")]``
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+    $_ := _:write-log(serialize($newEntries, map {"method": "basex"}))
 return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     declare variable $newEntries as map(xs:string, item()) external;
     let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), `{$ids_seq}`)
       (: , $log := data-access:write-log(serialize($entriesToChange, map{'method': 'basex'}), 'INFO')
       , $log := data-access:write-log(serialize($newEntries, map{'method': 'basex'}), 'INFO') :)
-    return for $id in map:keys($entriesToChange) return replace node db:open-pre("`{$db-name}`", $entriesToChange($id)?pre) with $newEntries($id),
+    return for $id in map:keys($entriesToChange) return replace node db:open-pre("`{$db-name}`", $entriesToChange($id)?pre) with $newEntries($id)?entry,
     db:optimize("`{$db-name}`"),
     update:output(map:merge(for $id in map:keys($newEntries)
-     return map{xs:string($id): map{'entry': $newEntries($id),
+     return map{xs:string($id): map{'entry': $newEntries($id)?entry,
                          'db_name': "`{$db-name}`"}}))
   ]``, map {'newEntries': $newEntries}, 'replace-entry-by-id', true())  
 };
@@ -484,5 +488,5 @@ declare (: %private :) function _:write-log($message as xs:string, $severity as 
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
 };
 declare %private function _:write-log($message as xs:string) {
-    admin:write-log($message,"trace")
+  if ($_:enable_trace) then admin:write-log($message,"trace")
 };
