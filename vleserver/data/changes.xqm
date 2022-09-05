@@ -73,7 +73,7 @@ declare function _:add-change-record($data as map(xs:string, item()?), $db-name 
       else error(xs:QName('response-codes:_409'),
                 'Checksum mismatch.',
                 "Provided md5 checksum was "||$data?storedEntryMd5||". Checksum of current entry is "||$stored_entry_md5||".")
-    return _:add-change-record($data?entry, $stored_entry//*:fs[@type=('change', 'create')], $data?status, $data?owner, "`{$changingUser}`")]``,
+    return _:add-change-record($data?entry, $stored_entry//*:fs[@type=('change', 'create', 'status')], $data?status, $data?owner, "`{$changingUser}`")]``,
     map{'data': $data},
     'add-change-record_5', true())
 };
