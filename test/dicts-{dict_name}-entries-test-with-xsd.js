@@ -112,7 +112,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
         describe('should respond 422 for "Unprocessable Entity" with xsd', function() {
-            it('if entry does not conform the schema"', function() {
+            it('if entry does not conform the schemas', function() {
                 var response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
                     'body': {
                         "sid":"biyyah_001",

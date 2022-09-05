@@ -323,41 +323,6 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 return chakram.wait();
             })
 
-            it('if entry does not conform the schema"', async function() {
-                let config_1 = { 
-                    'body': {
-                        "sid": "dictProfile",
-                        "lemma": "",
-                        "entry": compiledProfileTemplate({
-                            'dictName': dictuser.table,
-                            'displayString': '//tei:form/tei:orth[1]', 
-                         })
-                    },
-                    'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'auth': dictuserauth,
-                    'time': true
-                },
-                response_1 = await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config_1),
-                response_2 = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
-                    'body': {
-                        "sid":"biyyah_001",
-                        "lemma":"",
-                        "entry": testEntryForValidationWithError
-                    },
-                    'headers': {"Accept":"application/vnd.wde.v2+json","Content-Type" : "application/json"},
-                    'auth': dictuserauth,
-                    'time': true
-                });
-
-                expect(response_2).to.have.status(422);
-                expect(response_2).to.have.json(function(body){
-                    expect(body.detail).to.contain('element "hom" not allowed anywhere')
-                    expect(body.detail).to.contain('expected the element end-tag or element');
-                    expect(body.detail).to.contain(', "cit"')
-                })
-                
-                return chakram.wait();
-            });
             
             it('if entry has no @xml:id"', function() {
                 let response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
@@ -1130,47 +1095,6 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 });
                 return chakram.wait();
             })
-
-            it('if entry does not conform the schema"', async function() {
-                let config_1 = { 
-                    'body': {
-                        "entries": [{
-                            "sid": "dictProfile",
-                            "lemma": "",
-                            "entry": compiledProfileTemplate({
-                                'dictName': dictuser.table,
-                                'displayString': '//tei:form/tei:orth[1]',
-                            })
-                        }]
-                    },
-                    'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'auth': dictuserauth,
-                    'time': true
-                },
-                response_1 = await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config_1),
-                response_2 = request('patch', baseURI+'/dicts/'+dictuser.table+'/entries', { 
-                    'body': {
-                        "entries": [{
-                            "id": "biyyah_001",
-                            "sid": "",
-                            "lemma": "",
-                            "entry": testEntryForValidationWithError
-                        }]
-                    },
-                    'headers': {"Accept":"application/vnd.wde.v2+json","Content-Type" : "application/json"},
-                    'auth': dictuserauth,
-                    'time': true
-                });
-
-                expect(response_2).to.have.status(422);
-                expect(response_2).to.have.json(function(body){
-                    expect(body.detail).to.contain('element "hom" not allowed anywhere')
-                    expect(body.detail).to.contain('expected the element end-tag or element');
-                    expect(body.detail).to.contain(', "cit"')
-                })
-                
-                return chakram.wait();
-            });
             
             it('if entry has no @xml:id', function() {
                 let requestData = { 
