@@ -330,10 +330,11 @@ declare function _:change_entries($data as map(xs:string, map(xs:string, item()?
 (: value as map(xs:string, map(xs:string, map(xs:string, item()?))) :)
   let $entriesToReplace := prof:track(_:find_entry_as_dbname_pre($dict, map:keys($data))),
       $db_names := map:keys($entriesToReplace?value),
+      $_ := _:write-log(serialize($data, map{'method': 'basex'})),
       $befores := map:merge((for $db_name in $db_names
-        let $ids := map:keys($entriesToReplace?value($db_name))
-        return chg:save-entry-in-history($dict, $db_name, $ids))),
-      (: $_ := _:write-log(serialize($data, map{'method': 'basex'})), :)
+        let $ids := map:keys($entriesToReplace?value($db_name)),
+            $ids_chsums := map:merge($ids!map{.: xs:string($data(.)?as_document?value//storedEntryMd5)})
+        return chg:save-entry-in-history($dict, $db_name, $ids_chsums))),
       $newEntriesWithChange := prof:track(map:merge(for $db_name in $db_names return
         for $id in map:keys($entriesToReplace?value($db_name)) return
            _:add-change-records($id, $data($id), $befores($id), types:get_data_type($data($id)?entry), $changingUser)
