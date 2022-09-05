@@ -3,6 +3,8 @@ xquery version "3.1";
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 
+declare variable $_:enable_trace := false();
+
 (: $data := map {'current': map {'$id': map {'entry': <entry/>,
                                             'db_name': $db_name}},
                                  '$id': ...}
@@ -36,6 +38,8 @@ let $ret := for $data_per_db in map:for-each($data?current, function ($id, $data
 group by $db_name := $data_per_db?*?db_name
 let $currentData := map:merge($data_per_db),
     $beforeData := map:merge(map:for-each($data?before, function($id, $data) {if ($id = map:keys($currentData)) then map {$id: $data} else ()}))
+  (: , $_ := _:write-log('after_update$currentData'||serialize($currentData, map{"method": "basex"})),
+    $_ := _:write-log('after_update$beforeData'||serialize($beforeData, map{"method": "basex"})) :)
 return
   util:eval(``[import module namespace example = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/example' at 'plugins/example.xqm';
 import module namespace cache-update = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/cache-update' at 'plugins/cache-update.xqm';
@@ -68,4 +72,12 @@ declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name 
 import module namespace cache-update = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/cache-update' at 'plugins/cache-update.xqm';
 example:after_deleted("`{$dict}`", "`{$id}`", "`{$db_name}`", "`{$changingUser}`"),
 cache-update:after_deleted("`{$dict}`", "`{$id}`", "`{$db_name}`", "`{$changingUser}`")]``, (), 'after_deleted', true())  
+};
+
+declare %private function _:write-log($message as xs:string, $severity as xs:string) {
+  if ($_:enable_trace) then admin:write-log($message, $severity) else ()
+};
+
+declare %private function _:write-log($message as xs:string) {
+  if ($_:enable_trace) then admin:write-log($message, "TRACE") else ()
 };
