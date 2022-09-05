@@ -87,7 +87,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             'time': true
         });
         newSuperUserID = userCreateResponse.body.id;
-        userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', {
+        var userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', {
             'headers': {
                 "Accept": "application/vnd.wde.v2+json",
                 "Content-Type": "application/json"
@@ -97,7 +97,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             'time': true
         });
         newDictUserID = userCreateResponse.body.id;
-        userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', {
+        var userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', {
             'headers': {
                 "Accept": "application/vnd.wde.v2+json",
                 "Content-Type": "application/json"
@@ -107,13 +107,14 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             'time': true
         });
         newDictUserID2 = userCreateResponse.body.id;
-        await request('post', baseURI + '/dicts', {
+        var newDictCreateResponse = await request('post', baseURI + '/dicts', {
             'headers': { "Accept": "application/vnd.wde.v2+json" },
             'auth': superuserauth,
             'body': { "name": dictuser.table },
             'time': true
         });
-        await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', {
+        expect(newDictCreateResponse.body.status).to.equal('201');
+        var profileCreateResponse = await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', {
             'body': {
                 "sid": "dictProfile",
                 "lemma": "",
@@ -123,6 +124,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             'auth': dictuserauth,
             'time': true
         });
+        expect(profileCreateResponse.body.id).to.equal('dictProfile');
     });
     describe('tests for get', function() {
         var entryID = 'Utnisiveniam';
@@ -394,20 +396,21 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
     describe('tests for put', function() {
         var entryID = 'innisiut';
         beforeEach('Add a test entry', async function(){
-            await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', { 
-                    'body': {
-                        "sid":entryID,
-                        "lemma":"",
-                        "entry": compiledEntryTemplate({
-                            'xmlID': entryID,
-                            'translation_en': 'test',
-                            'translation_de': 'Test',
-                            })
-                    },
-                    'headers': {"Accept":"application/vnd.wde.v2+json"},
-                    'auth': dictuserauth,
-                    'time': true
-            });
+            let postNewEntry = { 
+                'body': {
+                    "sid":entryID,
+                    "lemma":"",
+                    "entry": compiledEntryTemplate({
+                        'xmlID': entryID,
+                        'translation_en': 'test',
+                        'translation_de': 'Test',
+                        })
+                },
+                'headers': {"Accept":"application/vnd.wde.v2+json"},
+                'auth': dictuserauth,
+                'time': true
+            }
+            await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', postNewEntry);
             await request('get', baseURI+'/dicts/'+dictuser.table+'/entries/'+entryID, {
                     'qs': {'lock': 2},
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
@@ -498,28 +501,25 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             });
 
             it('when changing status', async function(){
-                await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                var response = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'qs': { 'lock': 5 },
                     'auth': dictuserauth,
                     'time': true
                 });
-                await request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                let putUnreleased = {
                     'body': {
                         "sid": "",
                         "lemma": "",
-                        "entry": compiledEntryTemplate({
-                            'xmlID': entryID,
-                            'translation_en': 'changed',
-                            'translation_de': 'verändert',
-                            }),
+                        "entry": response.body.entry,
                         "status": 'unreleased'
                     },
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
                     'time': true
-                });
-                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, {
+                }
+                response = await request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, putUnreleased);
+                let putReleased = {
                     'body': {
                         "sid": "",
                         "lemma": "",
@@ -533,7 +533,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
                     'time': true
-                });
+                }
+                var response = request('put', baseURI + '/dicts/' + dictuser.table + '/entries/'+ entryID, putReleased);
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json(function (body) {
