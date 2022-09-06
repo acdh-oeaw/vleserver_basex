@@ -330,10 +330,10 @@ declare function _:change_entries($data as map(xs:string, map(xs:string, item()?
 (: value as map(xs:string, map(xs:string, map(xs:string, item()?))) :)
   let $entriesToReplace := prof:track(_:find_entry_as_dbname_pre($dict, map:keys($data))),
       $db_names := map:keys($entriesToReplace?value),
-      $_ := _:write-log(serialize($data, map{'method': 'basex'})),
+      (: $_ := _:write-log("data-access:change_entries$data "||serialize($data, map{'method': 'basex'})), :)
       $befores := map:merge((for $db_name in $db_names
         let $ids := map:keys($entriesToReplace?value($db_name)),
-            $ids_chsums := map:merge($ids!map{.: xs:string($data(.)?as_document?value//storedEntryMd5)})
+            $ids_chsums := map:merge($ids!map{.: xs:string($data(.)?storedEntryMd5)})
         return chg:save-entry-in-history($dict, $db_name, $ids_chsums))),
       $newEntriesWithChange := prof:track(map:merge(for $db_name in $db_names return
         for $id in map:keys($entriesToReplace?value($db_name)) return
@@ -396,7 +396,7 @@ declare function _:find_entry_as_dbname_pre_with_collection($collection as docum
 
 declare %private function _:do-replace-entry-by-id($db-name as xs:string, $ids as xs:string+, $newEntries as map(xs:string, item())) as map(xs:string, map(xs:string, item()?)) {
 let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
-    $_ := _:write-log(serialize($newEntries, map {"method": "basex"}))
+    $_ := _:write-log("data-access:do-replace-entry-by-id$newEntries "||serialize($newEntries, map {"method": "basex"}))
 return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     declare variable $newEntries as map(xs:string, item()) external;
     let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), `{$ids_seq}`)

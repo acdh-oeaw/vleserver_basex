@@ -529,8 +529,8 @@ function _:changeEntries($dict_name as xs:string, $userData, $content-type as xs
       $changes_data := api-problem:trace-info('@entries@changeEntries@changes_data',
               prof:track(map:merge(for $entry in $entries?value
         return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
-          profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ())}, $entry))}))),
-      (: $log := _:write-log(serialize($changes_data, map {'method': 'basex'}), 'INFO'), :)
+          profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ()), "storedEntryMd5": $entry?storedEntryMd5}, $entry))}))),
+      (: $log := _:write-log("entries:changeEntries$change_data "||serialize($changes_data, map {'method': 'basex'}), 'INFO'), :)
       $entries_as_documents := 
       api-problem:trace-info('@entries@changeEntries@entries_as_documents',
               prof:track(
