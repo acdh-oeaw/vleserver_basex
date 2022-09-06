@@ -484,9 +484,9 @@ function _:changeEntries($dict_name as xs:string, $userData, $content-type as xs
                    'You don&apos;t own the lock for all the entries',
                    'Entries are currently locked by "'||string-join($lockedBy?*, '", "')||'"'),
       $changes_data as map(xs:string, map(xs:string, item()?)) := map:merge(for $entry in $entries
-        return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
-          profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ())}, $entry))}),
-      (: $log := _:write-log(serialize($changes_data, map {'method': 'basex'}), 'INFO'), :)
+        return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
+          profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry, ()), "storedEntryMd5": $entry?storedEntryMd5}, $entry))}),
+      (: $log := _:write-log("entries:changeEntries$change_data "||serialize($changes_data, map {'method': 'basex'}), 'INFO'), :)
       $entries_as_documents := _:change_entries($changes_data, $dict_name, $userName)
   return api-problem:or_result($start,
     json-hal:create_document_list#7, [
