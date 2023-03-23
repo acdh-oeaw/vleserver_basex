@@ -112,10 +112,12 @@ else
 
 declare function _:check_global_super_user() as empty-sequence() {
   util:eval(``[ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+  import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
   let $name_pw := tokenize("`{util:basic-auth-decode(request:header('Authorization', ''))}`", ':'),
-      $user_tag := try { collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2]) and 
-                                                       @type="su" and @dict = "dict_users"] }
-                   catch err:FODC0002 { (: Until dict_users is created everyone is superuser :) true() }          
+      $user_tag := try { collection('dict_users')/users/user[@name=($name_pw[1], "")[1] and
+                           upper-case(@pw)=upper-case(($name_pw[2], "")[1]) and 
+                            @type="su" and @dict = "dict_users"]
+                  } catch err:FODC0002 { (: Until dict_users is created everyone is superuser :) true() }          
       return if (exists($user_tag)) then () else
         error(xs:QName('response-codes:_403'),
                        'Only global super users may create dictionaries.') ]``, (), 'check-global-super-user')
