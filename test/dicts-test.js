@@ -22,26 +22,25 @@ describe('tests for /dicts', function() {
         superuserauth = {"user":superuser.userID, "pass":superuser.pw},
         newSuperUserID;
     describe('test the creation of the dict_users table - it is possible to create the dict-users table without credentials if the table does not exist', function(){
-        it('should response 200 for "OK"',function(){
-            var response = request('post', baseURI + '/dicts', {
+        it('should response 200 for "OK"', async function(){
+            var response = await request('post', baseURI + '/dicts', {
                 'headers': {"Accept":"application/vnd.wde.v2+json",
                             "Content-Type":"application/json"},
                 'body': {'name': 'dict_users'},
                 'time': true
                 })
-                .then(function(dictUsersCreated){
-                    return request('post', baseURI + '/dicts/dict_users/users', { 
+            expect(+response.body.status).to.be.oneOf([201, 403])
+            response = await request('post', baseURI + '/dicts/dict_users/users', { 
                         'headers': {"Accept":"application/vnd.wde.v2+json",
                                     "Content-Type":"application/json"},
                         'body': superuser,
                         'time': true
-                        });
-                });
+                        })
 
-            expect(response).to.have.status(200);
+            expect(response).to.have.status(200)
             expect(response).to.have.json((body) => {
-            });
-            return chakram.wait();
+            })
+            return chakram.wait()
         });
         // delete the dict_users table after the test
         afterEach(function(){
