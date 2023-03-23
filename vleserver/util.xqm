@@ -3,7 +3,7 @@ module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
 
 declare namespace wde = "https://www.oeaw.ac.at/acdh/tools/vle";
 
-import module namespace jobs = "http://basex.org/modules/jobs";
+import module namespace jobs = "http://basex.org/modules/job";
 import module namespace l = "http://basex.org/modules/admin";
 
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
@@ -163,7 +163,7 @@ declare function _:dehydrate($nodes as node()*, $data-extractor-xquery as functi
     return <_:d pre="{$pres[$i]}" db_name="{$db_name}">{($order-value, $extracted-attrs)}</_:d>
   }
   </_:dryed> }
-  return $ret update insert node attribute {'count'} {count(./_:d[@order])} as first into .
+  return $ret update {insert node attribute {'count'} {count(./_:d[@order])} as first into .}
 };
 
 (: db:name causes global read lock :)
@@ -180,7 +180,7 @@ declare function _:hydrate($dryed as element(_:d)+) as node()* {
             (replace(., '"', '&amp;quot;', 'q') => replace('&amp;([^q])', '&amp;amp;$1')), '","')||'")'
       return ``[declare namespace  _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
     for $pre at $i in `{$pre_seq}`
-    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:open-pre("`{$db_name}`", $pre)}</_:h>
+    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{db:get-pre("`{$db_name}`", $pre)}</_:h>
   ]``
   return _:evals($queries, (), 'util:hydrate', false())
 };
@@ -201,7 +201,7 @@ declare function _:hydrate($dryed as element(_:d)+, $filter_code as xs:string) a
       return ``[declare namespace  _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
     `{$filter_code}`
     for $pre at $i in `{$pre_seq}`
-    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{local:filter(db:open-pre("`{$db_name}`",  $pre))}</_:h>
+    return <_:h db_name="`{$db_name}`" pre="{$pre}" `{$_:vleUtilSortKey}`="{`{$sort_key_seq}`[$i]}">{local:filter(db:get-pre("`{$db_name}`",  $pre))}</_:h>
   ]``
   return _:evals($queries, (), 'util:hydrate-and-filter', false())
 };

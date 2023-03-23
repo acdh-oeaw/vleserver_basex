@@ -18,7 +18,7 @@ declare function _:get-pre-and-dt-for-changes-by-id($db-base-name as xs:string, 
 
 declare function _:get-change-by-pre($db-base-name as xs:string, $pres as xs:integer*) as element()* {
   let $hist-db-name := $db-base-name||'__hist'
-  return util:eval(``[`{'('||string-join($pres, ',')||')'}`!db:open-pre("`{$hist-db-name}`", `{.}`)]``, (), 'get-change-by-pre')  
+  return util:eval(``[`{'('||string-join($pres, ',')||')'}`!db:get-pre("`{$hist-db-name}`", `{.}`)]``, (), 'get-change-by-pre')  
 };
 
 
@@ -38,14 +38,14 @@ let $ids_seq := ``[("`{string-join(map:keys($ids_chsums), '","')}`")]``,
         (: need to remove %private at function declaration for logging to work! :)
         (: $log := _:write-log(serialize(($entriesToChange, $ids_chsums), map {'method': 'basex'}), 'INFO'), :)
         $entriesWithCsums := map:merge((for $id in map:keys($entriesToChange)
-          let $md5 := string(xs:hexBinary(hash:md5(serialize(db:open-pre("`{$db-name}`", $entriesToChange($id)?pre)))))
-          return (map{$id: map{'entry': db:open-pre("`{$db-name}`", $entriesToChange($id)?pre),
+          let $md5 := string(xs:hexBinary(hash:md5(serialize(db:get-pre("`{$db-name}`", $entriesToChange($id)?pre)))))
+          return (map{$id: map{'entry': db:get-pre("`{$db-name}`", $entriesToChange($id)?pre),
                               'md5': $md5}},
                  if (not(exists($ids_chsums($id))) or $ids_chsums($id) = $md5) then ()
       else error(xs:QName('response-codes:_409'),
                 'Checksum mismatch.',
                 "Provided md5 checksum was "||$ids_chsums($id)||". Checksum of current entry is "||$md5||"."))))
-    (: starting with BaseX 9.3 db:open-pre() can handle a sequence itself :)
+    (: starting with BaseX 9.3 db:get-pre() can handle a sequence itself :)
        (: , $log := _:write-log(serialize($entriesWithCsums, map {'method': 'basex'}), 'INFO') :)        
     return _:save-entry-in-history("`{$db-base-name}`", $entriesWithCsums?*?entry)]``, map{'ids_chsums': $ids_chsums}, 'save-entry-in-history_3', true())
 return map:merge($saved_nodes!map{xs:string(./(@xml:id, @ID)): map{'entry': ., 'db_name': $db-name}})
@@ -55,7 +55,7 @@ declare function _:save-entry-in-history-before-deletion($db-base-name as xs:str
   util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
     import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     let $entryToDelete := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), "`{$id}`"),
-        $e := db:open-pre("`{$db-name}`", $entryToDelete?*("pre")) transform with {_:add-change-record(., .//*:fs[@type = 'change'], "deleted", "", "`{$changingUser}`")}
+        $e := db:get-pre("`{$db-name}`", $entryToDelete?*("pre")) transform with {_:add-change-record(., .//*:fs[@type = 'change'], "deleted", "", "`{$changingUser}`")}
     return _:save-entry-in-history("`{$db-base-name}`", $e)]``, (), 'save-entry-in-history_4', true())
 };
 
@@ -79,7 +79,7 @@ declare function _:add-change-record($data as map(xs:string, item()?), $db-name 
     import module namespace hash = "http://basex.org/modules/hash";
     declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
     declare variable $data as map(xs:string, item()?) external;
-    let $stored_entry := db:open-pre("`{$db-name}`", `{$pre}`),
+    let $stored_entry := db:get-pre("`{$db-name}`", `{$pre}`),
         $stored_entry_md5 := string(xs:hexBinary(hash:md5(serialize($stored_entry)))),
         $check_md5_if_exists := if (not(exists($data?storedEntryMd5)) or $data?storedEntryMd5 eq $stored_entry_md5) then true()
       else error(xs:QName('response-codes:_409'),

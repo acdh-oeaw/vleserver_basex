@@ -45,9 +45,9 @@ function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
          BaseX 9.3 and < 9.6. This includes for at.
          This hopefully never gets really huge so add the position/id in memory.
       :)
-      $users := $users update
+      $users := $users update {
         for $user at $i in ./*
-        return insert node attribute {'id'} {$i} as first into $user,
+        return insert node attribute {'id'} {$i} as first into $user },
       $entries_as_documents := subsequence($users/*, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||./@id)} catch basex:http {xs:anyURI('urn:local')}, .)
   return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users/*), $page], cors:header(()))
 };

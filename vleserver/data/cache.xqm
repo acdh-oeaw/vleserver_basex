@@ -5,6 +5,7 @@ import module namespace data-access = 'https://www.oeaw.ac.at/acdh/tools/vle/dat
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '../api-problem.xqm';
+import module namespace jobs = "http://basex.org/modules/job";
 
 declare variable $_:logging-enabled := false();
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
@@ -24,6 +25,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
     return (
       if (exists($dbs)) then ``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+            import module namespace jobs = "http://basex.org/modules/job";
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
             let $dryeds as element(util:dryed)+ := (`{string-join(
@@ -36,9 +38,10 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
             for $db in $dbs[not(ends-with(., '__prof'))] return ``[
             data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``), ',')
             }`)
-            return jobs:eval(``[declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+            return jobs:eval(``[import module namespace jobs = "http://basex.org/modules/job";
+         declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
          declare variable $dryeds as element(util:dryed)+ external;
-         $dryeds!db:replace("`{$dict||'__cache'}`", ./@db_name||'_cache.xml', .)]``||']``'||
+         $dryeds!db:put("`{$dict||'__cache'}`", ., ./@db_name||'_cache.xml')]``||']``'||
          ``[, map{'dryeds': $dryeds}, map {
           'cache': false(),
           'id': 'vleserver:cache-all-entrie-write-script`{$key}`-'||jobs:current(),
@@ -69,8 +72,8 @@ let $sorted-ascending`{$alt-label-postfix}` := for $d in $ds
   order by data($d/@`{$util:vleUtilSortKey||$alt-label-postfix}`) ascending
   return $d]``}`
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
-return ``[db:replace("`{$dict||'__cache'}`", 'ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}" created="{current-dateTime()}"/>),
-db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}" created="{current-dateTime()}"/>)]``, ',&#x0a;')}`)]``
+return ``[db:put("`{$dict||'__cache'}`", <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($sorted-ascending`{$alt-label-postfix}`, 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}" created="{current-dateTime()}"/>, 'ascending`{$alt-label-postfix}`_cache.xml'),
+db:put("`{$dict||'__cache'}`", <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($sorted-ascending`{$alt-label-postfix}`), 1, `{$_:sortMaxSize}`)!(@ID, @xml:id), ' ')}" created="{current-dateTime()}"/>, 'descending`{$alt-label-postfix}`_cache.xml')]``, ',&#x0a;')}`)]``
 };
 
 (: this is slightly slower than the above. There seems to be no gain in doing a fork-join here. :)
@@ -86,8 +89,8 @@ let $ids := map:merge(xquery:fork-join((`{string-join(for $alt-label-postfix in 
 return ``[
  cache:order-by-key-ids-asc("sorted-ascending`{$alt-label-postfix}`", collection('`{$dict}`__cache')//@`{$util:vleUtilSortKey||$alt-label-postfix}`)]``, ',')}`)))
 return (`{string-join(for $alt-label-postfix at $i in $alt-label-postfixes
-return ``[db:replace("`{$dict||'__cache'}`", '`ascending`{$alt-label-postfix}`_cache.xml', <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($ids('sorted-ascending`{$alt-label-postfix}`'), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>),
-db:replace("`{$dict||'__cache'}`", 'descending`{$alt-label-postfix}`_cache.xml', <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($ids('sorted-ascending`{$alt-label-postfix}`')), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>)
+return ``[db:put("`{$dict||'__cache'}`", <_:dryed order="ascending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence($ids('sorted-ascending`{$alt-label-postfix}`'), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>, '`ascending`{$alt-label-postfix}`_cache.xml'),
+db:put("`{$dict||'__cache'}`", <_:dryed order="descending"`{$alt-label-attributes[$i]}` ids="{string-join(subsequence(reverse($ids('sorted-ascending`{$alt-label-postfix}`')), 1, `{$_:sortMaxSize}`)/../(@ID, @xml:id), ' ')}"/>, 'descending`{$alt-label-postfix}`_cache.xml')
 ]``, ',&#x0a;')}`)]``
 };
 
@@ -108,7 +111,7 @@ let $start := prof:current-ns(),
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
             let $dryed as element(util:dryed)? := data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)
-            return if (exists($dryed)) then db:replace("`{$dict||'__cache'}`", "`{$db_name}`_cache.xml", $dryed)
+            return if (exists($dryed)) then db:put("`{$dict||'__cache'}`", $dryed, "`{$db_name}`_cache.xml")
             else db:delete("`{$dict||'__cache'}`", "`{$db_name}`_cache.xml")]``, (), "refresh-cache-db-"||$db_name, true()), if (exists($labels-to-sort)) then _:sort($dict, $labels-to-sort) else ()),
     $log := _:write-log('Refresh took: '||((prof:current-ns() - $start) idiv 10000) div 100|| ' ms', 'INFO')
 return $query

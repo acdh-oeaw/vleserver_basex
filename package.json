@@ -2,9 +2,15 @@
   "name": "vleserver_basex",
   "version": "1.0.0",
   "description": "Server part of VLE for BaseX",
+  "engines": {
+    "node": "16.x",
+    "npm": "8.19.3",
+    "basex": "10.5",
+    "saxon": "11.4"
+  },
   "main": "test.js",
   "scripts": {
-    "test": "node_modules/.bin/mocha test.js"
+    "test": "mocha test.js"
   },
   "repository": {
     "type": "git",

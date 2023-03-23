@@ -402,7 +402,7 @@ return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.a
     let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), `{$ids_seq}`)
       (: , $log := data-access:write-log(serialize($entriesToChange, map{'method': 'basex'}), 'INFO')
       , $log := data-access:write-log(serialize($newEntries, map{'method': 'basex'}), 'INFO') :)
-    return for $id in map:keys($entriesToChange) return replace node db:open-pre("`{$db-name}`", $entriesToChange($id)?pre) with $newEntries($id)?entry,
+    return for $id in map:keys($entriesToChange) return replace node db:get-pre("`{$db-name}`", $entriesToChange($id)?pre) with $newEntries($id)?entry,
     db:optimize("`{$db-name}`"),
     update:output(map:merge(for $id in map:keys($newEntries)
      return map{xs:string($id): map{'entry': $newEntries($id)?entry,
@@ -423,7 +423,7 @@ declare %private function _:do-delete-entry-by-id($db-name as xs:string, $id as 
   util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
     import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     let $entryToDelete := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), "`{$id}`")
-    return delete node db:open-pre("`{$db-name}`", $entryToDelete?*("pre")),
+    return delete node db:get-pre("`{$db-name}`", $entryToDelete?*("pre")),
     db:optimize("`{$db-name}`"),
     update:output(<problem xmlns="urn:ietf:rfc:7807">
        <type>https://tools.ietf.org/html/rfc7231#section-6</type>
