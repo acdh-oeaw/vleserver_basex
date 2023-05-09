@@ -24,7 +24,9 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     try {
         let $ok-status := if ($ok-status > 200 and $ok-status < 300) then $ok-status else 200,
             $ret := apply($api-function, $parameters),
-            $timings := if ($ret instance of map(*) and exists($ret?time)) then $ret?time else (),
+            $timings := if ($ret instance of map(*) and exists($ret?time)) then $ret?time 
+                        (: else if ($ret instance of map(*) and exists($ret?timings)) then $ret?timings :)
+                        else (),
             $ret := if ($ret instance of map(*) and exists($ret?value)) then $ret?value else $ret
         return if ($ret instance of element(rfc7807:problem)) then _:return_problem($start-time-ns, $ret,$header-elements)
         else        
