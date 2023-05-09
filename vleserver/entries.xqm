@@ -193,7 +193,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       prof:track(        
         if ($pageSize <= $_:max_results_with_entries) 
         then _:to-map-by-id(data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries))
-        else ()
+        else map{"value": map{}}
        )
      (: ) :),
       $label := if (exists($altLemma)) then '-'||$altLemma else '',
@@ -596,7 +596,7 @@ declare
 function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
   let $start := prof:current-ns(),
       $userName := _:getUserNameFromAuthorization($auth_header),
-      $entry := _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
+      $entry :=  _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $id),
       $checkLockedByCurrentUser := if ($userName = $lockedBy) then true()
         else error(xs:QName('response-codes:_422'),
