@@ -424,7 +424,7 @@ as map(*) {
   map:merge((
   $securitySchemes/openapi:securityScheme ! map {
     string(./@name): map:merge(( map {
-      'description': normalize-space(./text()),
+      'description':string-join(./text()!normalize-space(.)),
       'type': string(./openapi:type)
     },
     ./openapi:scheme[1] ! map {
