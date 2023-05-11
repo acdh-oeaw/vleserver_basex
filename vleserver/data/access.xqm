@@ -1,10 +1,12 @@
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access';
+import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '../api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'elementTypes.xqm';
 import module namespace chg = "https://www.oeaw.ac.at/acdh/tools/vle/data/changes" at 'changes.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
+import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'cache.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
@@ -32,12 +34,14 @@ declare %private function _:get-skel-if-exists($dict as xs:string) as xs:string?
   util:eval(``[db:list()[. = "`{$dict}`__skel"]]``, (), 'get-ske-if-exists')
 };
 
-declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) as element() {
+declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) as map(*) {
   let $dict_name := _:get-real-dicts($dict_name, $id)
-  return util:eval(``[collection("`{$dict_name}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')  
+  return api-problem:trace-info('@access@get-entry-by-id',
+      prof:track(util:eval(``[collection("`{$dict_name?value}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')
+  ), $dict_name?timings)
 };
 
-declare function _:get-real-dicts($dict as xs:string, $ids as xs:string+) as xs:string+ {
+declare function _:get-real-dicts($dict as xs:string, $ids as xs:string+) as map(*) {
 let $dicts := _:get-list-of-data-dbs($dict),
     $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
     $get-db-for-id-script := '('||string-join(for $dict in $dicts
@@ -47,9 +51,13 @@ let $dicts := _:get-list-of-data-dbs($dict),
       else ()]``
       else ``[if (db:attribute("`{$dict}`", `{$ids_seq}`)) then "`{$dict}`" else ()]``
     , ',&#x0a;')||')',
-    $found-in-parts := if ($get-db-for-id-script ne '()') then util:eval($get-db-for-id-script,
-            (), 'get-real-dicts', true()) else ()
-return if (exists($found-in-parts)) then $found-in-parts
+    $found-in-parts := if ($get-db-for-id-script ne '()') 
+                       then api-problem:trace-info('@access@get-real-dicts',
+                         prof:track(
+                         util:eval($get-db-for-id-script,
+                         (), 'get-real-dicts', true())))
+                      else ()
+return if (exists($found-in-parts?value)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
                            'IDs '||$ids_seq||' not found')
@@ -182,8 +190,11 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
         return $ret]``,
     (: $log_script1 :=  _:write-log($get-entries-by-ids-scripts[1], "INFO"),
     $log_script2 :=  _:write-log($get-entries-by-ids-scripts[2], "INFO"), :)
-    $found-in-parts := if (exists($get-entries-by-ids-scripts)) then util:evals($get-entries-by-ids-scripts, (), if (exists($suggested_dbs)) then 'get-limited-entries-by-ids-script' else 'get-entries-by-ids-script', true()) else ()
-return if (exists($found-in-parts)) then $found-in-parts
+    $script_used := if (exists($suggested_dbs)) then 'get-limited-entries-by-ids-script' else 'get-entries-by-ids-script',
+    $found-in-parts := if (exists($get-entries-by-ids-scripts)) then api-problem:trace-info('@access@'||$script_used,
+      prof:track(util:evals($get-entries-by-ids-scripts, (), $script_used, true())))
+      else map{}
+return if (exists($found-in-parts?value)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
                            'IDs '||$ids_seq||' not found')
@@ -247,19 +258,25 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, 
 declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, $dt as xs:string?, $data-extractor-xquery as function(node()) as attribute()*?, $dehydrate-more-than-results as xs:integer) {
   let (: $start-time := prof:current-ms(), :)
       (: $log := _:write-log('do-get-index-data base-uri($c) '||string-join($c!base-uri(.), '; ') ||' $id := '||$id, 'DEBUG'), :)
-      $all-entries := types:get_all_entries($c),
-      $results := $all-entries[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())],
+      $all-entries := api-problem:trace-info('@access@do-get-index-data@all-entries',
+      prof:track(types:get_all_entries($c))),
+      $results := api-problem:trace-info('@access@do-get-index-data@results',
+      prof:track($all-entries?value[(if (exists($id)) then @xml:id = $id or @ID = $id else true()) and (if (exists($dt)) then @dt = $dt else true())])),
       (: $resultsLog := _:write-log('collecting entries took '||prof:current-ms() - $start-time||'ms', 'PROFILE'), :)
       (: does not work for 730 databases and ~2.5 Mio tags that would be processed to extract data :)
-      $ret := if (count($results) > $dehydrate-more-than-results) then util:dehydrate($results, $data-extractor-xquery) 
-              else if (count($results) > 0) then <_ db_name="{util:db-name($c)}">{
-                for $r in $results
+      $ret := if (count($results?value) > $dehydrate-more-than-results) 
+              then api-problem:trace-info('@access@do-get-index-data@dehydrate_results',
+      prof:track(util:dehydrate($results?value, $data-extractor-xquery))) 
+              else api-problem:trace-info('@access@do-get-index-data@insert_extracted_data_into_results',
+      prof:track(if (count($results?value) > 0) then <_ db_name="{util:db-name($c)}">{
+                for $r in $results?value
                 let $extracted-data := if (exists($data-extractor-xquery)) then $data-extractor-xquery($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))] else ()
                 return $r transform with {insert node $extracted-data as first into . }
               }</_>
-              else ()
+              else ()))
     (:, $retLog := _:write-log('do-get-index-data return '||string-join($results!local-name(.), '; '), 'DEBUG') :)
-  return $ret
+  return map{'value': $ret?value,
+             'timings': array:join(($all-entries?timings, $results?timings, $ret?timings))}
 };
 
 (: $data: map {'id': map {entry: <xml></xml>
@@ -328,40 +345,42 @@ declare %private function _:add-change-records($id as xs:string, $data as map(*)
 
 declare function _:change_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) {
 (: value as map(xs:string, map(xs:string, map(xs:string, item()?))) :)
-  let $entriesToReplace := prof:track(_:find_entry_as_dbname_pre($dict, map:keys($data))),
+  let $entriesToReplace := api-problem:trace-info('@access@change_entries@find_entry_as_dbname_pre',
+      prof:track(_:find_entry_as_dbname_pre($dict, map:keys($data)))),
       $db_names := map:keys($entriesToReplace?value),
       (: $_ := _:write-log("data-access:change_entries$data "||serialize($data, map{'method': 'basex'})), :)
-      $befores := map:merge((for $db_name in $db_names
+      $befores := api-problem:trace-info('@access@change_entries@save_to_history',
+      prof:track(map:merge((for $db_name in $db_names
         let $ids := map:keys($entriesToReplace?value($db_name)),
             $ids_chsums := map:merge($ids!map{.: xs:string($data(.)?storedEntryMd5)})
-        return chg:save-entry-in-history($dict, $db_name, $ids_chsums))),
+        return chg:save-entry-in-history($dict, $db_name, $ids_chsums))))),
       $newEntriesWithChange := prof:track(map:merge(for $db_name in $db_names return
         for $id in map:keys($entriesToReplace?value($db_name)) return
-           _:add-change-records($id, $data($id), $befores($id), types:get_data_type($data($id)?entry), $changingUser)
+           _:add-change-records($id, $data($id), $befores?value($id), types:get_data_type($data($id)?entry), $changingUser)
         )),
       (: $_ := _:write-log(serialize($newEntriesWithChange, map{'method': 'basex'})), :)
       $ret := for $db_name in $db_names
         let $ids := map:keys($entriesToReplace?value($db_name)),
-            $before := map:merge((for $k in map:keys($befores)
-              where $befores($k)?db_name = $db_name
-              return map{$k: $befores($k)})),
-            $current := prof:track(_:do-replace-entry-by-id($db_name, $ids, $newEntriesWithChange?value))
+            $before := map:merge((for $k in map:keys($befores?value)
+              where $befores?value($k)?db_name = $db_name
+              return map{$k: $befores?value($k)})),
+            $current := api-problem:trace-info('@access@change_entries@do-replace-entry-by-id@'||$db_name,
+              prof:track(_:do-replace-entry-by-id($db_name, $ids, $newEntriesWithChange?value)))
         return map{
           'value': map {
-          'before': $before,
-          'current': $current?value
+            'before': $before,
+            'current': $current?value
           },
-          'time': map {
-            'replace_entry': $current?time
-          },
+          'timings': $current?timings,
           'memory': map{}}
    return map {
      'value': $ret?value,
-     'time': map {
-       '@access@change_entries:save_to_history': sum($ret?time?save_to_history),
-       '@access@change_entries:replace_entry': sum($ret?time?replace_entry),
-       '@access@change_entries:find_entry_as_dbname_pre': $entriesToReplace?time,
-       '@access@change_entries:add_change_record': $newEntriesWithChange?time},
+     'timings': array {
+       $entriesToReplace?timings,
+       $befores?timings,
+       $ret?timings,
+       map {'@access@change_entries:add_change_record': $newEntriesWithChange?time}
+     },
      'memory': map {}
    }
 };
@@ -375,10 +394,20 @@ declare function _:change_entries($data as map(xs:string, map(xs:string, item()?
 :)
 
 declare function _:find_entry_as_dbname_pre($dict_name as xs:string, $ids as xs:string+) as map(xs:string, map(xs:string, item())) {
-let $ids_seq := ``[("`{string-join($ids, '","')}`")]``
-return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+let $profile := profile:get($dict_name),
+    $ids_seq := ``[("`{string-join($ids, '","')}`")]``
+return if (exists($profile//useCache))
+  then let $dried := cache:get-entries-by-ids($dict_name, $ids, 1, count($ids), (), (), count($ids))
+  return map:merge((for $d in $dried
+    group by $db_name := xs:string($d/@db_name)
+    return map {$db_name: map:merge(($d!map {xs:string(./@xml:id): map{'pre': xs:string(./@pre)}}))})) (: , 'owner': 'cache:TODO!' :)
+  else
+    (: Fixme: Optimize this, probably global lock :)
+    util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     let $db_names := data-access:get-real-dicts("`{$dict_name}`", `{$ids_seq}`),
-        $entries := $db_names!map{.: data-access:find_entry_as_dbname_pre_with_collection(collection(.), `{$ids_seq}`)}
+        $entries := for $db_name in $db_names?value
+          let $entries := collection($db_name)//*[(@xml:id, @ID) = `{$ids_seq}`], (: make it easy for the optimizer to see the db to lock :)
+          return map{$db_name: data-access:map_entry_ids_to_pre($entries)}
     return map:merge($entries)
     ]``, (), 'find_entry_as_dbname_pre', true())  
 };
@@ -389,21 +418,21 @@ return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.a
                 $db_name: ...}               
 :)
 
-declare function _:find_entry_as_dbname_pre_with_collection($collection as document-node()*, $ids as xs:string+) as map(*)+ {
-  let $entries := $collection//*[(@xml:id, @ID) = $ids] 
-  return map:merge($entries!map{xs:string(./(@xml:id, @ID)): map {"pre": db:node-pre(.), 'owner': ./*:fs[@type='change']/*[@name='owner']/*/@value/data()}})
+declare function _:map_entry_ids_to_pre($entries as element()+) as map(*)+ {
+  map:merge($entries!map{xs:string(./(@xml:id, @ID)): map {"pre": db:node-pre(.), 'owner': ./*:fs[@type='change']/*[@name='owner']/*/@value/data()}})
 };
 
 declare %private function _:do-replace-entry-by-id($db-name as xs:string, $ids as xs:string+, $newEntries as map(xs:string, item())) as map(xs:string, map(xs:string, item()?)) {
-let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
-    $_ := _:write-log("data-access:do-replace-entry-by-id$newEntries "||serialize($newEntries, map {"method": "basex"}))
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``
+   (: , $_ := _:write-log("data-access:do-replace-entry-by-id$newEntries "||serialize($newEntries, map {"method": "basex"})) :)
 return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     declare variable $newEntries as map(xs:string, item()) external;
-    let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), `{$ids_seq}`)
+    let $entries := db:attribute("`{$db-name}`",`{$ids_seq}`)/.., (: make it easy for the optimizer to see the db to lock )//*[(@xml:id, @ID) =  :)
+        $entriesToChange := data-access:map_entry_ids_to_pre($entries)
       (: , $log := data-access:write-log(serialize($entriesToChange, map{'method': 'basex'}), 'INFO')
       , $log := data-access:write-log(serialize($newEntries, map{'method': 'basex'}), 'INFO') :)
     return for $id in map:keys($entriesToChange) return replace node db:get-pre("`{$db-name}`", $entriesToChange($id)?pre) with $newEntries($id)?entry,
-    db:optimize("`{$db-name}`"),
+    if (not(xs:boolean(db:info("`{$db-name}`")/indexes/updindex))) then db:optimize("`{$db-name}`") else (),
     update:output(map:merge(for $id in map:keys($newEntries)
      return map{xs:string($id): map{'entry': $newEntries($id)?entry,
                          'db_name': "`{$db-name}`"}}))
@@ -422,7 +451,8 @@ declare function _:delete_entry($dict as xs:string, $id as xs:string, $changingU
 declare %private function _:do-delete-entry-by-id($db-name as xs:string, $id as xs:string) as element(rfc-7807:problem) {
   util:eval(``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
     import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-    let $entryToDelete := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), "`{$id}`")
+    let $entries := collection("`{$db-name}`")//*[(@xml:id, @ID) = "`{$id}`"], (: make it easy for the optimizer to see the db to lock :)
+        $entryToDelete := data-access:map_entry_ids_to_pre($entries)
     return delete node db:get-pre("`{$db-name}`", $entryToDelete?*("pre")),
     db:optimize("`{$db-name}`"),
     update:output(<problem xmlns="urn:ietf:rfc:7807">

@@ -103,18 +103,25 @@ declare function _:order-by-key-ids-asc($name as xs:string, $key-attrs as attrib
 };
 
 declare function _:refresh-cache-db($dict as xs:string, $db_name as xs:string, $labels-to-sort as xs:string*) {
-let $start := prof:current-ns(),
-    $dbs:= data-access:get-list-of-data-dbs($dict),
-    $profile := profile:get($dict),
-    $query := (util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+(: api-problem:trace-info('@cache@refresh-cache-db@'||$db_name,
+      prof:track( :)
+let $profile := profile:get($dict),
+    $create_query := api-problem:trace-info('@cache@refresh-cache-db@'||$db_name||'@create_query',
+      prof:track(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+            import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
             import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at "util.xqm";
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
-            let $dryed as element(util:dryed)? := data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)
-            return if (exists($dryed)) then db:put("`{$dict||'__cache'}`", $dryed, "`{$db_name}`_cache.xml")
-            else db:delete("`{$dict||'__cache'}`", "`{$db_name}`_cache.xml")]``, (), "refresh-cache-db-"||$db_name, true()), if (exists($labels-to-sort)) then _:sort($dict, $labels-to-sort) else ()),
-    $log := _:write-log('Refresh took: '||((prof:current-ns() - $start) idiv 10000) div 100|| ' ms', 'INFO')
-return $query
+            let $dryed as map(xs:string, item()?) := api-problem:trace-info('@cache@refresh-cache-db@`{$db_name}`@run_query',
+      prof:track(data-access:do-get-index-data(collection("`{$db_name}`"), (), (), local:extractor#1, 0)))
+            return (if (exists($dryed?value)) then db:put("`{$dict||'__cache'}`", $dryed?value, "`{$db_name}`_cache.xml")
+            else db:delete("`{$dict||'__cache'}`", "`{$db_name}`_cache.xml"),
+            update:output(map {'value': (), 'timings': $dryed?timings}))]``)),
+    $run_query := (util:eval($create_query?value, (), "refresh-cache-db-"||$db_name, true()),
+     api-problem:trace-info('@cache@refresh-cache-db@'||$db_name||'@sort',
+      prof:track(if (exists($labels-to-sort)) then _:sort($dict, $labels-to-sort) else ())))
+return ($create_query, $run_query, admin:write-log($create_query?value, 'INFO'))
+(: )) :)
 };
 
 declare function _:get-all-entries($dict as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {

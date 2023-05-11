@@ -30,11 +30,12 @@ declare function _:get-change-by-id-and-dt($db-base-name as xs:string, $id as xs
 
 declare function _:save-entry-in-history($db-base-name as xs:string, $db-name as xs:string, $ids_chsums as map(xs:string, xs:string?)+) as map(*) {
 let $ids_seq := ``[("`{string-join(map:keys($ids_chsums), '","')}`")]``,
-    $saved_nodes :=  util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
+    $saved_nodes := util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
     import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
     declare variable $ids_chsums external := map{};
-    let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), map:keys($ids_chsums)),
+    let $entries := collection("`{$db-name}`")//*[(@xml:id, @ID) = `{$ids_seq}`], (: make it easy for the optimizer to see the db to lock :)
+        $entriesToChange := data-access:map_entry_ids_to_pre($entries),
         (: need to remove %private at function declaration for logging to work! :)
         (: $log := _:write-log(serialize(($entriesToChange, $ids_chsums), map {'method': 'basex'}), 'INFO'), :)
         $entriesWithCsums := map:merge((for $id in map:keys($entriesToChange)
