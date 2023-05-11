@@ -24,13 +24,14 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     try {
         let $ok-status := if ($ok-status > 200 and $ok-status < 300) then $ok-status else 200,
             $ret := apply($api-function, $parameters),
-            $timings := if ($ret instance of map(*) and exists($ret?time)) then $ret?time 
-                        (: else if ($ret instance of map(*) and exists($ret?timings)) then $ret?timings :)
+            $timings := if ($ret instance of map(*) and exists($ret?time)) then [$ret?time] 
+                        else if ($ret instance of map(*) and exists($ret?timings)) then array {array:flatten($ret?timings)}
                         else (),
             $ret := if ($ret instance of map(*) and exists($ret?value)) then $ret?value else $ret
         return if ($ret instance of element(rfc7807:problem)) then _:return_problem($start-time-ns, $ret,$header-elements)
         else        
           (web:response-header(map {'method': 'json'}, $header-elements, map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
+          (: admin:write-log('INFO', serialize($timings, map {"method": "basex"})), :)
           _:inject-runtime($start-time-ns, $ret, $timings)
           )
     } catch * {
@@ -52,27 +53,31 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     }
 };
 
-declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)+) as map(xs:string, item()*) {  
+declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)+) as map(xs:string, item()*) {
+  _:trace-info($description, $trace-result, ())
+};
+
+declare function _:trace-info($description as xs:string, $trace-result as map(xs:string, item()*)+, $preceding-timings as array(*)?) as map(xs:string, item()*) {
+  let 
+  (: $_ := admin:write-log('trace-info:$trace-result: '||serialize(map{'time': $trace-result?time, 'timings': $trace-result?timings}, map {'method': 'basex'}), 'INFO'), :)
+  $ret :=
   (: We have a sequenze of maps with a value each as value :)
-  if ($trace-result?value instance of map(*)* and (every $v in $trace-result?value satisfies exists($v?value)))
+  if ($trace-result?value instance of map(*)* and (every $v in $trace-result?value satisfies exists($v?timings)))
   then map{'value': $trace-result?value?value,
-           'timings': array{(map {$description: $trace-result?time},
+           'timings': array{($preceding-timings, map {$description: $trace-result?time},
            (: map {$description||'@sum': sum($trace-result?value?timings?*?*)}, :)
-           for $v at $i in $trace-result?value return for $t in $v?timings?* return map:keys($t)!map{.||'@'||$i: $t(.)})}}
-  (: We have a sequence of anything as value and an array of timings:)
-  (: else if ($trace-result?value instance of item()* and $trace-result?timings instance of array(map(xs:string, xs:decimal)))
-  then map{'value': $trace-result!.?value,
-           'timings': array{(map {$description: sum($trace-result!.?timings?*?*)},           
-           (for $res at $i in $trace-result return map{map:keys($res?timings?*)[1]||'@'||$i: $res?timings?*?*}))}} :)
+           for $v at $i in $trace-result?value return for $t in $v?timings?* return map:keys($t)!map{$description||'->'||.: $t(.)})}}
   else
   if ($trace-result?value instance of map(*) and $trace-result?value?value)
   (: We have a map as value :)
     then map{'value': $trace-result?value?value,
-             'timings': array{(map {$description: $trace-result?time},
+             'timings': array{($preceding-timings, map {$description: $trace-result?time},
              map {$description||'@sum': sum($trace-result?value?timings?*!.?*)},
              $trace-result?value?timings?*)}}
     else map{'value': $trace-result?value,
-             'timings': array{map{$description: $trace-result?time}}}
+             'timings': array{$preceding-timings, map{$description: $trace-result?time}}}
+(: , $_ := admin:write-log('trace-info:$ret: '||serialize(map{'time': $ret?time, 'timings': $ret?timings}, map {'method': 'basex'}), 'INFO') :)
+  return $ret
 };
 
 declare function _:return_problem($start-time-ns as xs:integer, $problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
@@ -92,10 +97,15 @@ declare %private function _:return_result($to_return as node()) {
   $to_return
 };
 
-declare %private function _:inject-runtime($start as xs:integer, $ret, $timings as map(*)?) {
+declare %private function _:inject-runtime($start as xs:integer, $ret, $timings as array(*)?) {
   if ($ret instance of map(*)) then map:merge(($ret, map {'took': _:runtime($start)}))
   else if ($ret instance of element(json)) then $ret transform with { insert node <took>{_:runtime($start)}</took> as last into .,
-  if (exists($timings)) then insert node <timings type='object'>{for $k in map:keys($timings) return element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a')} {xs:string($timings($k))} }</timings> as last into .}
+  if (exists($timings)) then insert node
+    <timings type='array'> { for $item in $timings?* return
+      <_ type='object'> {for $k in map:keys($item) return
+        element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a') => replace('-', '_002d') => replace('<', '_003c') => replace('>', '_003e') } {xs:string($item($k))} }
+      </_> }
+    </timings> as last into .}
   else $ret
 };
 

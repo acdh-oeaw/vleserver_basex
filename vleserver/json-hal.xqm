@@ -49,7 +49,10 @@ declare function _:create_document_list($_self as xs:anyURI, $_embedded_name as 
        <page__size>{$page_size}</page__size>
        <total__items>{$total_items}</total__items>
        <page>{$page}</page>
-       {if (exists($timings)) then <timings type="array">{for $k in $timings?*!map:keys(.) return <_  type='object'>{element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a')} {$timings?*!xs:string(.($k))} }</_>}</timings>}
+       {if (exists($timings)) then <timings type="array">{for $k in $timings?*!map:keys(.) return 
+         <_  type='object'>{ element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a') => replace('-', '_002d') => replace('<', '_003c') => replace('>', '_003e') }
+                                     {$timings?*!xs:string(.($k))} }</_>}
+                                   </timings>}
    </json>
 }
 };
