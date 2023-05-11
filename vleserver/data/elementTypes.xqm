@@ -90,13 +90,14 @@ declare function _:get_parent_node_for_change_log($e as element()) {
 };
 
 declare function _:get_all_entries($c as document-node()*) as element()* {
-  ($c//tei:cit[@type = 'example'], 
-   $c//tei:teiHeader,
-   $c/profile,
-   $c//tei:TEI,
-   $c//tei:form[@type = 'lemma'],
-   $c//mds:mods,
-   $c//tei:entry,
-   $c//tei:entryFree,
-   $c//tei:xenoData)[@ID or @xml:id]
+  $c//*[@ID or @xml:id]/
+  (self::tei:cit[@type = 'example'], 
+   self::tei:teiHeader,
+   self::profile,
+   self::tei:TEI,
+   self::tei:form[@type = 'lemma'],
+   self::mds:mods,
+   self::tei:entry,
+   self::tei:entryFree,
+   self::tei:xenoData)
 };
