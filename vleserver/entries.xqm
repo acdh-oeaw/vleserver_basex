@@ -17,7 +17,7 @@ import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cach
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
 import module namespace lcks = "https://www.oeaw.ac.at/acdh/tools/vle/data/locks" at 'data/locks.xqm';
-import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator.xqm';
+import module namespace plugins = "https://www.oeaw.ac.at/acdh/tools/vle/plugins/coordinator" at 'plugins/coordinator-elasticsearch.xqm';
 import module namespace validate = "https://www.oeaw.ac.at/acdh/tools/vle/data/validation" at 'data/validation.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
@@ -188,14 +188,10 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $lockEntry := prof:track(
         if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), data($relevant_ids), current-dateTime() + $lockDuration) else ()),
       $locked_entries := lcks:get_user_locking_entries($dict_name, data($relevant_ids)),
-      $xml_snippets_without_sort_key :=
-      (: api-problem:trace-info('@entries@getDictDictNameEntries@xml_snippets_without_sort_key', :)
-      prof:track(        
+      $xml_snippets_without_sort_key :=       
         if ($pageSize <= $_:max_results_with_entries) 
         then _:to-map-by-id(data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries))
-        else map{"value": map{}}
-       )
-     (: ) :),
+        else map{"value": map{}},
       $label := if (exists($altLemma)) then '-'||$altLemma else '',
       $entries_as_documents := api-problem:trace-info('@entries@getDictDictNameEntries@entries_as_documents',
         prof:track(
@@ -221,11 +217,16 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
   )
 };
 
-declare function _:to-map-by-id($found-in-parts as node()*) as map(*)? {
-  if (exists($found-in-parts)) then map:merge((map{'db_names': $found-in-parts/@db_name}, $found-in-parts/*!map{data(./(@xml:id, @ID)): . transform with {
+declare function _:to-map-by-id($in as map(*)) as map(*)? {
+  let $found-in-parts as node()* := $in?value
+  return map{
+    'value': 
+      if (exists($found-in-parts)) then map:merge((map{'db_names': $found-in-parts/@db_name}, $found-in-parts/*!map{data(./(@xml:id, @ID)): . transform with {
           delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]
         }}))
-  else ()
+      else (),
+    'timings': $in?timings
+  }
 };
 
 declare function _:get-dryed-from-cache($dict_name as xs:string,
@@ -303,6 +304,12 @@ let (: $start := prof:current-ns(), :)
 declare
   %private
 function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?) {
+  _:entryAsDocument($_self, $id, $lemma, $entry, $isLockedBy, ())
+};
+
+declare
+  %private
+function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $caller_timings as array(*)?) {
 api-problem:trace-info('@entries@entryAsDocument',
             prof:track(
 (# db:copynode false #) {
@@ -323,7 +330,7 @@ api-problem:trace-info('@entries@entryAsDocument',
       , <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt)))}</storedEntryMd5> 
       )
     else ()))
-}))
+}), $caller_timings)
 };
 
 (:~
@@ -545,18 +552,17 @@ function _:changeEntries($dict_name as xs:string, $userData, $content-type as xs
 };
 
 declare %private function _:change_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) {
-  let $savedEntry := api-problem:trace-info('@entries@change_entries@savedEntry',
-      prof:track(data-access:change_entries($data, $dict, $changingUser))),
+  _:change_entries($data, $dict, $changingUser, ())
+};
+
+declare %private function _:change_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string, $caller_timings as array(*)?) {
+  let $savedEntry := data-access:change_entries($data, $dict, $changingUser),
       (: $log := _:write-log(serialize($savedEntry?value, map{'method': 'basex'}), 'INFO'), :)
-      $run_plugins := api-problem:trace-info('@entries@change_entries@run_plugins',
-      prof:track(plugins:after_updated($savedEntry?value, $dict, $changingUser))),
-      $ret := api-problem:trace-info('@entries@change_entries@create_documents',
+      $run_plugins := plugins:after_updated($savedEntry?value, $dict, $changingUser)
+  return api-problem:trace-info('@entries@change_entries@create_documents',
       prof:track(map:for-each($savedEntry?value('current'), function($id, $data) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $id, 
   profile:extract-sort-values(profile:get($dict), $data?entry)/@*[local-name() = $util:vleUtilSortKey],
-  $data?entry, ())})))
-  (: return $ret :)
-  return map{'value': $ret?value,
-             'timings': array:join(($ret?timings, $savedEntry?timings, $run_plugins?timings))}    
+  $data?entry, ())})), array:join(($caller_timings, $savedEntry?timings, $run_plugins?timings)))
 }; 
 
 (:~
@@ -595,16 +601,18 @@ declare
 }')
 function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
   let $start := prof:current-ns(),
-      $userName := _:getUserNameFromAuthorization($auth_header),
-      $entry :=  _:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response),
+      $userName := api-problem:trace-info('@entries@changeEntry@getUserNameFromAuthorization',
+      prof:track(_:getUserNameFromAuthorization($auth_header))),
+      $entry := api-problem:trace-info('@entries@changeEntry@checkPassedDataIsValid',
+      prof:track(_:checkPassedDataIsValid($dict_name, $userData, $content-type, $wanted-response))),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $id),
-      $checkLockedByCurrentUser := if ($userName = $lockedBy) then true()
+      $checkLockedByCurrentUser := if ($userName?value = $lockedBy) then true()
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for this entry',
                    'Entry is currently locked by "'||$lockedBy||'"'),
       $change_data as map(xs:string, map(xs:string, item()?)) :=
-      map { $entry?id: $entry}
-  return api-problem:or_result($start, _:change_entries#3, [$change_data, $dict_name, $userName], 200, cors:header(()))
+      map { $entry?value?id: $entry?value}
+  return api-problem:or_result($start, _:change_entries#4, [$change_data, $dict_name, $userName?value, array:join(($userName?timings, $entry?timings))], 200, cors:header(()))
 };
 
 
@@ -653,11 +661,17 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
                    $api-problem:codes_to_message(403),
                    'Only wde.v2 clients may request locking'),
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
-      $entry := data-access:get-entry-by-id($dict_name, $id),
-      $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return api-problem:or_result($start, _:entryAsDocument#5, [util:uri(), $entry/(@xml:id, @ID), 
-  profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
-  $entry, $lockedBy], cors:header(()))
+      $profile := profile:get($dict_name),
+      $relevant_nodes_or_dryed := api-problem:trace-info('@entries@getDictDictNameEntry@relevant_nodes_or_dryed',
+        prof:track(
+          if (exists($profile//useCache))
+          then _:get-dryed-from-cache($dict_name, $profile, (), (), $id, (), (), (), 1, 1, 1)
+          else _:get-nodes-or-dryed-direct($dict_name, $profile, (), (), $id, (), (), (), 1, 1, 1))),
+      $lockedBy := lcks:get_user_locking_entry($dict_name, $relevant_nodes_or_dryed?value/(@xml:id, @ID)),
+      $entry := data-access:get-entries-by-ids($dict_name, data($relevant_nodes_or_dryed?value/(@xml:id, @ID)), $relevant_nodes_or_dryed?value/@db_name/data(), 1)
+  return api-problem:or_result($start, _:entryAsDocument#6, [util:uri(), $entry?value/*/(@xml:id, @ID), 
+  profile:extract-sort-values(profile:get($dict_name), $entry?value/*)/@*[local-name() = $util:vleUtilSortKey],
+  $entry?value/*, $lockedBy, array:join(($relevant_nodes_or_dryed?timings, $entry?timings))], cors:header(()))
   } catch lcks:held {
     error(xs:QName('response-codes:_422'),
                    'You cannot lock entry '||$id,
