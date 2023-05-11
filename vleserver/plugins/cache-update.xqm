@@ -1,6 +1,7 @@
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/cache-update';
+import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '../api-problem.xqm';
 import module namespace cache = 'https://www.oeaw.ac.at/acdh/tools/vle/data/cache' at '../data/cache.xqm';
 import module namespace profile = 'https://www.oeaw.ac.at/acdh/tools/vle/data/profile' at '../data/profile.xqm';
 import module namespace util = 'https://www.oeaw.ac.at/acdh/tools/vle/util' at '../util.xqm';
@@ -16,7 +17,9 @@ return if (profile:use-cache($profile))
   else ()
 };
 
-declare function _:after_updated($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
+declare function _:after_updated($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as map(*)* {
+api-problem:trace-info('@plugins_cache-update@after_updated',
+          prof:track(
 let $profile := profile:get($dict),
     $changes := map:merge(for $id in map:keys($data?current) return
     if ($data?current($id)?entry instance of element(profile))
@@ -55,6 +58,7 @@ let $profile := profile:get($dict),
       return map {$db_name: $changed-values}
     else (), map{'duplicates': 'combine'})
   for $db_name in map:keys($changes) return cache:refresh-cache-db($dict, $db_name, distinct-values($changes($db_name)))
+))
 };
 
 declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {

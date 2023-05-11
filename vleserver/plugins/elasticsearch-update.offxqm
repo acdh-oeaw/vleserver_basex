@@ -1,21 +1,26 @@
 xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/elasticsearch-update';
+import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '../api-problem.xqm';
 import module namespace elasicsearch-export = "https://www.oeaw.ac.at/acdh/dboe_tei_modelling/xquery/elasticsearchExport" at "../../../dboe_tei_modelling/xquery/elasticsearchExport.xqm";
 
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
 
 declare variable $_:index-name := 'dboe';
+(: for local testing use e.g.
+   docker run -e HTTP_PORT=9200 -e HTTPS_PORT=9300 -p 9200:9200 -p 9300:9300 --rm -t mendhak/http-https-echo:29 :)
 declare variable $_:elasticsearch-bulk-href := 'http://localhost:9200/_bulk';
 declare variable $_:xslt := 'entry-to-ag5-fields.xsl';
 declare variable $_:log-elasticsearch-results := true();
 
-declare function _:after_created($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
-  if ($data?current?*?entry instance of element(tei:entry)+) then _:write-log(_:sendToElasticasearch(map:for-each($data?current, function($id, $data) {_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data)}))) else ()
+declare function _:after_created($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as map(*) { api-problem:trace-info('@plugins_example@after_created',
+  prof:track( if ($data?current?*?entry instance of element(tei:entry)+) then _:write-log(_:sendToElasticasearch(map:for-each($data?current, function($id, $data) {_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data)}))) else ()
+))
 };
 
-declare function _:after_updated($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
-  if ($data?current?*?entry instance of element(tei:entry)+) then _:write-log(_:sendToElasticasearch(map:for-each($data?current, function($id, $data) {_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data?entry)}))) else ()
+declare function _:after_updated($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as map(*) { api-problem:trace-info('@plugins_elasticsearch-update@after_updated',
+  prof:track(if ($data?current?*?entry instance of element(tei:entry)+) then _:sendToElasticasearch(map:for-each($data?current, function($id, $data) {_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data?entry)})) else ()
+))
 };
 
 declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
