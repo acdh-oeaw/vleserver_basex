@@ -12,7 +12,7 @@ declare variable $_:enable_trace := false();
                 }
 :)
 
-declare function _:after_created($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $changingUser as xs:string) as empty-sequence() {
+declare function _:after_created($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $changingUser as xs:string) as map(*) {
 api-problem:trace-info('@plugins_coordinator@after_created',
   prof:track(
 for $data_per_db in map:for-each($data?current, function ($id, $data) {map{$id: $data}})
@@ -68,7 +68,7 @@ return map {
 ))
 };
 
-declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name as xs:string, $changingUser as xs:string) as empty-sequence() {
+declare function _:after_deleted($dict as xs:string, $id as xs:string, $db_name as xs:string, $changingUser as xs:string) as map(*) {
 api-problem:trace-info('@plugins_coordinator@after_deleted',
   prof:track(
   util:eval(``[import module namespace example = 'https://www.oeaw.ac.at/acdh/tools/vle/plugins/example' at 'plugins/example.xqm';
