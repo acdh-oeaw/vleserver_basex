@@ -89,3 +89,21 @@ declare
 function _:getOpenapiJSON() as item()+ {
   openapi:json(file:parent(file:base-dir()))
 };
+
+declare
+  %rest:path("/restvle/runtime.json")
+  %rest:produces('application/json')
+  %output:media-type('application/json')
+function _:runtime-info() as item()+ {
+  let $runtime-info := db:system(),
+      $xslt-runtime-info := xslt:transform(<_/>,
+      <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+    <xsl:output method="xml"/><xsl:template match='/'><_><product-name><xsl:value-of select="system-property('xsl:product-name')"/></product-name><product-version><xsl:value-of select="system-property('xsl:product-version')"/></product-version></_></xsl:template></xsl:stylesheet>)/*
+  return
+  <json type="object">
+     {for $item in $runtime-info/*:generalinformation/*
+       return $item
+     }
+     {element {$xslt-runtime-info/*:product-name/text()} {$xslt-runtime-info/*:product-version/text()}}
+  </json> => serialize(map{ "method": "json", "media-type": "application/json" })
+};
