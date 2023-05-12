@@ -24,16 +24,18 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
     group by $key
     return (
       if (exists($dbs)) then ``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+            import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
             import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
             import module namespace jobs = "http://basex.org/modules/job";
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
-            let $dryeds as element(util:dryed)+ := (`{string-join(
+            let $dryeds as (map(xs:string, item()?))+ := (`{string-join(
             (for $db in $dbs[ends-with(., '__prof')] return ``[
-            util:dehydrate(collection('`{$db}`')//profile, function($n){($n/@xml:id, `{
+            api-problem:trace-info('@cache@cache-all-entrie@dehydrate_profile',
+            prof:track(util:dehydrate(collection('`{$db}`')//profile, function($n){($n/@xml:id, `{
               string-join(
               for $alt-label-postfix in $alt-label-postfixes
-              return``[attribute {'`{$util:vleUtilSortKey||$alt-label-postfix}`'} {'`{$profile:sortValue}`'}]``, ',')}`)})
+              return``[attribute {'`{$util:vleUtilSortKey||$alt-label-postfix}`'} {'`{$profile:sortValue}`'}]``, ',')}`)})))
             ]``,
             for $db in $dbs[not(ends-with(., '__prof'))] return ``[
             data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``), ',')
@@ -42,11 +44,12 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
          declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
          declare variable $dryeds as element(util:dryed)+ external;
          $dryeds!db:put("`{$dict||'__cache'}`", ., ./@db_name||'_cache.xml')]``||']``'||
-         ``[, map{'dryeds': $dryeds}, map {
+         ``[, map{'dryeds': $dryeds?value}, map {
           'cache': false(),
           'id': 'vleserver:cache-all-entrie-write-script`{$key}`-'||jobs:current(),
           'base-uri': '`{$_:basePath}`/vleserver_cache-all-entries-write-script`{$key}`.xq'})]``
        else ()),
+    (: $_ := file:write(file:resolve-path('../cache-all-entries-scripts.xq', file:base-dir()), serialize($cache-all-entries-scripts , map {'method': 'basex'})), :) 
     $write-jobs := if (exists($cache-all-entries-scripts)) then util:evals($cache-all-entries-scripts, (),
     'cache-all-entries-script', true()) else (),
     $_ := $write-jobs!jobs:wait(.),
@@ -120,7 +123,7 @@ let $profile := profile:get($dict),
     $run_query := (util:eval($create_query?value, (), "refresh-cache-db-"||$db_name, true()),
      api-problem:trace-info('@cache@refresh-cache-db@'||$db_name||'@sort',
       prof:track(if (exists($labels-to-sort)) then _:sort($dict, $labels-to-sort) else ())))
-return ($create_query, $run_query, admin:write-log($create_query?value, 'INFO'))
+return ($create_query, $run_query(: , admin:write-log($create_query?value, 'INFO') :) )
 (: )) :)
 };
 

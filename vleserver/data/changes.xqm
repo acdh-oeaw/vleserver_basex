@@ -55,7 +55,8 @@ return map:merge($saved_nodes!map{xs:string(./(@xml:id, @ID)): map{'entry': ., '
 declare function _:save-entry-in-history-before-deletion($db-base-name as xs:string, $db-name as xs:string, $id as xs:string, $changingUser as xs:string) {
   util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
     import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-    let $entryToDelete := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), "`{$id}`"),
+    let $entries := collection("`{$db-name}`")//*[(@xml:id, @ID) = "`{$id}`"], (: make it easy for the optimizer to see the db to lock :)
+        $entryToDelete := data-access:map_entry_ids_to_pre($entries),
         $e := db:get-pre("`{$db-name}`", $entryToDelete?*("pre")) transform with {_:add-change-record(., .//*:fs[@type = 'change'], "deleted", "", "`{$changingUser}`")}
     return _:save-entry-in-history("`{$db-base-name}`", $e)]``, (), 'save-entry-in-history_4', true())
 };

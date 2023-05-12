@@ -86,7 +86,9 @@ let $dicts := _:get-list-of-data-dbs($dict),
     $profile := profile:get($dict),
     $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict, $altLabels)
+    return if (ends-with($dict, '__prof')) then 
+      ``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
+      `{_:get-profile-with-sort-xquery($dict, $altLabels)}`]``
       else ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
             `{profile:generate-local-extractor-function($profile)}`
@@ -110,11 +112,12 @@ return sum(util:evals($xqueries, (), 'count-all-entries', true()))
 
 declare function _:get-profile-with-sort-xquery($db_name as xs:string, $altLabels as xs:string*) as xs:string {
 let $labels := ('', $altLabels!('-'||.))
-return ``[<_ db_name="`{$db_name}`">{
+return ``[api-problem:trace-info('@access@get-profile-with-sort-xquery',
+  prof:track(<_ db_name="`{$db_name}`">{
   collection("`{$db_name}`")//profile transform with {
 `{string-join($labels!``[    insert node attribute {"`{$util:vleUtilSortKey||.}`"} {"`{$profile:sortValue}`"} as first into .]``, ',&#x0a;')}`
   }}
-</_>]``
+</_>))]``
 };
 
 declare function _:get-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-template as xs:string, $query-value as xs:string) as element()* {
@@ -172,13 +175,17 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
     $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $max-direct-xml := if (exists($max-direct-xml)) then $max-direct-xml else $_:max-direct-xml,
     $get-entries-by-ids-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then ``[
+    return if (ends-with($dict, '__prof')) then 
+      ``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
       if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}`])
       then `{_:get-profile-with-sort-xquery($dict, $altLabels)}`
       else ()]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+        import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
         `{profile:generate-local-extractor-function($profile)}`
+        api-problem:trace-info('@access@get-entries-by-ids',
+        prof:track(
         let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
             $ret := if (count($results) > `{$max-direct-xml}` and `{count($ids) > $max-direct-xml}`()) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
@@ -187,7 +194,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
                 return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
-        return $ret]``,
+        return $ret))]``,
     (: $log_script1 :=  _:write-log($get-entries-by-ids-scripts[1], "INFO"),
     $log_script2 :=  _:write-log($get-entries-by-ids-scripts[2], "INFO"), :)
     $script_used := if (exists($suggested_dbs)) then 'get-limited-entries-by-ids-script' else 'get-entries-by-ids-script',
@@ -224,10 +231,15 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $altLabels := map:keys(profile:get-alt-lemma-xqueries($profile)),
     $get-all-entries-scripts := for $dict in $dicts
-    return if (ends-with($dict, '__prof')) then _:get-profile-with-sort-xquery($dict, $altLabels)
+    return if (ends-with($dict, '__prof')) then 
+      ``[import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
+      `{_:get-profile-with-sort-xquery($dict, $altLabels)}`]``
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
+        import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
         `{profile:generate-local-extractor-function($profile)}`
+        api-problem:trace-info('@access@get-entries-by-id-starting-with',
+        prof:track(
         let $results := collection("`{$dict}`")//*[starts-with(@xml:id, "`{$id_start}`") or starts-with(@ID, "`{$id_start}`")],
             $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
@@ -236,7 +248,7 @@ let $dicts := _:get-real-dicts-id-starting-with($dict_name, $id_start),
                 return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
-        return $ret]``,
+        return $ret))]``,
     (: $log_scripts :=  _:write-log($get-all-entries-scripts[1]||"&#x0a;"||$get-all-entries-scripts[2], "INFO"), :)
     $found-in-parts := if (exists($get-all-entries-scripts)) then util:evals($get-all-entries-scripts, (),    
     'get-entries-by-id-starting-with', true()) else ()
@@ -406,7 +418,7 @@ return if (exists($profile//useCache))
     util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     let $db_names := data-access:get-real-dicts("`{$dict_name}`", `{$ids_seq}`),
         $entries := for $db_name in $db_names?value
-          let $entries := collection($db_name)//*[(@xml:id, @ID) = `{$ids_seq}`], (: make it easy for the optimizer to see the db to lock :)
+          let $entries := collection($db_name)//*[(@xml:id, @ID) = `{$ids_seq}`] (: make it easy for the optimizer to see the db to lock :)
           return map{$db_name: data-access:map_entry_ids_to_pre($entries)}
     return map:merge($entries)
     ]``, (), 'find_entry_as_dbname_pre', true())  
