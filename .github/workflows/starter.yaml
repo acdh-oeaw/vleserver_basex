@@ -5,6 +5,7 @@ on:
     branches:
       - "master"
       - "devel"
+      - "instrumented-for-profiling"
 jobs:
   setup_workflow_env:
     runs-on: ubuntu-latest
