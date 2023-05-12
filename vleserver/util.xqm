@@ -26,6 +26,7 @@ declare %private function _:start-eval-job($query as xs:string, $bindings as map
                           error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests! (>='||db:system()//parallel||')') else (),
         $query-is-sane := $dontCheckQuery or _:query-is-sane($query),
         $jobId := 'vle'||replace(jobs:current(), 'job', '')||':'||$jobName||'-'||$subJobNumber,
+        (: $log := l:write-log($query, 'DEBUG'), :)
         (: $log := l:write-log($jobId, 'DEBUG'), :)
         $ret := try {
           jobs:eval($query, $bindings, map {
@@ -102,7 +103,9 @@ declare function _:get-results-or-errors($js as xs:string*) {
 
 declare function _:throw-on-error-in-returns($ret) {
 if (exists($ret[. instance of node()]/self::_:error))
-then ($ret[. instance of node()]/self::_:error)[1]!error(QName(./_:code-namespace, ./_:code),
+then (
+  (: admin:write-log(serialize($ret, map{'method': 'basex'}), 'INFO'), :)
+  $ret[. instance of node()]/self::_:error)[1]!error(QName(./_:code-namespace, ./_:code),
           ($ret[. instance of node()]/self::_:error)[1]/_:description,
           string-join($ret[. instance of node()]/self::_:error/_:additional, '&#x0a;'))
 else $ret  
