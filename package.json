@@ -30,7 +30,7 @@
     "handlebars": "^4.1.2"
   },
   "basex": {
-      "parallel": "64",
+      "parallel": "128",
       "gzip": "true"
   }
 }
