@@ -218,6 +218,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
 };
 
 declare function _:to-map-by-id($in as map(*)) as map(*)? {
+  (: admin:write-log(serialize($in?value[not(. instance of node())], map {'method': 'basex'}), 'INFO'), :)
   let $found-in-parts as node()* := $in?value
   return map{
     'value': 
@@ -270,32 +271,46 @@ let (: $start := prof:current-ns(), :)
             $_:dont_try_to_return_more_than||').'||
             ' Use caching if you need to browse more entries.'),
     $label := if (exists($label)) then '-'||$label else '',
-    $nodes_or_dryed := try {
+    $nodes_or_dryed := 
+      api-problem:trace-info('@entries@get-nodes-or-dryed-direct@nodes_or_dryed',
+      prof:track(
+      try {
         if ($query-template instance of xs:string) then
-          data-access:get-entries-selected-by-query($dict_name, $profile, $query-template, $query-value)
+          (data-access:get-entries-selected-by-query($dict_name, $profile, $query-template, $query-value)
+          (: , admin:write-log('get-entries-selected-by-query', 'INFO') :)
+          )
         else if ($ids instance of xs:string) then
-          data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+          (data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
+          (: , admin:write-log('get-entries-by-ids', 'INFO') :)
+          )
         else if ($id instance of xs:string) then
           if (ends-with($id, '*')) then
-            data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
+            (data-access:get-entries-by-id-starting-with($dict_name, substring-before($id, '*'))
+             (: , admin:write-log('get-entries-by-id-starting-with', 'INFO') :)
+            )
           else
-            data-access:get-entries-by-ids($dict_name, $id)
-        else data-access:get-all-entries($dict_name) 
+            (data-access:get-entries-by-ids($dict_name, $id)
+             (:, admin:write-log('get-entries-by-ids', 'INFO') :)
+            )
+        else (data-access:get-all-entries($dict_name)
+            (: , admin:write-log('get-all-entries', 'INFO') :)
+             ) 
       } catch err:FODC0002 {
         error(xs:QName('response-codes:_404'),
                        'Not found',
                        $err:additional)
-      },
+      })),
  (: $log := _:write-log('Got all entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'), :)
+    (: $_ := admin:write-log(serialize($nodes_or_dryed?value, map {'method':'basex'}), 'INFO'), :)
     $nodes_or_dryed_sorted := switch($sort)
-        case "asc" return for $n in $nodes_or_dryed/*
+        case "asc" return for $n in $nodes_or_dryed?value/*
         order by $n/@*[local-name() = $util:vleUtilSortKey||$label]
         return $n
-        case "desc" return for $n in $nodes_or_dryed/*
+        case "desc" return for $n in $nodes_or_dryed?value/*
         order by $n/@*[local-name() = $util:vleUtilSortKey||$label] descending
         return $n
-        case "none" return $nodes_or_dryed/*
-        default return for $n in $nodes_or_dryed/*
+        case "none" return $nodes_or_dryed?value/*
+        default return for $n in $nodes_or_dryed?value/*
         order by $n/@*[local-name() = $util:vleUtilSortKey||$label]
         return $n
   return subsequence($nodes_or_dryed_sorted, $from, $num)))
@@ -706,8 +721,9 @@ function _:deleteDictDictNameEntry($dict_name as xs:string, $id as xs:string, $a
 };
 
 declare %private function _:delete_entry($dict as xs:string, $id as xs:string, $changingUser as xs:string) {
-  let $ret := data-access:delete_entry($dict, $id, $changingUser)
-  return (plugins:after_deleted($dict, $id, $ret('db_name'), $changingUser), $ret('api-response'))
+  let $ret := data-access:delete_entry($dict, $id, $changingUser),
+      $_  := plugins:after_deleted($dict, $id, $ret('db_name'), $changingUser)
+  return ($_('no_value'), $ret('api-response'))
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
