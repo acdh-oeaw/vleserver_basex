@@ -3,7 +3,7 @@ name: workflows starter
 on:
   push:
     branches:
-      - "master"
+      - "main"
       - "devel"
       - "instrumented-for-profiling"
 jobs:
@@ -33,7 +33,7 @@ jobs:
         id: get_environment_from_git_ref
         run: |
           echo "Running on branch ${{ github.ref_name }}"
-          if [ "${{ github.ref }}" = "refs/heads/master" ]; then
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "environment=production"
             echo "environment=production" >> $GITHUB_OUTPUT
           else
