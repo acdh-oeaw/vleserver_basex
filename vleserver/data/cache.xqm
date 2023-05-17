@@ -158,7 +158,7 @@ declare %private function _:label-to-pred-part($label as xs:string?) as xs:strin
 
 declare function _:count-all-entries($dict as xs:string) as xs:integer {
   util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
-  count(collection("`{$dict}`__cache")//_:dryed[@order='none']/_:d)]``, (), 'count-all-entries')
+  count(collection("`{$dict}`__cache")//_:dryed[@order='none']/_:d)]``, (), 'cache-count-all-entries')
 };
 
 declare function _:get-entries-by-ids($dict as xs:string, $ids as xs:string+, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
