@@ -12,6 +12,7 @@ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'data/cache.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 import module namespace functx = "http://www.functx.com";
@@ -215,4 +216,108 @@ function _:deleteDictDictName($dict_name as xs:string, $auth_header as xs:string
   else  (: User is no system superuser :)
     error(xs:QName('response-codes:_403'),
                    'Wrong username and password')
+};
+
+(:~
+ : Creates a backup of a dictionary.
+ : @param $dict_name Name of an existing dictionary
+ : @param $data Unused.
+ : @param $content-type Required to be application/json else returns 415.
+ : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
+ : @error 403 if Accept is not application/vnd.wde.v2+json
+ : @error 415 if Content-Type is not application/json
+ : @error 422 if the supplied JSON is incorrect 
+ : @return 201 Created
+ :)
+declare
+    %rest:POST
+    %rest:path('/restvle/dicts/{$dict_name}/backup')
+    %rest:header-param("Content-Type", "{$content-type}", "")
+    %rest:header-param("Accept", "{$wanted-response}", "")
+    %rest:header-param('Authorization', '{$auth_header}', '')
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')
+    %test:arg("data", '{ }')
+function _:createDictBackup($dict_name as xs:string, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
+  let $start := prof:current-ns(),
+      $checkResponse := if ($wanted-response = "application/vnd.wde.v2+json") then true()
+        else error(xs:QName('response-codes:_403'),
+         'Only wde.v2 aware clients allowed',
+         'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
+         'Accept was :'||$wanted-response),  
+      $checkContentType := if ($content-type = 'application/json') then true()
+        else error(xs:QName('response-codes:_415'),
+         'Content-Type needs to be application/json',
+         'Content-Type was: '||$content-type),
+      $checkDictUsersAlreadyExists := if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users')) then true()
+        else error(xs:QName('response-codes:_422'),
+         'User directory does not exist',
+         'You need to create the special dict_users first'),
+      $name_pw := tokenize(util:basic-auth-decode($auth_header), ':')
+      return if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = $dict_name and @type='su']))
+      then(util:eval(``[declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+      db:create-backup("`{$dict_name}`__prof")
+]``, (), 'try-create-dict-backup', true()),
+        api-problem:result($start,
+        <problem xmlns="urn:ietf:rfc:7807">
+          <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+          <title>{$api-problem:codes_to_message(201)}</title>
+          <status>201</status>
+        </problem>, cors:header(())))
+};
+
+(:~
+ : Restore a new dictionary from a backup.
+ : @param $data JSON describing the new dictionary.
+ : @param $content-type Required to be application/json else returns 415.
+ : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
+ : @error 403 if Accept is not application/vnd.wde.v2+json
+ : @error 415 if Content-Type is not application/json
+ : @error 422 if the supplied JSON is incorrect 
+ : @return 201 Created
+ :)
+declare
+    %rest:POST('{$data}') 
+    %rest:path('/restvle/dicts/restore')
+    %rest:header-param("Content-Type", "{$content-type}", "")
+    %rest:header-param("Accept", "{$wanted-response}", "")
+    %rest:produces('application/vnd.wde.v2+json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')
+    %test:arg("data", '{ "name": "some_name" }')
+function _:restoreDict($data, $content-type as xs:string, $wanted-response as xs:string) as item()+ {
+  let $start := prof:current-ns(),
+      $checkResponse := if ($wanted-response = "application/vnd.wde.v2+json") then true()
+        else error(xs:QName('response-codes:_403'),
+         'Only wde.v2 aware clients allowed',
+         'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
+         'Accept was :'||$wanted-response),  
+      $checkContentType := if ($content-type = 'application/json') then true()
+        else error(xs:QName('response-codes:_415'),
+         'Content-Type needs to be application/json',
+         'Content-Type was: '||$content-type),      
+      (: $data is an element(json) :)
+      $checkNameIsSupplied := if (exists($data/json/name)) then true()      
+        else error(xs:QName('response-codes:_422'),
+         'Wrong JSON object',
+         'Need a { "name": "some_name" } object.&#x0a;'||
+         'JSON was: '||serialize($data, map{'method': 'json'})),
+      $checkDictUsersAlreadyExists := if (util:eval(``[db:exists("dict_users")]``, (), 'check-dict-users') or
+                                          $data/json/name = 'dict_users') then true()
+        else error(xs:QName('response-codes:_422'),
+         'User directory does not exist',
+         'You need to create the special dict_users first')
+      return (_:check_global_super_user(),
+          util:eval(``[db:restore("`{$data/json/name}`__prof")]``, (), 'try-restore-dict_profile', true()),
+          let $profile := profile:get($data/json/name),
+              $restoreScripts := (profile:get-list-of-data-dbs-and-backups($profile)!
+          ``[db:restore("`{.}`")]``, if (profile:use-cache($profile)) then cache:cache-all-entries($data/json/name) else ())
+          return util:evals($restoreScripts, (), 'try-restore-all-dbs-for-dict', true()),
+        api-problem:result($start,
+        <problem xmlns="urn:ietf:rfc:7807">
+          <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+          <title>{$api-problem:codes_to_message(201)}</title>
+          <status>201</status>
+        </problem>, cors:header(())))
 };

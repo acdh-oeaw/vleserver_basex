@@ -50,6 +50,7 @@ function _:checkPermissions($_ as map(*)){
       let $name_pw := tokenize(util:basic-auth-decode($_('authorization')), ':'),
           $user_tag := collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2])]          
       return if ((not(exists(collection('dict_users')/users/user)) and $dict = ("", "dict_users")) or
+                 $dict = "restore" or
                  exists($user_tag[if ($dict ne "") then @dict = $dict else true()])) then () else
         error(xs:QName('response-codes:_403'),
                        'Wrong username and password')
