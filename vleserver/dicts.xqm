@@ -245,7 +245,12 @@ function _:createDictBackup($dict_name as xs:string, $content-type as xs:string,
         else error(xs:QName('response-codes:_403'),
          'Only wde.v2 aware clients allowed',
          'Accept has to be application/vnd.wde.v2+json.&#x0a;'||
-         'Accept was :'||$wanted-response),  
+         'Accept was :'||$wanted-response),
+      $name_pw := tokenize(util:basic-auth-decode($auth_header), ':'),
+      $checkUserIsSUForThisDict := if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = $dict_name and @type='su'])) then true()
+        else error(xs:QName('response-codes:_403'),
+         'You are not allowed to start a backup',
+         'Only super users of this dictionary are allowed to start a backup'),   
       $checkContentType := if ($content-type = 'application/json') then true()
         else error(xs:QName('response-codes:_415'),
          'Content-Type needs to be application/json',
@@ -254,11 +259,9 @@ function _:createDictBackup($dict_name as xs:string, $content-type as xs:string,
         else error(xs:QName('response-codes:_422'),
          'User directory does not exist',
          'You need to create the special dict_users first'),
-      $name_pw := tokenize(util:basic-auth-decode($auth_header), ':')
-      return if (exists(collection('dict_users')//user[@name = $name_pw[1] and @dict = $dict_name and @type='su']))
-      then(util:eval(``[declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
-      db:create-backup("`{$dict_name}`__prof")
-]``, (), 'try-create-dict-backup', true()),
+      $profile := profile:get($dict_name),
+      $backupScripts := (profile:get-list-of-data-dbs($profile)!``[db:create-backup("`{.}`")]``, ``[db:create-backup("`{$dict_name}`__prof")]``) 
+      return (util:evals($backupScripts, (), 'try-create-dict-backup', true()),
         api-problem:result($start,
         <problem xmlns="urn:ietf:rfc:7807">
           <type>https://tools.ietf.org/html/rfc7231#section-6</type>
