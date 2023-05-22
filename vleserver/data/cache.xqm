@@ -134,7 +134,7 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
-  let $all := collection("`{$dict}`__cache")//*[@order='`{_:sort-to-long-str($sort)}`' `{$label-pred-part}`]/(self::_:d, tokenize(@ids)),
+  let $all := db:attribute("`{$dict}`__cache", '`{_:sort-to-long-str($sort)}`', 'order')/..[`{$label-pred-part}`]/(self::_:d, tokenize(@ids)),
       $not_out_of_range := if ('`{_:sort-to-long-str($sort)}`' eq 'none' or `{$from + $num}` <= `{$_:sortMaxSize}`) then true()
       else error(xs:QName('cache:missing'),
            'cache is limited to '||`{$_:sortMaxSize}`||' sorted items'),
@@ -170,7 +170,7 @@ switch($short)
 };
 
 declare %private function _:label-to-pred-part($label as xs:string?) as xs:string {
-  if (exists($label)) then "and @label = '"||$label||"'" else "and not(@label)"
+  if (exists($label)) then "@label = '"||$label||"'" else "not(@label)"
 };
 
 declare function _:count-all-entries($dict as xs:string) as map(*) {
