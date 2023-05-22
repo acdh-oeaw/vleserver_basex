@@ -157,6 +157,15 @@ declare function _:get-list-of-data-dbs($profile as document-node()) as xs:strin
   return $dbs
 };
 
+declare function _:get-list-of-data-dbs-and-backups($profile as document-node()) as xs:string* {
+  let $db-regExp := data($profile/profile/tableName/@find-dbs),
+      $dbs := if (exists($db-regExp)) then
+        util:eval(``[distinct-values((db:list()[matches(., "`{$db-regExp}`")],
+db:backups()/@database[matches(., "`{$db-regExp}`")]/data()))]``, (), 'get-list-of-data-dbs-and-backups')
+        else $profile/profile/tableName/text()
+  return $dbs
+};
+
 declare function _:get-split-every($profile as document-node()) as xs:integer {
   if ($profile/profile/tableName/@split-every) then xs:integer($profile/profile/tableName/@split-every) else $_:default_split_every
 };

@@ -26,7 +26,8 @@ declare %private function _:start-eval-job($query as xs:string, $bindings as map
                           error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests! (>='||db:system()//parallel||')') else (),
         $query-is-sane := $dontCheckQuery or _:query-is-sane($query),
         $jobId := 'vle'||replace(jobs:current(), 'job', '')||':'||$jobName||'-'||$subJobNumber,
-        (: $log := l:write-log($query, 'DEBUG'), :)
+        (: , $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG') :)
+        (: , $log_write := file:write(file:resolve-path($_:basePath||'/vleserver_'||$jobName||'-'||$subJobNumber||'.xq', file:base-dir()), $query) :)
         (: $log := l:write-log($jobId, 'DEBUG'), :)
         $ret := try {
           jobs:eval($query, $bindings, map {

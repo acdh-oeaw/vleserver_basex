@@ -19,6 +19,8 @@
         <function name="_:getDictDictName"/>
         <function name="_:deleteDictDictName"/>
         <function name="_:getDictDictNameDictUsers"/>
+        <function name="_:createDictBackup"/>
+        <function name="_:restoreDict"/>
     </tag>
     <tag name="entries" method="exclusive">
         Query and manipulate entries in the dictionary.
