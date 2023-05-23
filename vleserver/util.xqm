@@ -23,11 +23,11 @@ declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as x
 
 declare %private function _:start-eval-job($query as xs:string, $bindings as map(*)?, $jobName as xs:string, $dontCheckQuery as xs:boolean, $subJobNumber as xs:integer) as xs:string {
     let $too-many-jobs := if (count(jobs:list()) >= xs:integer(db:system()//parallel)) then 
-                          error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests! (>='||db:system()//parallel||')') else (),
+                          error(xs:QName('wde:too-many-parallel-requests'), 'Too many parallel requests! (>='||db:system()//parallel||')') else (),        
+        (: $log_write := file:write(file:resolve-path($_:basePath||'/vleserver_'||$jobName||'-'||$subJobNumber||'.xq', file:base-dir()), $query, map { "method": "text"}), :)
         $query-is-sane := $dontCheckQuery or _:query-is-sane($query),
         $jobId := 'vle'||replace(jobs:current(), 'job', '')||':'||$jobName||'-'||$subJobNumber,
-        (: , $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG') :)
-        (: , $log_write := file:write(file:resolve-path($_:basePath||'/vleserver_'||$jobName||'-'||$subJobNumber||'.xq', file:base-dir()), $query) :)
+        (: $log := l:write-log($jobName||'-'||$subJobNumber||'-'||jobs:current()||': '||$query, 'DEBUG'), :)
         (: $log := l:write-log($jobId, 'DEBUG'), :)
         $ret := try {
           jobs:eval($query, $bindings, map {
@@ -62,11 +62,15 @@ declare %private function _:query-is-sane($query as xs:string) as xs:boolean {
 };
 
 declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName as xs:string, $dontCheckQuery as xs:boolean) as item()* {
+  _:evals($queries, $bindings, $jobName, $dontCheckQuery, 100)
+};
+
+declare function _:evals($queries as xs:string+, $bindings as map(*)?, $jobName as xs:string, $dontCheckQuery as xs:boolean, $randWaitMs as xs:integer) as item()* {
     (: WARNING: Clean up code is missing. If queries come in too fast (below 100 ms between each) or too many (more than 10 is not testet)
        batch-size may go down to 0 and/or the wde:too-many-parallel-requests error may show :)
     let $start := prof:current-ns(),
-        $randMs := random:integer(100),
-        $randSleep := prof:sleep($randMs),
+        $randMs := if ($randWaitMs > 0) then random:integer($randWaitMs) else 0,
+        $randSleep := if ($randMs > 0) then prof:sleep($randMs) else (),
         $batch-size := _:get-batch-size(),
         $batches := (0 to xs:integer(ceiling(count($queries) div $batch-size))),
         (: , $log := l:write-log('$randMs := '||$randMs||' $batch-size := '||$batch-size, 'DEBUG') :)
