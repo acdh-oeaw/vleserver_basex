@@ -20,6 +20,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
     $data-extractor-xquery := profile:get-lemma-xquery($profile),
     $recreate-cache := (util:eval(``[db:create("`{$dict||'__cache'}`")]``, (), 'create-empty-cache', true())),
     $cache-all-entries-scripts := for $dbs at $p in $dbs
+    order by $dbs ascending
     let $key := floor($p div 10)
     group by $key
     return (
@@ -37,21 +38,19 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
               for $alt-label-postfix in $alt-label-postfixes
               return``[attribute {'`{$util:vleUtilSortKey||$alt-label-postfix}`'} {'`{$profile:sortValue}`'}]``, ',')}`)})))
             ]``,
-            for $db in $dbs[not(ends-with(., '__prof'))] return ``[
+            for $db in $dbs[not(ends-with(., '__prof'))]
+            order by $db ascending
+            return ``[
             data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``), ',')
             }`)
-            return jobs:eval(``[import module namespace jobs = "http://basex.org/modules/job";
-         declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
+            return util:eval(``[declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
          declare variable $dryeds as element(util:dryed)+ external;
          $dryeds!db:put("`{$dict||'__cache'}`", ., ./@db_name||'_cache.xml')]``||']``'||
-         ``[, map{'dryeds': $dryeds?value}, map {
-          'cache': false(),
-          'id': 'vleserver:cache-all-entrie-write-script`{$key}`-'||jobs:current(),
-          'base-uri': '`{$_:basePath}`/vleserver_cache-all-entries-write-script`{$key}`.xq'})]``
+         ``[, map{'dryeds': $dryeds?value}, 'write-`{$key}`-'||substring-after(jobs:current(), ':'), true())]``
        else ()),
     (: $_ := file:write(file:resolve-path('../cache-all-entries-scripts.xq', file:base-dir()), serialize($cache-all-entries-scripts , map {'method': 'basex'})), :) 
     $write-jobs := if (exists($cache-all-entries-scripts)) then util:evals($cache-all-entries-scripts, (),
-    'cache-all-entries-script', true()) else (),
+    'cache-all-entries-script', true(), 0) else (),
     $_ := $write-jobs!jobs:wait(.),
     $optimze := util:eval(``[db:optimize("`{$dict}`__cache", true(), `{$_:optimizeOptions}`)]``, (), 'optimize-cache', true()),
     $sorted := _:sort($dict, $alt-labels)
