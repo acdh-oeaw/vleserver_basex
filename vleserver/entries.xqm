@@ -689,7 +689,8 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $entry := data-access:get-entries-by-ids($dict_name, data($relevant_nodes_or_dryed?value/(@xml:id, @ID)), $relevant_nodes_or_dryed?value/@db_name/data(), 1)
   return api-problem:or_result($start, _:entryAsDocument#6, [util:uri(), $entry?value/*/(@xml:id, @ID), 
   profile:extract-sort-values(profile:get($dict_name), $entry?value/*)/@*[local-name() = $util:vleUtilSortKey],
-  $entry?value/*, $lockedBy, array:join(($relevant_nodes_or_dryed?timings, $entry?timings))], cors:header(()))
+  $entry?value/* transform with {delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]}, $lockedBy,
+  array:join(($relevant_nodes_or_dryed?timings, $entry?timings))], cors:header(()))
   } catch lcks:held {
     error(xs:QName('response-codes:_422'),
                    'You cannot lock entry '||$id,
