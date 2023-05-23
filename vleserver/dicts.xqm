@@ -315,10 +315,10 @@ function _:restoreDict($data, $content-type as xs:string, $wanted-response as xs
          'You need to create the special dict_users first')
       return (_:check_global_super_user(),
           util:eval(``[db:restore("`{$data/json/name}`__prof")]``, (), 'try-restore-dict_profile', true()),
-          let $profile := profile:get($data/json/name),
-              $restoreScripts := (profile:get-list-of-data-dbs-and-backups($profile)!
-          ``[db:restore("`{.}`")]``, if (profile:use-cache($profile)) then cache:cache-all-entries($data/json/name) else ())
-          return util:evals($restoreScripts, (), 'try-restore-all-dbs-for-dict', true()),
+          let $restoreScripts := profile:get-list-of-data-dbs-and-backups(profile:get($data/json/name))!
+          ``[db:restore("`{.}`")]``
+          return util:evals($restoreScripts, (), 'try-restore-all-dbs-for-dict', true()),          
+          if (profile:use-cache(profile:get($data/json/name))) then cache:cache-all-entries($data/json/name) else (),
         api-problem:result($start,
         <problem xmlns="urn:ietf:rfc:7807">
           <type>https://tools.ietf.org/html/rfc7231#section-6</type>
