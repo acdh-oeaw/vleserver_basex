@@ -118,6 +118,9 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         else if ($ids) then map {'ids': $ids}
         else if ($id) then map {"id": $id}
         else map {},
+      $additional_ret_query_parameters := map:merge(($additional_ret_query_parameters, 
+        $sort!map {'sort': .},
+        $altLemma!map{'altLemma': .})),
       $id-is-not-empty-or-no-filter :=
         if ($ids instance of xs:string) then
             if ($ids ne '') then true()
