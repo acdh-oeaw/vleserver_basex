@@ -129,12 +129,13 @@ return ($create_query, $run_query(: , admin:write-log($create_query?value, 'INFO
 
 declare function _:get-all-entries($dict as xs:string, $from as xs:integer, $num as xs:integer, $sort as xs:string?, $label as xs:string?, $total_items_expected as xs:integer) as element(util:d)* {
 let $label-pred-part := if ($sort = 'none') then '' else _:label-to-pred-part($label),
-    $alt-label-postfix := if ($label ne "") then '-'||$label else ''
+    $alt-label-postfix := if ($label ne "") then '-'||$label else '',
+    $ids-or-elements := if ($sort = 'none') then '' else '/tokenize(@ids)'
 return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
   declare namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache";
   declare variable $total_items_expected as xs:integer external;
   try {
-  let $all := db:attribute("`{$dict}`__cache", '`{_:sort-to-long-str($sort)}`', 'order')/..`{$label-pred-part}`/(self::_:d, tokenize(@ids)),
+  let $all := collection("`{$dict}`__cache")//*[@order = '`{_:sort-to-long-str($sort)}`']`{$label-pred-part}``{$ids-or-elements}`,
       $not_out_of_range := if ('`{_:sort-to-long-str($sort)}`' eq 'none' or `{$from + $num}` <= `{$_:sortMaxSize}`) then true()
       else error(xs:QName('cache:missing'),
            'cache is limited to '||`{$_:sortMaxSize}`||' sorted items'),
@@ -144,16 +145,15 @@ return util:eval(``[declare namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle
       $all_found := if (count($all) = $total_items_expected or count($all) = `{$_:sortMaxSize}`) then true()
       else error(xs:QName('cache:stale'),
            'expected '||$total_items_expected||' results got '||count($all))
-  return if ($all instance of xs:string*)
-         then `{if ($sort = 'none') then '()' else
-           ``[if (subsequence($all, `{$from}`, `{$num}`) instance of empty-sequence())
+  return `{if ($sort = 'none')
+           then ``[subsequence($all, `{$from}`, `{$num}`)]``
+           else ``[if (subsequence($all, `{$from}`, `{$num}`) instance of empty-sequence())
            then subsequence(for $key in collection('`{$dict}`__cache')//@`{$util:vleUtilSortKey||$alt-label-postfix}`
              order by data($key) `{_:sort-to-long-str($sort)}`
              return $key, `{$from}`, `{$num}`)/..
            else for $key in db:attribute("`{$dict}`__cache", subsequence($all, `{$from}`, `{$num}`))[. instance of attribute(ID) or . instance of attribute(xml:id)]/../@`{$util:vleUtilSortKey||$alt-label-postfix}`
            order by data($key) `{_:sort-to-long-str($sort)}`
            return $key/..]``}`
-         else subsequence($all, `{$from}`, `{$num}`)
   } catch db:* | err:FODC0002 {
     error(xs:QName('cache:missing'),
            'expected any result from cache got 0')
