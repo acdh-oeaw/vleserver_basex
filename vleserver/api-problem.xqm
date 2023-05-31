@@ -100,12 +100,9 @@ declare %private function _:return_result($to_return as node()) {
 declare %private function _:inject-runtime($start as xs:integer, $ret, $timings as array(*)?) {
   if ($ret instance of map(*)) then map:merge(($ret, map {'took': _:runtime($start)}))
   else if ($ret instance of element(json)) then $ret transform with { insert node <took>{_:runtime($start)}</took> as last into .,
-  if (exists($timings)) then insert node
-    <timings type='array'> { for $item in $timings?* return
-      <_ type='object'> {for $k in map:keys($item) return
-        element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a') => replace('-', '_002d') => replace('<', '_003c') => replace('>', '_003e') } {xs:string($item($k))} }
-      </_> }
-    </timings> as last into .}
+  insert node if (exists($timings)) then <timings type="array">{for $k in distinct-values($timings?*!map:keys(.)) return 
+         <_  type='object'>{ element {replace($k, '_', '__') => replace('@', '_0040') => replace(':', '_003a') => replace('-', '_002d') => replace('<', '_003c') => replace('>', '_003e') } {sum($timings?*!.($k))} }</_>}
+       </timings> as last into .}
   else $ret
 };
 
