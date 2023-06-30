@@ -3,4 +3,4 @@ entr:getDictDictNameEntries('_qdb-TEI-02', '',
                                   26, 1,
                                   'w840*', (), (),
                                   (), (),
-                                  (), ())
+                                  (), (), ())

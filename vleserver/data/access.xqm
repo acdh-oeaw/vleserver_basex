@@ -328,38 +328,30 @@ declare %private function _:add-change-records($id as xs:string, $data as map(*)
 
 declare function _:change_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) {
 (: value as map(xs:string, map(xs:string, map(xs:string, item()?))) :)
-  let $entriesToReplace := prof:track(_:find_entry_as_dbname_pre($dict, map:keys($data))),
-      $db_names := map:keys($entriesToReplace?value),
+  let $entriesToReplace := _:find_entry_as_dbname_pre($dict, map:keys($data)),
+      $db_names := map:keys($entriesToReplace),
       (: $_ := _:write-log("data-access:change_entries$data "||serialize($data, map{'method': 'basex'})), :)
       $befores := map:merge((for $db_name in $db_names
-        let $ids := map:keys($entriesToReplace?value($db_name)),
+        let $ids := map:keys($entriesToReplace($db_name)),
             $ids_chsums := map:merge($ids!map{.: xs:string($data(.)?storedEntryMd5)})
         return chg:save-entry-in-history($dict, $db_name, $ids_chsums))),
       (: $_ := _:write-log(serialize($data, map{'method': 'basex'})), :)
-      $newEntriesWithChange := prof:track(map:merge(for $db_name in $db_names return
-        for $id in map:keys($entriesToReplace?value($db_name)) return
+      $newEntriesWithChange := map:merge(for $db_name in $db_names return
+        for $id in map:keys($entriesToReplace($db_name)) return
            _:add-change-records($id, $data($id), $befores($id), types:get_data_type($data($id)?entry), $changingUser)
-        )),
+        ),
       (: $_ := _:write-log(serialize($newEntriesWithChange, map{'method': 'basex'})), :)
       $ret := for $db_name in $db_names
-        let $ids := map:keys($entriesToReplace?value($db_name)),
+        let $ids := map:keys($entriesToReplace($db_name)),
             $before := map:merge((for $k in map:keys($befores)
               where $befores($k)?db_name = $db_name
               return map{$k: $befores($k)})),
-            $current := prof:track(_:do-replace-entry-by-id($db_name, $ids, $newEntriesWithChange?value))
+            $current := _:do-replace-entry-by-id($db_name, $ids, $newEntriesWithChange)
         return map{
-          'value': map {
           'before': $before,
-          'current': $current?value
-          },
-          'time': map {
-            'replace_entry': $current?time
-          },
-          'memory': map{}}
-  return map {
-    'before': chg:save-entry-in-history($dict, $db_name, $ids),
-    'current': _:do-replace-entry-by-id($db_name, $ids, $newEntriesWithChange)
+          'current': $current
   }
+  return $ret
 };
 
 (: returns map {'current': map {'$id': map {'entry': <entry/>,
