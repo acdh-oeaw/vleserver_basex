@@ -31,7 +31,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             "pw": 'PassW0rd',
             "read": "y",
             "write": "y",
-            "writeown": "n",
+            "writeown": "y",
             "table": "nostrudsedeaincididunt"
         },
         dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
@@ -943,7 +943,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 expect(response).to.have.status(403);
                 return chakram.wait();
             });
-            it('when a normal user tries to impersonated another', async function () {                
+            it('when a normal user tries to impersonated another', async function () {
                 let currentEntries = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'qs': {

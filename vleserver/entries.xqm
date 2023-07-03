@@ -12,6 +12,7 @@ import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
+import module namespace users = 'https://www.oeaw.ac.at/acdh/tools/vle/users' at 'users.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'data/cache.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
@@ -523,6 +524,7 @@ declare %private function _:getUserNameFromAuthorization($auth_header as xs:stri
 declare
     %rest:method('PATCH', '{$userData}')
     %rest:path('/restvle/dicts/{$dict_name}/entries')
+    %rest:query-param("as-user", "{$as-user}")
     %rest:header-param("Content-Type", "{$content-type}", "")
     %rest:header-param("Accept", "{$wanted-response}", "")
     %rest:header-param('Authorization', '{$auth_header}', "")
@@ -538,9 +540,13 @@ declare
   "owner": "Optional: set (or clear) the owner of an entry. TODO: enforce only write own",
   "status": "Optional: set (or clear) a status string. &apos;released&apos; was used with some special meaning in the past"
 }]}')
-function _:changeEntries($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
+function _:changeEntries($dict_name as xs:string, $userData, $as-user as xs:string?, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
   let $start := prof:current-ns(),
       $userName := _:getUserNameFromAuthorization($auth_header),
+      $check_user_is_allowed_to_impersonate := if (not(exists($as-user)) or users:is-su($dict_name, $userName)) then true()
+      else error(xs:QName('response-codes:_403'),
+         'You are not allowed to use the as-user query parameter',
+         'Only super users may imperosnate other users'),      
       $check_content_type := if (starts-with($content-type,'application/json')) then true()
       (: in this case $data is an element(json) :) 
       else error(xs:QName('response-codes:_415'),
