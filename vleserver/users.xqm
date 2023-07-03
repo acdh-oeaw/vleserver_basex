@@ -222,6 +222,10 @@ function _:getDictDictUserEntry404($_) {
                        'Not found')  
 };
 
+declare function _:is-su($dict as xs:string, $userID as xs:string) as xs:boolean {
+  collection('dict_users')/users[@name = $userID and @dict = $dict]/@type = 'su'
+};
+
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
 };

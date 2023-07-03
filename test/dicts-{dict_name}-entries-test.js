@@ -31,7 +31,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             "pw": 'PassW0rd',
             "read": "y",
             "write": "y",
-            "writeown": "n",
+            "writeown": "y",
             "table": "nostrudsedeaincididunt"
         },
         dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
@@ -929,6 +929,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
 
         describe('should respond 403 for "Forbidden"', function () {
+            beforeEach('Add test data', create_test_data.curry(false));
             it('when the user does not exist', function () {
                 let response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'body': {
@@ -942,7 +943,17 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 expect(response).to.have.status(403);
                 return chakram.wait();
             });
-            it('when a normal user tries to impersonated another', function () {
+            it('when a normal user tries to impersonated another', async function () {
+                let currentEntries = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {
+                        'lock': 5,
+                        'ids': changedIds
+                    },
+                    'auth': dictuserauth
+                });
+                changedEntries[0].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[0].id)[0].storedEntryMd5;
+                changedEntries[1].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[1].id)[0].storedEntryMd5;
                 let response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'body': {
                         'entries': changedEntries
@@ -956,6 +967,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 expect(response).to.have.status(403);
                 return chakram.wait();
             });
+            afterEach('Remove test data', remove_test_data);
         });
 
         it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
