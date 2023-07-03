@@ -2,12 +2,16 @@ xquery version "3.1";
 
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/profile';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
+import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '../api-problem.xqm';
+import module namespace xslt = "http://basex.org/modules/xslt";
 
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 
 declare namespace xsd = "http://www.w3.org/2001/XMLSchema";
 declare namespace rng = "http://relaxng.org/ns/structure/1.0";
 declare namespace sch = "http://purl.oclc.org/dsdl/schematron";
+declare namespace xsl = "http://www.w3.org/1999/XSL/Transform";
+declare namespace tei = "http://www.tei-c.org/ns/1.0";
 
 declare variable $_:default_split_every as xs:integer := 60000;
 declare variable $_:enable_trace := false();
@@ -211,6 +215,15 @@ let $extract-sort-values-xquery := ``[`{string-join(_:get-xquery-namespace-decls
              `{_:generate-local-extractor-function($profile)}`
              $data!<_>{local:extractor(.)}</_>]``
 return util:eval($extract-sort-values-xquery, map {'data': $data}, 'profile-extract-sort-values', true())
+};
+
+declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string) as xs:string {
+  let $stylesheet := $profile/*/entryStyle/*[xsl:output[@method = $format]],
+      $check_there_is_a_stylsheet := if (exists($stylesheet)) then true() else
+      error(xs:QName('response-codes:_400'),
+            $api-problem:codes_to_message(400),
+            'There is no transformation for format '||$format)
+  return xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet, (), map {"cache": false()})
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {

@@ -435,7 +435,8 @@ declare function _:map_entry_ids_to_pre($entries as element()+) as map(*)+ {
 };
 
 declare %private function _:do-replace-entry-by-id($db-name as xs:string, $ids as xs:string+, $newEntries as map(xs:string, item())) as map(xs:string, map(xs:string, item()?)) {
-let $ids_seq := ``[("`{string-join($ids, '","')}`")]``
+let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+    $_ := _:write-log("data-access:do-replace-entry-by-id$newEntries "||serialize($newEntries, map {"method": "basex"}))
    (: , $_ := _:write-log("data-access:do-replace-entry-by-id$newEntries "||serialize($newEntries, map {"method": "basex"})) :)
 return util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     declare variable $newEntries as map(xs:string, item()) external;

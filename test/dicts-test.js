@@ -62,8 +62,7 @@ describe('tests for /dicts', function() {
             expect(response).to.have.status(200);
             expect(response).to.have.header("content-type", "application/json;charset=utf-8");
             // No dictionaries exist
-            expect(response).to.comprise.of.json({
-                "_links": {
+            expect(response).to.have.json("_links", {
                     "self": {
                         "href": "/restvle/dicts/?pageSize=25"
                     },
@@ -73,15 +72,15 @@ describe('tests for /dicts', function() {
                     "last": {
                         "href": "/restvle/dicts/?page=0&pageSize=25"
                     }
-                },
-                "_embedded": {
+                })
+			expect(response).to.have.json("_embedded", {
                     "dicts": []
-                },
-                "page_count": "0",
-                "page_size": "25",
-                "total_items": "0",
-                "page": "1"
-            });
+                })
+            expect(response).to.have.json("page_count", "0")
+            expect(response).to.have.json("page_size", "25")
+            expect(response).to.have.json("total_items", "0")
+            expect(response).to.have.json("page", "1")
+			// took exists but its value is random.
             return chakram.wait();
         });
 
