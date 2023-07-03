@@ -928,18 +928,34 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             return chakram.wait();
         });
 
-        it('should respond 403 for "Forbidden"', function() {
-            let response = request('patch', baseURI+'/dicts/' + dictuser.table + '/entries', { 
-                'body': {
-                    'entries': changedEntries
-                },
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': {'user': 'nonexisting', 'pass': 'nonsense'},
-                'time': true
-            });
+        describe('should respond 403 for "Forbidden"', function () {
+            it('when the user does not exist', function () {
+                let response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'body': {
+                        'entries': changedEntries
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': { 'user': 'nonexisting', 'pass': 'nonsense' },
+                    'time': true
+                });
 
-            expect(response).to.have.status(403);
-            return chakram.wait();
+                expect(response).to.have.status(403);
+                return chakram.wait();
+            });
+            it('when a normal user tries to impersonated another', function () {
+                let response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'body': {
+                        'entries': changedEntries
+                    },
+                    'qs': { "as-user": "another-user" },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(403);
+                return chakram.wait();
+            });
         });
 
         it('should respond 404 "' + wrong_accept_basex_9_7 + '" for wrong accept', function() {
