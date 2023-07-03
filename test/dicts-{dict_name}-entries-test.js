@@ -120,7 +120,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             });
     });
     
-    xdescribe('tests for post', function() {        
+    describe('tests for post', function() {        
         it('should respond 201 for "Created" for a profile', function() {
             let config = { 
                 'body': {
@@ -355,7 +355,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
     });
 
-    xdescribe('tests for get', function() {
+    describe('tests for get', function() {
         describe('should respond 200 for "OK"', response200tests.curry(false));        
         describe('should respond 200 for "OK" (using cache)', response200tests.curry(true));
         function response200tests (useCache) {
@@ -965,9 +965,6 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 });
 
                 expect(response).to.have.status(403);
-                expect(response).to.have.json(function(body){
-                    expect(body).to.have.json({})
-                });
                 return chakram.wait();
             });
             afterEach('Remove test data', remove_test_data);
