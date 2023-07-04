@@ -6,6 +6,7 @@ const request = chakram.request;
 const expect = chakram.expect;
 const fs = require('fs');
 const Handlebars = require('handlebars');
+const { JSDOM } = require("jsdom");
 
 require('./utilSetup');
 
@@ -25,7 +26,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
       },
         superuserauth = {"user":superuser.userID, "pass":superuser.pw},
         newSuperUserID,
-        dictuser = { // a superuser for the test table
+        dictuser = { // a for the test table
             "id": "",
             "userID": 'testUser0',
             "pw": 'PassW0rd',
@@ -36,6 +37,17 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         },
         dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
         newDictUserID,
+        dictusersuperuser = { // a superuser for the test table
+            "id": "",
+            "userID": basexAdminUser,
+            "pw": basexAdminPW,
+            "read": "y",
+            "write": "y",
+            "writeown": "n",
+            "table": "nostrudsedeaincididunt"
+        },
+        dictusersuperuserauth = {"user":dictusersuperuser.userID, "pass":dictusersuperuser.pw},
+        newDictUserSuperUserID,
         compiledProfileTemplate,
         compiledEntryTemplate,
         compiledProfileWithSchemaTemplate,
@@ -111,7 +123,15 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'body': dictuser,
                 'time': true
             });
-        newDictUserID = userCreateResponse.body.id;               
+        newDictUserID = userCreateResponse.body.id;
+        userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', { 
+                'headers': {"Accept":"application/vnd.wde.v2+json",
+                            "Content-Type":"application/json"},
+                'auth': superuserauth,
+                'body': dictusersuperuser,
+                'time': true
+            });
+        newDictUserSuperUserID = userCreateResponse.body.id;                
         await request('post', baseURI + '/dicts', {
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': superuserauth,
@@ -835,8 +855,22 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     // });
     
     describe('tests for patch', function() {
-        let changedEntries = [],
-            changedIds = "test03,test08" 
+        let changedEntries = []
+        async function prepare_changed_entries(userauth) {                
+            let changedIds = "test03,test08",
+                currentEntries = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                'headers': { "Accept": "application/vnd.wde.v2+json" },
+                'qs': {
+                    'lock': 5,
+                    'ids': changedIds
+                },
+                'auth': userauth
+            });
+            expect(currentEntries).to.have.status(200);
+            changedEntries[0].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[0].id)[0].storedEntryMd5;
+            changedEntries[1].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[1].id)[0].storedEntryMd5;
+            return currentEntries;
+        }
         before('Set up changed entries', function(){
             changedEntries = [{
                 'id': 'test03',
@@ -867,16 +901,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         function response200tests(useCache) {
             beforeEach('Add test data', create_test_data.curry(useCache));
             it('when chnaging two entries', async function () {
-                let currentEntries = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
-                    'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'qs': {
-                        'lock': 5,
-                        'ids': changedIds
-                    },
-                    'auth': dictuserauth
-                });
-                changedEntries[0].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[0].id)[0].storedEntryMd5;
-                changedEntries[1].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[1].id)[0].storedEntryMd5;
+                let prepared = await prepare_changed_entries(dictuserauth);
+                expect(prepared).to.have.status(200);
                 let requestData = {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
@@ -888,17 +914,46 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 let response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', requestData);
 
                 expect(response).to.have.status(200);
-                expect(response).to.have.json(function (body) {
-                    fs.writeFileSync(useCache ? 'patch-result-with-cache.json' : 'patch-result.json', JSON.stringify(body, undefined, 2))
-                    expect(body.total_items).to.equal("2")
-                    expect(body._embedded.entries).to.have.length(2)
-                    expect(body._embedded.entries[0].id).to.equal("test03")
-                    expect(body._embedded.entries[0].lemma).to.equal("ṭēsṯ 03 changed")
-                    expect(body._embedded.entries[1].id).to.equal("test08")
-                    expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ 08 changed")
+                expect(response).to.have.json(check_patch_response);
+                return chakram.wait();
+            });           
+            function check_patch_response(body) {
+                fs.writeFileSync(useCache ? 'patch-result-with-cache.json' : 'patch-result.json', JSON.stringify(body, undefined, 2))
+                expect(body.total_items).to.equal("2")
+                expect(body._embedded.entries).to.have.length(2)
+                expect(body._embedded.entries[0].id).to.equal("test03")
+                expect(body._embedded.entries[0].lemma).to.equal("ṭēsṯ 03 changed")
+                expect(body._embedded.entries[1].id).to.equal("test08")
+                expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ 08 changed")
+            }
+            it('when chnaging two entries for another user', async function () {
+                let prepared = await prepare_changed_entries(dictusersuperuserauth);
+                expect(prepared).to.have.status(200);
+                let requestData = {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictusersuperuserauth,
+                    'qs': {'as-user': 'another-user'},
+                    'body': {
+                        'entries': changedEntries
+                    },
+                    'time': true
+                };
+                let response = await request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', requestData);
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body) {
+                    check_patch_response(body)
+                    const entry = JSDOM.fragment(body._embedded.entries[0].entry),
+                          fss = entry.querySelectorAll("fs[type='change']"),
+                          lastFs = fss[fss.length - 1],
+                          firstF = lastFs.querySelectorAll("f[name='who']")[0];
+
+                    expect(lastFs.attributes.getNamedItem('type').value).to.equal('change');
+                    expect(firstF.attributes.getNamedItem('name').value).to.equal('who');
+                    expect(firstF.querySelector("symbol[value='another-user']"), "change should be recorded as from another-user").to.not.be.null;
                 });
                 return chakram.wait();
-            });
+            }); 
             afterEach('Remove test data', remove_test_data);
         }
 
@@ -944,16 +999,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 return chakram.wait();
             });
             it('when a normal user tries to impersonated another', async function () {
-                let currentEntries = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
-                    'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'qs': {
-                        'lock': 5,
-                        'ids': changedIds
-                    },
-                    'auth': dictuserauth
-                });
-                changedEntries[0].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[0].id)[0].storedEntryMd5;
-                changedEntries[1].storedEntryMd5 = currentEntries.body._embedded.entries.filter((entry) => entry.id === changedEntries[1].id)[0].storedEntryMd5;
+                let prepared = await prepare_changed_entries(dictuserauth);
+                expect(prepared).to.have.status(200);
                 let response = request('patch', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'body': {
                         'entries': changedEntries
@@ -1141,17 +1188,22 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         });
     });   
     afterEach(async function(){
-        await request('delete', baseURI + '/dicts/' + dictuser.table, {
-            'headers': { "Accept": "application/vnd.wde.v2+json" },
-            'auth': dictuserauth,
-            'time': true
-        })
-        await request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, {
+        var response = await request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, {
             'headers': { "Accept": "application/vnd.wde.v2+json" },
             'auth': superuserauth,
             'time': true
         });
-        await request('delete', baseURI + '/dicts/dict_users', {
+        response = await request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserSuperUserID, {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'time': true
+        });
+        response = await request('delete', baseURI + '/dicts/' + dictuser.table, {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'time': true
+        });
+        response = await request('delete', baseURI + '/dicts/dict_users', {
             'headers': { "Accept": "application/vnd.wde.v2+json" },
             'auth': superuserauth,
             'time': true

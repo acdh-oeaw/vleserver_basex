@@ -512,6 +512,7 @@ declare %private function _:getUserNameFromAuthorization($auth_header as xs:stri
  : Otherwise a 422 error is returned.
  : @param $userData JSON describing the changed entry.
  : @param $id The @xml:id or @ID of the entry to be changed.
+ : @param $as-user A user a super user changes the supplied entries for. Returns 403 if used by a normal user.
  : @param $content-type Required to be application/json else returns 415.
  : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
  : @param $auth_header Required for getting the user for the changelog.
