@@ -223,7 +223,7 @@ function _:getDictDictUserEntry404($_) {
 };
 
 declare function _:is-su($dict as xs:string, $userID as xs:string) as xs:boolean {
-  collection('dict_users')/users[@name = $userID and @dict = $dict]/@type = 'su'
+  collection('dict_users')/users/user[@name = $userID and @dict = $dict]/@type = 'su'
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
