@@ -571,6 +571,7 @@ function _:changeEntries($dict_name as xs:string, $userData, $as-user as xs:stri
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for all the entries',
                    'Entries are currently locked by "'||string-join($lockedBy?value?*, '", "')||'"'),
+      $userName := if (exists($as-user)) then $as-user else $userName,
       (: $changes_data as map(xs:string, map(xs:string, item()?)) := :)
       $changes_data := api-problem:trace-info('@entries@changeEntries@changes_data',
               prof:track(map:merge(for $entry in $entries?value
