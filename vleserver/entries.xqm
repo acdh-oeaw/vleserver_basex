@@ -321,6 +321,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
+    %test:consumes('application/json')
     %test:arg("userData", '{
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
@@ -465,6 +466,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
+    %test:consumes('application/json')
     %test:arg("userData", '{entries: [{
   "id": "The xml:id of the entry to change",
   "sid": "The internal ID. May be empty string.",
@@ -548,6 +550,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
+    %test:consumes('application/json')
     %test:arg("userData", '{
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
