@@ -28,14 +28,26 @@ declare function _:get-change-by-id-and-dt($db-base-name as xs:string, $id as xs
 };
 
 
-declare function _:save-entry-in-history($db-base-name as xs:string, $db-name as xs:string, $ids as xs:string+) as map(*) {
-let $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
+declare function _:save-entry-in-history($db-base-name as xs:string, $db-name as xs:string, $ids_chsums as map(xs:string, xs:string?)+) as map(*) {
+let $ids_seq := ``[("`{string-join(map:keys($ids_chsums), '","')}`")]``,
     $saved_nodes :=  util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';
     import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
-    let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), `{$ids_seq}`)
-      (: , $log := _:write-log(serialize($entriesToChange, map {'method': 'basex'}), 'INFO') :)
+    declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+    declare variable $ids_chsums external := map{};
+    let $entriesToChange := data-access:find_entry_as_dbname_pre_with_collection(collection("`{$db-name}`"), map:keys($ids_chsums)),
+        (: need to remove %private at function declaration for logging to work! :)
+        (: $log := _:write-log(serialize(($entriesToChange, $ids_chsums), map {'method': 'basex'}), 'INFO'), :)
+        $entriesWithCsums := map:merge((for $id in map:keys($entriesToChange)
+          let $md5 := string(xs:hexBinary(hash:md5(serialize(db:open-pre("`{$db-name}`", $entriesToChange($id)?pre)))))
+          return (map{$id: map{'entry': db:open-pre("`{$db-name}`", $entriesToChange($id)?pre),
+                              'md5': $md5}},
+                 if (not(exists($ids_chsums($id))) or $ids_chsums($id) = $md5) then ()
+      else error(xs:QName('response-codes:_409'),
+                'Checksum mismatch.',
+                "Provided md5 checksum was "||$ids_chsums($id)||". Checksum of current entry is "||$md5||"."))))
     (: starting with BaseX 9.3 db:open-pre() can handle a sequence itself :)
-    return _:save-entry-in-history("`{$db-base-name}`", ($entriesToChange?*?pre!db:open-pre("`{$db-name}`", .)))]``, (), 'save-entry-in-history_3', true())
+       (: , $log := _:write-log(serialize($entriesWithCsums, map {'method': 'basex'}), 'INFO') :)        
+    return _:save-entry-in-history("`{$db-base-name}`", $entriesWithCsums?*?entry)]``, map{'ids_chsums': $ids_chsums}, 'save-entry-in-history_3', true())
 return map:merge($saved_nodes!map{xs:string(./(@xml:id, @ID)): map{'entry': ., 'db_name': $db-name}})
 };
 
@@ -73,7 +85,7 @@ declare function _:add-change-record($data as map(xs:string, item()?), $db-name 
       else error(xs:QName('response-codes:_409'),
                 'Checksum mismatch.',
                 "Provided md5 checksum was "||$data?storedEntryMd5||". Checksum of current entry is "||$stored_entry_md5||".")
-    return _:add-change-record($data?entry, $stored_entry//*:fs[@type=('change', 'create')], $data?status, $data?owner, "`{$changingUser}`")]``,
+    return _:add-change-record($data?entry, $stored_entry//*:fs[@type=('change', 'create', 'status')], $data?status, $data?owner, "`{$changingUser}`")]``,
     map{'data': $data},
     'add-change-record_5', true())
 };

@@ -4,4 +4,4 @@ return entr:getDictDictNameEntries('_qdb-TEI-02', '',
                                   80, 1,
                                   (), string-join(subsequence($entries, 1, 82), ','),
                                   (), "none", (),
-                                  (), ())
+                                  (), (), ())

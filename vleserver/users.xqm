@@ -48,7 +48,7 @@ function _:getDictDictUserUsers($pageSize as xs:integer, $page as xs:integer) {
       $users := $users update
         for $user at $i in ./*
         return insert node attribute {'id'} {$i} as first into $user,
-      $entries_as_documents := subsequence($users/*, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(rest:uri()||'/'||./@id)} catch basex:http {xs:anyURI('urn:local')}, .)
+      $entries_as_documents := subsequence($users/*, (($page - 1) * $pageSize) + 1, $pageSize)!_:userAsDocument(try {xs:anyURI(util:uri()||'/'||./@id)} catch basex:http {xs:anyURI('urn:local')}, .)
   return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'users', array{$entries_as_documents}, $pageSize, count($users/*), $page], cors:header(()))
 };
 
@@ -166,7 +166,7 @@ function _:getDictDictNameUser($userName_or_id as xs:string,$wanted-response as 
                 else util:eval(``[collection("dict_users")/users/user[@name = "`{$userName_or_id}`"]]``, (), 'get-users')
   return if ($wanted-response = "application/vnd.wde.v2+json") then ( 
             if (not(exists($users))) then error(xs:QName('response-codes:_404'), $api-problem:codes_to_message(404))
-            else api-problem:or_result($start, _:userAsDocument#2, [rest:uri(), $users], cors:header(())))
+            else api-problem:or_result($start, _:userAsDocument#2, [util:uri(), $users], cors:header(())))
          else (error(xs:QName('response-codes:_415'),$api-problem:codes_to_message(415)))
 };
 (:~

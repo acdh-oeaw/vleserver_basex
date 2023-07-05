@@ -48,8 +48,8 @@ declare
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
   let $start := prof:current-ns(),
       $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
-      $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(rest:uri()||.), <name>{.}</name>)
-  return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page], cors:header(()))
+      $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(util:uri()||.), <name>{.}</name>)
+  return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page], cors:header(()))
 };
 
 (:~
@@ -147,12 +147,12 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
         $query-templates := profile:get-query-templates($profile),
         $db-names := profile:get-list-of-data-dbs($profile),
         $entries-are-cached := profile:use-cache($profile)
-    return api-problem:or_result($start, json-hal:create_document_list#6, [rest:uri(), '__', [
-    json-hal:create_document(xs:anyURI(rest:uri()||'/entries'), (<note>all entries</note>,
+    return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), '__', [
+    json-hal:create_document(xs:anyURI(util:uri()||'/entries'), (<note>all entries</note>,
     <queryTemplates type="array">{map:keys($query-templates)!<_>{.}</_>}</queryTemplates>,
     <dbNames type="array">{$db-names!<_>{.}</_>}</dbNames>,
     if ($entries-are-cached) then <cache>{$entries-are-cached}</cache> else ())),
-    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
+    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
   else
   error(xs:QName('response-codes:_404'),
                  $api-problem:codes_to_message(404))
@@ -172,8 +172,8 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')  
 function _:getDictDictNameDictUsers() {
-  api-problem:or_result(prof:current-ns(), json-hal:create_document_list#6, [rest:uri(), '_', [
-    json-hal:create_document(xs:anyURI(rest:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1], cors:header(()))  
+  api-problem:or_result(prof:current-ns(), json-hal:create_document_list#6, [util:uri(), '_', [
+    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1], cors:header(()))  
 };
 
 (:~
