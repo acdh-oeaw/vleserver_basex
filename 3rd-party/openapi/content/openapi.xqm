@@ -138,19 +138,10 @@ as map(*) {
       map:merge((
         for $path in $paths
         let $functions := $module/function[annotation[@name = "rest:path"]/literal = $path]
-        let $operations := map:merge($functions ! openapi:operation-object(., $config))
-        let $pathParameters := for $pathParameter in $operations?*?parameters?*[.('in') = 'path']
-          let $parameterName := $pathParameter('name')
-          group by $parameterName
-          return $pathParameter[1]
-        let $operationsWithoutPP := for $k in map:keys($operations)
-          return map{ $k: map:merge((map:remove($operations($k), 'parameters'),
-                                     map {'parameters': array { $operations($k)?parameters?*[.('in') != 'path'] }}))
-                    }
         return
           map{
-              $path => replace("\{\$", "{"):
-                map:merge(($pathParameters ! map{'parameters': array {$pathParameters}}, $operationsWithoutPP))
+              $path => replace("\{\$", "{") => replace("^([^/])", '/$1'):
+                map:merge(($functions ! openapi:operation-object(., $config)))
           }
       ))
   }
@@ -169,9 +160,10 @@ as map(*) {
   let $tags := array {
       if($config/openapi:tags/openapi:tag/openapi:function[@name = $name])
       then
-        if($config/openapi:tags/openapi:tag/openapi:function[@name = $name]/parent::openapi:tag/string(@method) = "exclusive")
-        then $config/openapi:tags/openapi:tag/openapi:function[@name = $name]/parent::openapi:tag[@method = "exclusive"]/string(@name)
-        else
+        switch (($config/openapi:tags/openapi:tag/openapi:function[@name = $name]/parent::openapi:tag/string(@method))[1]) 
+        case "exclusive" return $config/openapi:tags/openapi:tag/openapi:function[@name = $name]/parent::openapi:tag[@method = "exclusive"]/string(@name)
+        case "hidden" return "hidden"
+        default return
             ($name => substring-before(":"),
             $config/openapi:tags/openapi:tag/openapi:function[@name = $name]/parent::openapi:tag/string(@name))
       else
@@ -180,6 +172,7 @@ as map(*) {
   return
   map:merge((
     for $method in $function/annotation[@name = $openapi:supported-methods]/@name
+    where not(exists(index-of($tags?*, "hidden")))
     let $methodName := if (ends-with($method, ':method')) 
       then lower-case($method/../literal[1])
       else substring-after(lower-case($method), "rest:")
@@ -187,8 +180,9 @@ as map(*) {
     map{
       $methodName:
       map:merge((
-        map{ "summary": if (normalize-space($desc[1]) ne '') then $desc[1] else "Undocumented!"},
-        $desc[2] ! map{ "description": .},
+        map{ "summary": if (normalize-space($desc[1]) ne '') then $desc[1] else "Undocumented!",
+             "description": if (exists($desc[2]) and normalize-space($desc[2]) ne '') then $desc[2] else "no further description",
+             "operationId": xs:string($name)},
         map{ "tags": $tags},
         $see[1] ! map{"externalDocs": $see ! map{
           "url": normalize-space(.),
@@ -283,7 +277,7 @@ as map(*)* {
                     "name": $name,
                     "in": "path",
                     "required": true()},
-                    openapi:schema-object($argument, 'text/plain',  if (exists($example)) then $example('example') else ())
+                    openapi:schema-object($argument, 'text/plain', $example('example'))
     ))
     let $description := $function/argument[@name = $name]/text() ! map{ "description": .}
     return
@@ -314,7 +308,7 @@ as map(*)* {
                         "in": $source,
                         "required": $required
                         },
-                        openapi:schema-object($argument, 'text/plain', if (exists($example)) then $example('example') else ())
+                        openapi:schema-object($argument, 'text/plain', $example('example'))
                 ))
         let $description := $argument/text() ! map{ "description": .}
         return
@@ -360,7 +354,7 @@ as map(*)? {
       return try { openapi:to-openapi-xml-schema(parse-xml-fragment($example))('properties')($root-element-name)} catch * {()}
     else if (contains($mime-type, "json")) then openapi:to-openapi-json-schema(parse-json($example))
     else () else ()
-  return map:merge((map{ "schema":
+  return map{ "schema":
     map:merge((
         map{
           "type": "string",
@@ -370,8 +364,10 @@ as map(*)? {
         then map{ "nullable": true() }
         else (),
         $schema-from-example
-    ), map {'duplicates': 'use-last'})},
-    if (normalize-space($example) ne '') then map { 'example': $example } else ()))
+    ), map {'duplicates': 'use-last'}),
+    'example': if (normalize-space($example) ne '') then $example else
+                 if ($returns_or_argument/@occurrence = ("*", "?")) then "" else "No example provided!" 
+  }
 };
 
 declare function openapi:tags-object($modules as element(module)+, $config as element(openapi:config))
@@ -379,12 +375,14 @@ as map(*) {
   map{
     "tags": array{
         for $module in $modules
+        group by $name := string($module/@prefix)
         return
             map{
-                "name": string($module/@prefix),
-                "description": normalize-space($module/description)
+                "name": $name,
+                "description": normalize-space($module[1]/description)
             },
         for $tag in $config/openapi:tags/openapi:tag
+        where $tag/@method != 'hidden'
         return
             map{
                 "name": string($tag/@name),
@@ -489,8 +487,8 @@ as xs:string?{
  : @param $name The name of the argument to prepare an example for :)
 declare function openapi:example($function as element(function), $name as xs:string)
 as map(*)* {
-    let $example := string(($function/annotation[ends-with(@name, ":arg")][literal[1] eq $name])[1]/literal[2])
-    return if ($example ne "") then map{ "example": $example } else ()
+    string(($function/annotation[ends-with(@name, ":arg")][literal[1] eq $name])[1]/literal[2])
+    ! map{ "example": .}
 };
 
 declare function openapi:xquery-resource($baseuri as xs:string)
