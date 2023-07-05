@@ -368,7 +368,7 @@ api-problem:trace-info('@entries@entryAsDocument',
 
 (:~
  : Creates a new dictionary entry.
- : @param $userData JSON describing the new entry.
+ : @param $userData JSON describing the new entry. Optionally can be {"sid": "The internal ID. May be empty string.", "lemma": "A lemma. May be empty string.", "entry": "The entry as XML fragment."}
  : @param $content-type Required to be application/json else returns 415.
  : @param $wanted-response Required to be application/vnd.wde.v2+json else returns 403.
  : @param $auth_header Required for getting the user for the changelog
@@ -387,16 +387,11 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
     %test:consumes('application/json')
-    %test:arg("userData", '{
+    %test:arg("userData", '{"entries": [{
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
   "entry": "The entry as XML fragment."
-} or
-entries: [{
-  "sid": "The internal ID. May be empty string.",
-  "lemma": "A lemma. May be empty string.",
-  "entry": "The entry as XML fragment."
-}]')
+}]}')
 function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
   let $start := prof:current-ns(),
       $userName := _:getUserNameFromAuthorization($auth_header),
@@ -534,7 +529,7 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
     %test:consumes('application/json')
-    %test:arg("userData", '{entries: [{
+    %test:arg("userData", '{"entries": [{
   "id": "The xml:id of the entry to change",
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
