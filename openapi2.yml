@@ -14,7 +14,7 @@ tags:
   - name: users
     description: "Manipulate the users and user rights for a dictionary. Can also be used by global admin users to manipulate users for any table when used with \"dict_users\".\r\nDefinitions:\r\n<ul>\r\n<li>A standard user is a user that is authorized to read and write her own entries in a dictionary.</li>\r\n<li>An admin user is a user that is authorized to read and write any entry in a partictular dictionary (writeown = 'n')</li>\r\n<li>A global admin user is a user that is authorized to read and write any entry in \"dict_users\". Global admin users are authorized to manipulate users for any dictionary also through a url referriung to that dictionary.</li>\r\n</ul>"
 paths:
-  '/dicts/{dict_name}/entries/{entries_id}/changes':
+  '/restvle/dicts/{dict_name}/entries/{entries_id}/changes':
     parameters:
      - name: dict_name
        in: path
@@ -45,7 +45,7 @@ paths:
           description: Not Acceptable
         '415':
           description: Unsupported Media Type
-  '/dicts/{dict_name}/entries/{entries_id}/changes/{changes_timestamp}':
+  '/restvle/dicts/{dict_name}/entries/{entries_id}/changes/{changes_timestamp}':
     parameters:
      - name: dict_name
        in: path
@@ -86,7 +86,7 @@ paths:
           description: Not Acceptable
         '415':
           description: Unsupported Media Type
-  /dicts:
+  /restvle/dicts:
     get:
       tags:
         - dicts
@@ -136,7 +136,7 @@ paths:
           description: Unsupported Media Type
         '422':
           description: Unprocessable Entity
-  '/dicts/{dicts_name}':
+  '/restvle/dicts/{dicts_name}':
     get:
       tags:
         - dicts
@@ -196,7 +196,7 @@ paths:
           description: Not Acceptable
         '415':
           description: Unsupported Media Type
-  '/dicts/{dict_name}/entries/{entries_id}/entries_ndx':
+  '/restvle/dicts/{dict_name}/entries/{entries_id}/entries_ndx':
     parameters:
      - name: dict_name
        in: path
@@ -275,7 +275,7 @@ paths:
           description: Unsupported Media Type
         '422':
           description: Unprocessable Entity
-  '/dicts/{dict_name}/entries/{entries_id}/entries_ndx/{entries_ndx_id}':
+  '/restvle/dicts/{dict_name}/entries/{entries_id}/entries_ndx/{entries_ndx_id}':
     parameters:
      - name: dict_name
        in: path
@@ -421,7 +421,7 @@ paths:
           description: Unsupported Media Type
         '422':
           description: Unprocessable Entity
-  '/dicts/{dict_name}/entries':
+  '/restvle/dicts/{dict_name}/entries':
     parameters:
      - name: dict_name
        in: path
@@ -524,7 +524,7 @@ paths:
           description: Unsupported Media Type
         '422':
           description: Unprocessable Entity
-  '/dicts/{dict_name}/entries/{entries_id}':
+  '/restvle/dicts/{dict_name}/entries/{entries_id}':
     parameters:
      - name: dict_name
        in: path
@@ -671,7 +671,7 @@ paths:
           description: Not Acceptable
         '422':
           description: You don't own the lock for the entry to delete
-  '/dicts/{dict_name}/users':
+  '/restvle/dicts/{dict_name}/users':
     parameters:
      - name: dict_name
        in: path
@@ -726,7 +726,7 @@ paths:
           description: Unsupported Media Type
         '422':
           description: Unprocessable Entity
-  '/dicts/{dict_name}/users/{users_id}':
+  '/restvle/dicts/{dict_name}/users/{users_id}':
     parameters:
      - name: dict_name
        in: path
