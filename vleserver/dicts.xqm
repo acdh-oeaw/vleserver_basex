@@ -69,7 +69,8 @@ declare
     %rest:header-param("Accept", "{$wanted-response}", "")
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
-    %rest:produces('application/problem+xml')
+    %rest:produces('application/problem+xml')    
+    %test:consumes('application/json')
     %test:arg("data", '{ "name": "some_name" }')
 function _:createDict($data, $content-type as xs:string, $wanted-response as xs:string) as item()+ {
   let $start := prof:current-ns(),
@@ -240,6 +241,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
+    %test:consumes('application/json')
     %test:arg("data", '{ }')
 function _:createDictBackup($dict_name as xs:string, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
   let $start := prof:current-ns(),
@@ -290,6 +292,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
+    %test:consumes('application/json')
     %test:arg("data", '{ "name": "some_name" }')
 function _:restoreDict($data, $content-type as xs:string, $wanted-response as xs:string) as item()+ {
   let $start := prof:current-ns(),

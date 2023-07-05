@@ -78,6 +78,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
+    %test:consumes('application/json')
     %test:arg("userData", '{
   "id": "The internal ID. When creating a new user this will be filled in automatically.",
   "userID": "The user id or username.",
