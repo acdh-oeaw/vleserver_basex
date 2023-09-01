@@ -175,8 +175,12 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')  
 function _:getDictDictNameDictUsers() {
-  api-problem:or_result(prof:current-ns(), json-hal:create_document_list#6, [util:uri(), '_', [
-    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1], cors:header(()))  
+  if (db:exists("dict_users"))
+  then api-problem:or_result(prof:current-ns(), json-hal:create_document_list#6, [util:uri(), '_', [
+    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>)], 1, 1, 1], cors:header(()))
+  else
+    error(xs:QName('response-codes:_404'),
+                   $api-problem:codes_to_message(404))
 };
 
 (:~
