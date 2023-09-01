@@ -141,7 +141,7 @@ function _:error-handler($code as xs:string, $description, $value, $module, $lin
           return if ($status-code-from-local-name castable as xs:integer and 
                      xs:integer($status-code-from-local-name) >= 400 and
                      xs:integer($status-code-from-local-name) < 511) then xs:integer($status-code-from-local-name) else
-                     (500, admin:write-log($additional, 'ERROR'))
+                     (500, $additional!admin:write-log(., 'ERROR'))
         return _:return_problem($start-time-ns,
                 <problem xmlns="urn:ietf:rfc:7807">
                     <type>{$type}</type>
