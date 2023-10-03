@@ -102,7 +102,7 @@ if (db:exists("`{$data/json/name}`__prof")) then
 else if ("`{$data/json/name}`" = 'dict_users') then
   db:create("dict_users", <users/>, "dict_users.xml")
 else
-  db:create("`{$data/json/name}`__prof", <profile/>, "`{$data/json/name}`.xml")
+  db:create("`{$data/json/name}`__prof", <profile xml:id="dictProfile"><tableName>`{$data/json/name}`</tableName></profile>, "`{$data/json/name}`.xml")
 ]``, (), 'try-create-dict', true()),
         api-problem:result($start,
         <problem xmlns="urn:ietf:rfc:7807">
