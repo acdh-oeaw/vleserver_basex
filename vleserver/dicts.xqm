@@ -151,11 +151,11 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
         $db-names := profile:get-list-of-data-dbs($profile),
         $entries-are-cached := profile:use-cache($profile)
     return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), '__', [
-    json-hal:create_document(xs:anyURI(util:uri()||'/entries'), (<note>all entries</note>,
+    json-hal:create_document(xs:anyURI(util:uri()||'entries'), (<note>all entries</note>,
     <queryTemplates type="array">{map:keys($query-templates)!<_>{.}</_>}</queryTemplates>,
     <dbNames type="array">{$db-names!<_>{.}</_>}</dbNames>,
     if ($entries-are-cached) then <cache>{$entries-are-cached}</cache> else ())),
-    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
+    json-hal:create_document(xs:anyURI(util:uri()||'users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
   else
   error(xs:QName('response-codes:_404'),
                  $api-problem:codes_to_message(404))
