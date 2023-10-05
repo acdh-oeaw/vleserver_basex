@@ -19,7 +19,10 @@ jobs:
       environment: ${{ steps.get_environment_from_git_ref.outputs.environment }}
       image_name: vleserver_basex
       registry_root: ghcr.io/acdh-oeaw/
-      default_port: "5000"
+      default_port: "5000"# Usually you don't deal with all commits since the repository was created.
+# Increase if you e.g don't find a tag you want to display in the application
+      fetch-depth: 10
+      submodules: "false"
       herokuish_base_image: gliderlabs/herokuish:latest-22
       BUILDPACK_URL: https://github.com/simar0at/heroku-buildpack-basex
       APP_NAME: vleserver_basex
