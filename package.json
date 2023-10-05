@@ -6,7 +6,7 @@
     "node": "18.x",
     "npm": "9.5.1",
     "basex": "10.6",
-    "saxon": "12.2"
+    "saxon": "12.3"
   },
   "main": "test.js",
   "scripts": {
