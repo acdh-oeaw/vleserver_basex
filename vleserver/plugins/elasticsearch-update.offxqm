@@ -8,8 +8,9 @@ declare namespace tei = "http://www.tei-c.org/ns/1.0";
 
 declare variable $_:index-name := 'dboe';
 (: for local testing use e.g.
-   docker run -e HTTP_PORT=9200 -e HTTPS_PORT=9300 -p 9200:9200 -p 9300:9300 --rm -t mendhak/http-https-echo:29 :)
+   docker run -e HTTP_PORT=9200 -e HTTPS_PORT=9300 -p 9200:9200 -p 9300:9300 --rm -t mendhak/http-https-echo:30 :)
 declare variable $_:elasticsearch-bulk-href := 'http://localhost:9200/_bulk';
+declare variable $_:elasticsearch-bulk-auth := 'Basic YmFzZXgtdXXXX==';
 declare variable $_:xslt := 'entry-to-ag5-fields.xsl';
 declare variable $_:log-elasticsearch-results := true();
 
@@ -32,7 +33,6 @@ declare function _:createNDJsonDataHeader($id as xs:string) as xs:string{
         <json type="object">
           <index type="object">
             <__index>{$_:index-name}</__index>
-            <__type>_doc</__type>
             <__id>{$id}</__id>
           </index>
         </json>,
@@ -56,6 +56,8 @@ declare function _:createNDJsonDataBody($data as element()) as xs:string {
 
 declare function _:sendToElasticasearch($ndjsons as xs:string*) {
 let $response := http:send-request(<http:request method="post">
+      <http:header name="User-Agent" value="vleserver-basex"/>
+      <http:header name="Authorization" value="{$_:elasticsearch-bulk-auth}"/>
       <http:body media-type='application/x-ndjson'>{string-join($ndjsons, '&#x0a;')||'&#x0a;'}</http:body>
     </http:request>, $_:elasticsearch-bulk-href)
 return $response
