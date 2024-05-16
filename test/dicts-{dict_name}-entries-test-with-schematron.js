@@ -51,50 +51,60 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         expect(testEntryForValidationWithErrorRecognizedBySchematron).to.contain('<entry xmlns="http://www.tei-c.org/ns/1.0" xml:id="biyyah_001" xml:lang="en">');
     });
 
-    beforeEach(function(){
-        return request('post', baseURI + '/dicts', {
+    beforeEach(async function(){
+        var response = await request('post', baseURI + '/dicts', {
             'headers': {"Accept":"application/vnd.wde.v2+json",
                         "Content-Type":"application/json"},
             'body': {'name': 'dict_users'},
             'time': true
             })
-            .then(function(dictUsersCreated){
-                return request('post', baseURI + '/dicts/dict_users/users', { 
+        expect(response).to.have.status(201);
+        
+        response = await request('post', baseURI + '/dicts/dict_users/users', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json",
                             "Content-Type":"application/json"},
                 'body': superuser,
                 'time': true
             })
-            .then(function(userCreateResponse) {
-            newSuperUserID = userCreateResponse.body.id;
-            return request('post', baseURI + '/dicts/dict_users/users', { 
+        expect(response).to.have.status(200);
+        
+        let newSuperUserID = response.body.id;
+        response = await request('post', baseURI + '/dicts/dict_users/users', { 
                 'headers': {"Accept":"application/vnd.wde.v2+json",
                             "Content-Type":"application/json"},
                 'auth': superuserauth,
                 'body': dictuser,
                 'time': true
             })
-            .then(function(userCreateResponse) {
-                newDictUserID = userCreateResponse.body.id;               
-                return request('post', baseURI + '/dicts', {
+        
+        expect(response).to.have.status(200);
+        
+        let newDictUserID = response.body.id;               
+        response = await request('post', baseURI + '/dicts', {
                     'headers': {"Accept":"application/vnd.wde.v2+json"},
                     'auth': superuserauth,
                     'body': {"name": dictuser.table},
                     'time': true
                 })
-            })
-            .then(function(){
-                return request('post', baseURI + '/dicts/' + dictuser.table + '/entries', {
-                    'headers' : {"Accept":"application/vnd.wde.v2+json","Content-Type":"application/json"},
-                    'auth' : dictuserauth,
-                    'body' : { "sid" : "dictProfile",
-                               "lemma" : "profile",
-                               "entry" : compiledProfileWithSchemaTemplate({ 'dictname' : dictuser.table }) },
-                    'time' : true 
-                })
-            });
+        expect(response).to.have.status(201);
+        
+        var response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'qs': {'lock': 2},
+            'auth': dictuserauth,                    
+        })
+        
+        expect(response).to.have.status(200);
+        
+        response = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
+            'headers' : {"Accept":"application/vnd.wde.v2+json","Content-Type":"application/json"},
+            'auth' : dictuserauth,
+            'body' : { "sid" : "dictProfile",
+                       "lemma" : "profile",
+                       "entry" : compiledProfileWithSchemaTemplate({ 'dictname' : dictuser.table }) },
+            'time' : true 
         });
-        });
+        expect(response).to.have.status(200);
     });
     
     describe('tests for post', function() {

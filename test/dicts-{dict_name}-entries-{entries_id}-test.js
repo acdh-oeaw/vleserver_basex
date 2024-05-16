@@ -117,16 +117,26 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
             'time': true
         });
         expect(newDictCreateResponse.body.status).to.equal('201');
-        var profileCreateResponse = await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', {
+        
+        var profileCreateResponse = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'qs': {'lock': 2},
+            'auth': dictuserauth,                    
+        })
+        
+        expect(profileCreateResponse).to.have.status(200);
+        
+        profileCreateResponse = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
+            'headers' : {"Accept":"application/vnd.wde.v2+json","Content-Type":"application/json"},
+            'auth' : dictuserauth,
             'body': {
                 "sid": "dictProfile",
                 "lemma": "",
                 "entry": compiledProfileTemplate({ 'dictName': dictuser.table })
             },
-            'headers': { "Accept": "application/vnd.wde.v2+json" },
-            'auth': dictuserauth,
-            'time': true
+            'time' : true 
         });
+        expect(profileCreateResponse).to.have.status(200);
         expect(profileCreateResponse.body.id).to.equal('dictProfile');
     });
     describe('tests for get', function() {
