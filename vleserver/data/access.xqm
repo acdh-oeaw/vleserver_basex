@@ -49,7 +49,7 @@ let $dicts := _:get-list-of-data-dbs($dict),
       if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}` or @ID = `{$ids_seq}`])
       then "`{$dict}`"
       else ()]``
-      else ``[if (db:attribute("`{$dict}`", `{$ids_seq}`)) then "`{$dict}`" else ()]``
+      else ``[if (try { db:attribute("`{$dict}`", `{$ids_seq}`) } catch db:open { () }) then "`{$dict}`" else ()]``
     , ',&#x0a;')||')',
     $found-in-parts := if ($get-db-for-id-script ne '()') 
                        then api-problem:trace-info('@access@get-real-dicts',
@@ -186,7 +186,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
         `{profile:generate-local-extractor-function($profile)}`
         api-problem:trace-info('@access@get-entries-by-ids',
         prof:track(
-        let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
+        let $results := try { db:attribute("`{$dict}`", `{$ids_seq}`)/.. } catch db:open { () },
             $ret := if (count($results) > `{$max-direct-xml}` and `{count($ids) > $max-direct-xml}`()) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
@@ -418,7 +418,8 @@ return if (exists($profile//useCache))
     util:eval(``[import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
     let $db_names := data-access:get-real-dicts("`{$dict_name}`", `{$ids_seq}`),
         $entries := for $db_name in $db_names?value
-          let $entries := collection($db_name)//*[(@xml:id, @ID) = `{$ids_seq}`] (: make it easy for the optimizer to see the db to lock :)
+          (: make it easy for the optimizer to see the db to lock :)
+          let $entries := collection($db_name)//*[(@xml:id, @ID) = `{$ids_seq}`]
           return map{$db_name: data-access:map_entry_ids_to_pre($entries)}
     return map:merge($entries)
     ]``, (), 'find_entry_as_dbname_pre', true())  

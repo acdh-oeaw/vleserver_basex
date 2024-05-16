@@ -41,7 +41,7 @@ let $dbs:= data-access:get-list-of-data-dbs($dict),
             for $db in $dbs[not(ends-with(., '__prof'))]
             order by $db ascending
             return ``[
-            data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0)]``), ',')
+            try { data-access:do-get-index-data(collection("`{$db}`"), (), (), local:extractor#1, 0) } catch err:FODC0002 { () } ]``), ',')
             }`)
             return util:eval(``[declare namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util";
          declare variable $dryeds as element(util:dryed)+ external;
