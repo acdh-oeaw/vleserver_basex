@@ -146,8 +146,18 @@ describe('tests for /dicts/{dict_name}', function() {
                     'auth': dictuserauth,
                     'time': true
                 };
-                await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
-                var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', {
+
+                var response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {'lock': 2},
+                    'auth': dictuserauth,                    
+                })
+                expect(response).to.have.status(200);
+                
+                response = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', config);
+                expect(response).to.have.status(200);
+
+                response = await request('get', baseURI + '/dicts/deseruntsitsuntproident', {
                     'time': true
                 });
 
