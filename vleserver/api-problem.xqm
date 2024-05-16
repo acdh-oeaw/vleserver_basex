@@ -68,7 +68,7 @@ declare function _:trace-info($description as xs:string, $trace-result as map(xs
            (: map {$description||'@sum': sum($trace-result?value?timings?*?*)}, :)
            for $v at $i in $trace-result?value return for $t in array:flatten($v?timings) return map:keys($t)!map{$description||'->'||.: $t(.)})}}
   else
-  if ($trace-result?value instance of map(*) and $trace-result?value?value)
+  if ($trace-result?value instance of map(*) and exists($trace-result?value?value))
   (: We have a map as value :)
     then map{'value': $trace-result?value?value,
              'timings': array{($preceding-timings, map {$description: $trace-result?time},

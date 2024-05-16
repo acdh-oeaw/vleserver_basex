@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "Server part of VLE for BaseX",
   "engines": {
-    "node": "18.x",
-    "npm": "9.5.1",
+    "node": "20.x",
+    "npm": "10.5.x",
     "basex": "10.6",
-    "saxon": "12.2"
+    "saxon": "12.4"
   },
   "main": "test.js",
   "scripts": {

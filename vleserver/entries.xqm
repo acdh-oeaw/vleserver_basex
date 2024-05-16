@@ -391,6 +391,12 @@ declare
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
   "entry": "The entry as XML fragment."
+}') 
+    %test:arg("userData", '{
+"entries": [{
+  "sid": "The internal ID. May be empty string.",
+  "lemma": "A lemma. May be empty string.",
+  "entry": "The entry as XML fragment."
 }]}')
 function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
   let $start := prof:current-ns(),

@@ -99,9 +99,9 @@ declare %updating function _:add-change-record($e as element(), $oldChangeEntrie
 {if ($parentElement/@xml:space='preserve') then () else attribute {"xml:space"} {"preserve"}}
 <f name="who"><symbol>{attribute value {($changingUser, $_:user)[1]}}</symbol></f>
 <f name="when"><symbol>{attribute value {format-dateTime(current-dateTime(),'[Y0001]-[M01]-[D01]T[H01]:[m01]:[s01]')}}</symbol></f>
-{if (exists($status)) then <f name='status'><symbol value="{$status}"/></f> 
+{if (exists($status) and matches($status, '(\p{L}|\p{N}|\p{P}|\p{S})+')) then <f name='status'><symbol value="{$status}"/></f> 
  else ($oldChangeEntries//*:f[@name='status'][last()], $e//*:f[@name='status'][last()])[1]}
-{if (exists($owner)) then <f name='owner'><symbol value="{$owner}"/></f> 
+{if (exists($owner) and matches($owner, '(\p{L}|\p{N}|\p{P}|\p{S})+')) then <f name='owner'><symbol value="{$owner}"/></f> 
  else ($oldChangeEntries//*:f[@name='owner'][last()], $e//*:f[@name='owner'][last()])[1]}
 </fs>,
       $oldChangesSpacePreserve := $oldChangeEntries transform with {if ($parentElement/@xml:space='preserve') then () else 
