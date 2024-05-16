@@ -141,7 +141,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
     });
     
     describe('tests for post', function() {        
-        it('should respond 201 for "Created" for a profile', function() {
+        it('should respond 201 for "Created" for a profile', async function() {
             let config = { 
                 'body': {
                     "sid": "dictProfile",
@@ -154,10 +154,18 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'headers': { "Accept": "application/vnd.wde.v2+json" },
                 'auth': dictuserauth,
                 'time': true
-            },
-                response = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config);
+            }
+            
+            var response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+                'headers': { "Accept": "application/vnd.wde.v2+json" },
+                'qs': {'lock': 2},
+                'auth': dictuserauth,                    
+            })
+            expect(response).to.have.status(200);
+            
+            response = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', config);
+            expect(response).to.have.status(200);
 
-            expect(response).to.have.status(201)
             expect(response).to.have.json(function(body){
                 expect(body.id).to.equal('dictProfile');
                 expect(body.type).to.equal('profile');
@@ -168,7 +176,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
         // test if the adding of entries is possible also the validation is present now
         it('should respond 201 for "Created" for an entry', async function(){
-            let config_1 = { 
+            let config = { 
                 'body': {
                     "sid": "dictProfile",
                     "lemma": "",
@@ -180,9 +188,18 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'headers': { "Accept": "application/vnd.wde.v2+json" },
                 'auth': dictuserauth,
                 'time': true
-            },
-            response_1 = await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config_1),
-            config_2 = {
+            }
+            var response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+                'headers': { "Accept": "application/vnd.wde.v2+json" },
+                'qs': {'lock': 2},
+                'auth': dictuserauth,                    
+            })
+            expect(response).to.have.status(200);
+            
+            response = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', config);
+            expect(response).to.have.status(200);
+
+            let config_2 = {
                 'body' : {
                     "sid" : 'biyyah_001',
                     "lemma" : "",
@@ -192,7 +209,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 'auth' : dictuserauth,
                 'time' : true 
             },
-            response_2 = request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config_2);
+            response_2 = await request('post', baseURI + '/dicts/' + dictuser.table + '/entries', config_2);
             expect(response_2).to.have.status(201);
             expect(response_2).to.have.json(function(body){
                 expect(body.id).to.equal('biyyah_001')
@@ -687,19 +704,24 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             'headers': { "Accept": "application/vnd.wde.v2+json" },
             'auth': dictuserauth,
             'time': true
-        },
-        response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+        }
+        var response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'qs': {'lock': 2},
+            'auth': dictuserauth,                    
+        })
+        expect(response).to.have.status(200);
+        
+        response = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', config);
+        expect(response).to.have.status(200);
 
-        expect(response).to.have.status(201);
-        await chakram.wait();
-        response = request('get', baseURI+'/dicts/'+dictuser.table)
+        response = await request('get', baseURI+'/dicts/'+dictuser.table)
         
         expect(response).to.have.status(200);
         expect(response).to.have.json(function(body){
             expect(body._embedded._[0].queryTemplates).to.have.length(8);
             expect(body._embedded._[0].queryTemplates).to.include('tei_all');
         });
-        await chakram.wait();
 
         config = { 
             'body': {
@@ -717,18 +739,18 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             'auth': dictuserauth,
             'time': true
         },
-        response = request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+        response = await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
 
         expect(response).to.have.status(201);
-        await chakram.wait();
-        response = request('get', baseURI+'/dicts/'+dictuser.table)
+
+        response = await request('get', baseURI+'/dicts/'+dictuser.table)
         
         expect(response).to.have.status(200);
         expect(response).to.have.json(function(body){
             expect(body._embedded._[0].dbNames).to.have.length(1);
             expect(body._embedded._[0].dbNames).to.include(dictuser.table);
         });
-        await chakram.wait();
+
         config = { 
             'body': { 'entries': []},
             'headers': { "Accept": "application/vnd.wde.v2+json" },
