@@ -306,7 +306,7 @@ declare function _:create_new_entries($data as map(xs:string, map(xs:string, ite
                 else _:get-list-of-data-dbs($dict),  
     (: iterate over all databases for the current dictionary and look for ID duplicates :)
       $collection-with-existing-id-scripts := for $dict in $dicts
-        return ``[collection("`{$dict}`")//*[@xml:id = `{$ids_seq}` or @ID = `{$ids_seq}`]/db:name(.)]``,
+        return ``[try { collection("`{$dict}`")//*[@xml:id = `{$ids_seq}` or @ID = `{$ids_seq}`]/db:name(.) } catch err:FODC0002 { () }]``,
       (: $log := _:write-log("acc:add-entry-todb "||$collection-with-existing-id-scripts[1], "DEBUG"), :)
       $collection-with-existing-id := util:evals(
             $collection-with-existing-id-scripts, (),
@@ -496,17 +496,21 @@ declare %private function _:get-collection-name-for-insert-data($dict as xs:stri
         $dicts := if ($dataType = 'profile') then $dict||'__prof'
                   else if ($db-exists) then $dict
                   else profile:get-list-of-data-dbs($profile),
+        $initial-db-exists := count($dicts) > 1 or util:eval(``[db:exists("`{$dicts[1]}`")]``, (), 'add-entry-todb-initial-db-exists2'),
+        (: $log := _:write-log('acc:get-collection-name-for-insert-data $db-exists: '||$db-exists||' $initial-db-exists: '||$initial-db-exists||' $dicts: '||serialize($dicts), 'DEBUG'), :)
        (: $log := _:write-log('acc:get-collection-name-for-insert-data count(acc:count-current-items($dicts[last()], $dataType)/*) >= acc:get-split-every($profile): '
                            ||acc:count-current-items($dicts[last()], $dataType)||' >= '||acc:get-split-every($profile), 'DEBUG'), :)
-        $ret := if (empty($dicts) or _:count-current-items($dicts[last()], $dataType) >= profile:get-split-every($profile)) then _:create-new-data-db($profile) else $dicts[last()]
+        $ret := if (not($initial-db-exists) or _:count-current-items($dicts[last()], $dataType) >= profile:get-split-every($profile)) then _:create-new-data-db($profile) else $dicts[last()]
       (:, $retLog := _:write-log('acc:get-collection-name-for-insert-data return '||$ret, 'DEBUG') :)
     return $ret
 };
 
 declare %private function _:count-current-items($dict as xs:string?, $dataType as xs:string) as xs:integer {
   let $count-current-script := ``[import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'data/elementTypes.xqm';
+    try {
     let $ret := count(types:get-parent-node-for-element(collection("`{$dict}`"), "`{$dataType}`")/*)
     return if ($ret > 0) then $ret else count(types:get-parent-node-for-element(collection("`{$dict}`"), "_")/*)
+    } catch err:FODC0002 { 0 }
   ]``
   return if (empty($dict)) then 0 else util:eval($count-current-script, (), 'count-current-items', true())
 };

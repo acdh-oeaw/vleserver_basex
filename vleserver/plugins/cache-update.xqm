@@ -60,7 +60,9 @@ let $profile := profile:get($dict),
           $log-changed-values := _:write-log('changed values: '||string-join($changed-values!(if (. = '') then 'default' else .), ', '), 'INFO')
       return map {$db_name: $changed-values}
     else (), map{'duplicates': 'combine'})
-  for $db_name in map:keys($changes) return cache:refresh-cache-db($dict, $db_name, distinct-values($changes($db_name)))
+  return if (profile:use-cache($profile)) then
+    for $db_name in map:keys($changes) return cache:refresh-cache-db($dict, $db_name, distinct-values($changes($db_name)))
+    else map {}
 ))
 };
 
