@@ -1,2 +1,5 @@
 /node_modules
 /package-lock.json
+/vleserver/plugins/created-*.xml
+/vleserver/plugins/updated-*.xml
+/vleserver/plugins/deleted-*.xml
