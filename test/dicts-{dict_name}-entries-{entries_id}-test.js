@@ -644,7 +644,7 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
                 expect(response).to.have.json(function (body) {
                     expect(body.id).to.equal(entryID);
                     expect(body.lemma).to.equal("[]");
-                    expect(body.status).to.equal("")
+                    expect(body.status).to.be.undefined;
                 });
                 await chakram.wait()
             });
