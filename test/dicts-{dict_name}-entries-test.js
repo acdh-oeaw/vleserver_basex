@@ -940,7 +940,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 return chakram.wait();
             });           
             function check_patch_response(body) {
-                fs.writeFileSync(useCache ? 'patch-result-with-cache.json' : 'patch-result.json', JSON.stringify(body, undefined, 2))
+//                fs.writeFileSync(useCache ? 'patch-result-with-cache.json' : 'patch-result.json', JSON.stringify(body, undefined, 2))
                 expect(body.total_items).to.equal("2")
                 expect(body._embedded.entries).to.have.length(2)
                 expect(body._embedded.entries[0].id).to.equal("test03")
