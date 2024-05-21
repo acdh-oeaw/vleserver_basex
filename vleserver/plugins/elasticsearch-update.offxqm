@@ -17,7 +17,7 @@ declare variable $_:log-elasticsearch-results := true();
 declare function _:after_created($data as map(xs:string, map(xs:string, map(xs:string, item()?))), $dict as xs:string, $db_name as xs:string, $changingUser as xs:string) as map(*) {
 api-problem:trace-info('@plugins_elasticsearch-update@after_created',
           prof:track(
-  if ($data?current?*?entry instance of element(tei:entry)+) then _:write-log(_:sendToElasticasearch(map:for-each($data?current, function($id, $data) {_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data)}))) else ()
+  if ($data?current?*?entry instance of element(tei:entry)+) then _:write-log(_:sendToElasticasearch(map:for-each($data?current, function($id, $data) {_:createNDJsonDataHeader($id), _:createNDJsonDataBody($data?entry)}))) else ()
 ))
 };
 
