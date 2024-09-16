@@ -671,6 +671,153 @@ paths:
           description: Not Acceptable
         '422':
           description: You don't own the lock for the entry to delete
+  '/dicts/{dict_name}/files':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary."
+    get:
+      tags:
+        - files
+      description: "Get a list of files."
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+    post:
+      tags:
+        - files
+      description: 'Upload a new file. Replaces a file with the same name'
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/files'
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Client Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '406':
+          description: Not Acceptable
+        '415':
+          description: Unsupported Media Type
+        '422':
+          description: Unprocessable Entity
+#    delete:
+#      tags:
+#        - files
+#      description: Warnung! Dangerous! Deletes every entry except the system entries < 699 from the dictionary.
+#      produces:
+#        - application/vnd.wde.v2+json
+#        - application/hal+json
+#        - application/json
+#      responses:
+#        '204':
+#          description: No Content
+#        '401':
+#          description: Unauthorized
+#        '403':
+#          description: Forbidden
+#        '406':
+#          description: Not Acceptable
+#        '415':
+#          description: Unsupported Media Type
+#   patch:
+#     tags:
+#       - files
+#     description: Create a set of Entries or change them in bulk (e. g. lock or unlock many entries).
+#     parameters:
+#       - in: body
+#         name: body
+#         required: true
+#         schema:
+#           $ref: '#/definitions/entries'
+#     produces:
+#       - application/vnd.wde.v2+json
+#       - application/hal+json
+#       - application/json
+#     responses:
+#       '200':
+#         description: OK
+#       '400':
+#         description: Client Error
+#       '401':
+#         description: Unauthorized
+#       '403':
+#         description: Forbidden
+#       '406':
+#         description: Not Acceptable
+#       '415':
+#         description: Unsupported Media Type
+#       '422':
+#         description: Unprocessable Entity
+  '/dicts/{dict_name}/files/{file_name}':
+    parameters:
+     - name: dict_name
+       in: path
+       required: true
+       type: string
+       description: "Name of an existing dictionary."
+    get:
+      tags:
+        - files
+      description: Get an entry and (TODO) lock it for writing if the user has the right to do this.
+      parameters:
+        - in: path
+          name: file_name
+          description: URL parameter file_name
+          type: string
+          required: true
+          minimum: 1
+          maximum: 1
+        - in: query
+          name: lock
+          description: Whether to lock the entry for editing it and how long in seconds.
+                       For true the maximum duration allowed by the server is used.
+          type: string
+          pattern: ($|\d+|true)
+          allowEmptyValue: true
+          required: false
+          minimum: 0
+          maximum: 1 
+      produces:
+        - application/vnd.wde.v2+json
+        - application/hal+json
+        - application/json
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '406':
+          description: Not Acceptable
   '/dicts/{dict_name}/users':
     parameters:
      - name: dict_name
@@ -894,6 +1041,15 @@ definitions:
       locked: The user that currently edits the entry.
       type: 'Type of the entry. For quickly limiting searches. E. g. lemma, example, multi_word_unit.'
       entry: The entry in the dictionary. A TEI XML snippet (or a whole document).
+  files:
+    properties: 
+      filename:
+        type: string
+      content:
+        type: string
+    required:
+      - filename
+      - content        
   users:
     type: object
     properties:
