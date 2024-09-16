@@ -1,0 +1,86 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+   <teiHeader xmlns="http://www.tei-c.org/ns/1.0" xml:id="dictHeader">
+      <fileDesc>
+         <titleStmt>
+            <title type="full">{{fileTitle}}</title>
+            <title type="abbr">{{fileAbbr}}</title>
+            <author>{{fileAuthor}}</author>
+         </titleStmt>
+         <editionStmt>
+            <edition>1.0 (Alpha)</edition>
+         </editionStmt>
+         <publicationStmt>
+            <publisher>2011</publisher>
+            <pubPlace>Vienna</pubPlace>
+            <date/>
+            <availability status="restricted">
+               <p>
+                  <ref type="license" target="http://creativecommons.org/licenses/by-nc-sa/3.0/"/>
+               </p>
+            </availability>
+         </publicationStmt>
+      </fileDesc>
+      <profileDesc>
+         <langUsage>
+            <language role="targetLanguage" ident="fa-Arab"/>
+         </langUsage>
+      </profileDesc>
+   </teiHeader>
+   <text>
+      <body>
+         <div type="entries">
+            <entry xml:id="{{xmlIDentry1}}" xml:lang="en" type="mainEntry">
+               <form type="lemma">
+                  <orth xml:lang="fa-Arab">{{formFaArab}}</orth>
+                  <orth xml:lang="fa-x-modDMG">{{formFaXModDMG}}</orth>
+               </form>
+
+               <gramGrp>
+                  <gram type="pos">{{pos}}</gram>
+               </gramGrp>
+
+               <sense xml:id="sense-1">
+                  <cit type="translation" xml:lang="en">
+                     <quote>{{translation_en}}</quote>
+                  </cit>
+
+                  <cit type="translation" xml:lang="de">
+                     <quote>{{translation_de}}</quote>
+                  </cit>
+               </sense>
+            </entry>
+            <entry xml:id="{{xmlIDentry2}}" xml:lang="en" type="mainEntry">
+               <form type="lemma">
+                  <orth xml:lang="fa-Arab">{{formFaArab2}}</orth>
+                  <orth xml:lang="fa-x-modDMG">{{formFaXModDMG2}}</orth>
+               </form>
+
+               <gramGrp>
+                  <gram type="pos">{{pos}}</gram>
+               </gramGrp>
+
+               <sense xml:id="sense-1">
+                  <cit type="translation" xml:lang="en">
+                     <quote>{{translation_en2}}</quote>
+                  </cit>
+
+                  <cit type="translation" xml:lang="de">
+                     <quote>{{translation_de2}}</quote>
+                  </cit>
+               </sense>
+            </entry>
+         </div>
+         <div type="examples">
+            <cit xml:id="{{xmlIDcit2}}" type="example">
+               <quote xml:lang="ar-acm-x-shawi-vicav">{{formFaXModDMG3}}</quote>
+               <cit type="translation" xml:lang="en">
+                  <quote>{{translation_en3}}</quote>
+               </cit>
+               <cit type="translation" xml:lang="de">
+                  <quote>{{translation_de3}}</quote>
+               </cit>
+            </cit>
+         </div>
+      </body>
+   </text>
+</TEI>
