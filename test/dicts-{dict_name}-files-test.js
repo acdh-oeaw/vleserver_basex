@@ -1,7 +1,6 @@
 "use strict";
 const mocha = require("mocha");
 const chakram = require("chakram");
-const assert = require("chai").assert;
 const request = chakram.request;
 const expect = chakram.expect;
 const fs = require("fs");
@@ -10,7 +9,7 @@ const Handlebars = require("handlebars");
 require("./utilSetup");
 
 module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
-  describe("tests for /dicts/{dict_name}/files", function() {
+  describe("tests for /dicts/{dict_name}/files", function () {
     var superuser = {
         id: "",
         userID: basexAdminUser,
@@ -140,8 +139,8 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
       });
     });
 
-    describe("tests for get", function() {
-      it('should respond 200 for "OK"', async function() {
+    describe("tests for get", function () {
+      it('should respond 200 for "OK"', async function () {
         var response = await request(
           "get",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -152,10 +151,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(200);
-        
+        await chakram.wait();
       });
 
-      it('should respond 401 for "Unauthorized"', async () => {
+      it('should respond 401 for "Unauthorized"', async function () {
         var response = await request(
           "get",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -166,10 +165,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(401);
-        
+        await chakram.wait();
       });
 
-      it('should respond 403 for "Forbidden"', async () => {
+      it('should respond 403 for "Forbidden"', async function () {
         var response = await request(
           "get",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -180,10 +179,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(403);
-        
+        await chakram.wait();
       });
 
-      it('should respond 406 for "Not Acceptable"', async () => {
+      it('should respond 406 for "Not Acceptable"', async function () {
         var response = await request(
           "get",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -194,10 +193,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(406);
-        
+        await chakram.wait();
       });
 
-      it('should respond 415 for "Unsupported Media Type"', async () => {
+      it('should respond 415 for "Unsupported Media Type"', async function () {
         var response = await request(
           "get",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -208,12 +207,12 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(415);
-        
+        await chakram.wait();
       });
     });
 
-    describe("tests for post", function() {
-      it('should respond 201 for "Created"', async () => {
+    describe("tests for post", () => {
+      it('should respond 201 for "Created"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -228,10 +227,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(201);
-        
+        await chakram.wait();
       });
 
-      it('should respond 400 for "Client Error"', async () => {
+      it('should respond 400 for "Client Error"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -246,10 +245,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(400);
-        
+        await chakram.wait();
       });
 
-      it('should respond 401 for "Unauthorized"', async () => {
+      it('should respond 401 for "Unauthorized"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -261,10 +260,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(401);
-        
+        await chakram.wait();
       });
 
-      it('should respond 403 for "Forbidden"', async () => {
+      it('should respond 403 for "Forbidden"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -279,10 +278,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(403);
-        
+        await chakram.wait();
       });
 
-      it('should respond 406 for "Not Acceptable"', async () => {
+      it('should respond 406 for "Not Acceptable"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -297,10 +296,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(406);
-        
+        await chakram.wait();
       });
 
-      it('should respond 415 for "Unsupported Media Type"', async () => {
+      it('should respond 415 for "Unsupported Media Type"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -315,10 +314,10 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(415);
-        
+        await chakram.wait();
       });
 
-      it('should respond 422 for "Unprocessable Entity"', async () => {
+      it('should respond 422 for "Unprocessable Entity"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -333,7 +332,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(422);
-        
+        await chakram.wait();
       });
     });
 

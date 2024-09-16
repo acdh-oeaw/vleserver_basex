@@ -1,7 +1,6 @@
 "use strict";
 const mocha = require("mocha");
 const chakram = require("chakram");
-const assert = require("chai").assert;
 const request = chakram.request;
 const expect = chakram.expect;
 const fs = require("fs");
@@ -48,7 +47,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(200);
-        
+        await chakram.wait();
       });
 
       it('should respond 401 for "Unauthorized"', async () => {
@@ -63,7 +62,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(401);
-        
+        await chakram.wait();
       });
 
       it('should respond 403 for "Forbidden"', async () => {
@@ -78,7 +77,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(403);
-        
+        await chakram.wait();
       });
 
       it('should respond 404 for "Not Found"', async () => {
@@ -93,7 +92,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(404);
-        
+        await chakram.wait();
       });
 
       it('should respond 406 for "Not Acceptable"', async () => {
@@ -108,7 +107,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         );
 
         expect(response).to.have.status(406);
-        
+        await chakram.wait();
       });
     });
   });
