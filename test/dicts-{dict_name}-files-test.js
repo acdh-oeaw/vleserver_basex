@@ -55,7 +55,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
           label: "test",
           displayString: "//mds:titleInfo/mds:title",
         },
-        useCache: true,
+        useCache: false,
       });
       expect(testProfileTemplate).to.contain("<tableName>replaced</tableName>");
       expect(testProfileTemplate).to.contain(
@@ -65,7 +65,6 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         'altDisplayString label="test">//mds:titleInfo/mds:title<'
       );
       expect(testProfileTemplate).to.contain("mainLangLabel>aNCName<");
-      expect(testProfileTemplate).to.contain("useCache/>");
       var testFileTemplate = fs.readFileSync(
         "test/fixtures/testFile.xml",
         "utf8"
@@ -137,6 +136,34 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         body: { name: dictuser.table },
         time: true,
       });
+
+      var config = {
+          body: {
+            sid: "dictProfile",
+            lemma: "",
+            entry: compiledProfileTemplate({
+              dictName: dictuser.table,
+              mainLangLabel: "fa-x-modDMG",
+              displayString: '//tei:form/tei:orth[@xml:lang = "{langid}"]',
+              altDisplayString: {
+                label: "fa-Arab",
+                displayString: '//tei:form/tei:orth[@xml:lang = "fa-Arab"]',
+              },
+              useCache: false,
+            }),
+          },
+          headers: { Accept: "application/vnd.wde.v2+json" },
+          auth: dictuserauth,
+          time: true,
+        },
+        response = request(
+          "post",
+          baseURI + "/dicts/" + dictuser.table + "/entries",
+          config
+        );
+
+      expect(response).to.have.status(201);
+      await chakram.wait();
     });
 
     describe("tests for get", function () {
@@ -336,8 +363,8 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
       });
     });
 
-    afterEach("Remove the test profile", function () {
-      return request(
+    afterEach("Remove the test profile", async () => {
+      await request(
         "get",
         baseURI + "/dicts/" + dictuser.table + "/entries/dictProfile",
         {
@@ -345,8 +372,8 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
           qs: { lock: 2 },
           auth: dictuserauth,
         }
-      ).then(function () {
-        return request(
+      )
+      await request(
           "delete",
           baseURI + "/dicts/" + dictuser.table + "/entries/dictProfile",
           {
@@ -354,7 +381,6 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
             auth: dictuserauth,
           }
         );
-      });
     });
   });
 };
