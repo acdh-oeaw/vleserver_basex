@@ -26,8 +26,13 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
             $ret := apply($api-function, $parameters)
         return if ($ret instance of element(rfc7807:problem)) then _:return_problem($start-time-ns, $ret,$header-elements)
         else        
-          (web:response-header(map {'method': 'json'}, $header-elements, map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
-          _:inject-runtime($start-time-ns, $ret)
+          (web:response-header(
+             if (exists($header-elements) and ($header-elements('Content-Type') = 'application/xml')) 
+             then map {'method': 'xml'} 
+             else map {'method': 'json'},
+             $header-elements,
+             map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
+           _:inject-runtime($start-time-ns, $ret)
           )
     } catch * {
         let $status-code := if (namespace-uri-from-QName($err:code) eq 'https://tools.ietf.org/html/rfc7231#section-6') then
@@ -48,7 +53,7 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
     }
 };
 
-declare function _:return_problem($start-time-ns as xs:integer, $problem as element(rfc7807:problem), $header-elements as map(xs:string, xs:string)?) as item()+ {
+declare function _:return_problem($start-time-ns as xs:integer, $problem as element(rfc7807:problem),  $header-elements as map(xs:string, xs:string)?) as item()+ {
 let $accept-header := try { req:header("ACCEPT") } catch basex:http { 'application/problem+xml' },
     $header-elements := map:merge(($header-elements, map{'Content-Type': if (matches($accept-header, '[+/]json')) then 'application/problem+json' else if (matches($accept-header, 'application/xhtml\+xml')) then 'application/xml' else 'application/problem+xml'})),
     $error-status := if ($problem/rfc7807:status castable as xs:integer) then xs:integer($problem/rfc7807:status) else 400
