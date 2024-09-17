@@ -34,10 +34,10 @@ declare %updating function _:_remove_expired_locks($db as document-node()) {
 
 declare function _:get_user_locking_entry($db-base-name as xs:string, $id as xs:string) as xs:string? {
   let $lcks-db-name := $db-base-name||'__lcks',
-      $log := _:write-log(``[looking for "`{$id}`" in "`{$lcks-db-name}`"]``, 'DEBUG'),
+      (: $log := _:write-log(``[looking for "`{$id}`" in "`{$lcks-db-name}`"]``, 'DEBUG'), :)
       $ret := xs:string(util:eval(``[try {collection("`{$lcks-db-name}`")//lock[@id = "`{$id}`" and xs:dateTime(@dt) > current-dateTime()][last()]/@user/data()}
                            catch err:FODC0002 {()}]``, (), 'get_user_locking_entry'))
-    , $retLog := _:write-log(``[returned "`{$ret}`"]``, 'DEBUG')
+    (: , $retLog := _:write-log(``[returned "`{$ret}`"]``, 'DEBUG') :)
   return $ret
 };
 
@@ -46,6 +46,16 @@ declare function _:get_user_locking_entries($db-base-name as xs:string, $ids as 
       $ids_seq := ``[("`{string-join($ids, '","')}`")]``,
       (: $log := _:write-log(``[looking for `{$ids_seq}` in "`{$lcks-db-name}`"]``, 'DEBUG'), :)
       $locks := util:eval(``[try {collection("`{$lcks-db-name}`")//lock[@id = `{$ids_seq}` and xs:dateTime(@dt) > current-dateTime()]}
+                           catch err:FODC0002 {()}]``, (), 'get_user_locking_entry'),
+      (: $retLog := _:write-log(``[returned `{$locks}`]``, 'DEBUG'), :)
+      $ret := map:merge($locks!map { data(./@id): data(./@user)})
+  return $ret
+};
+
+declare function _:get_user_locking_entries($db-base-name as xs:string) as map(*) {
+  let $lcks-db-name := $db-base-name||'__lcks',
+      (: $log := _:write-log(``[looking for `{$ids_seq}` in "`{$lcks-db-name}`"]``, 'DEBUG'), :)
+      $locks := util:eval(``[try {collection("`{$lcks-db-name}`")//lock[xs:dateTime(@dt) > current-dateTime()]}
                            catch err:FODC0002 {()}]``, (), 'get_user_locking_entry'),
       (: $retLog := _:write-log(``[returned `{$locks}`]``, 'DEBUG'), :)
       $ret := map:merge($locks!map { data(./@id): data(./@user)})
