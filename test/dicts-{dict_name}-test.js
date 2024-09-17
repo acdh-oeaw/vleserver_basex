@@ -1,7 +1,6 @@
 'use strict';
 const mocha = require('mocha');
 const chakram = require('chakram');
-const assert = require('chai').assert;
 const request = chakram.request;
 const expect = chakram.expect;
 const fs = require('fs');
