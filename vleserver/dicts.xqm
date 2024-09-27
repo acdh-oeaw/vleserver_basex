@@ -11,6 +11,7 @@ import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
+import module namespace users = 'https://www.oeaw.ac.at/acdh/tools/vle/users' at 'users.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'data/cache.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
@@ -94,7 +95,7 @@ function _:createDict($data, $content-type as xs:string, $wanted-response as xs:
         else error(xs:QName('response-codes:_422'),
          'User directory does not exist',
          'You need to create the special dict_users first')
-      return (_:check_global_super_user(),
+      return (users:check_global_super_user(),
           util:eval(``[declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 if (db:exists("`{$data/json/name}`__prof")) then
   error(xs:QName('response-codes:_409'),
@@ -110,17 +111,6 @@ else
           <title>{$api-problem:codes_to_message(201)}</title>
           <status>201</status>
         </problem>, cors:header(())))
-};
-
-declare function _:check_global_super_user() as empty-sequence() {
-  util:eval(``[ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
-  let $name_pw := tokenize("`{util:basic-auth-decode(request:header('Authorization', ''))}`", ':'),
-      $user_tag := try { collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2]) and 
-                                                       @type="su" and @dict = "dict_users"] }
-                   catch err:FODC0002 { (: Until dict_users is created everyone is superuser :) true() }          
-      return if (exists($user_tag)) then () else
-        error(xs:QName('response-codes:_403'),
-                       'Only global super users may create dictionaries.') ]``, (), 'check-global-super-user')
 };
 
 (:~
@@ -153,7 +143,8 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
     <queryTemplates type="array">{map:keys($query-templates)!<_>{.}</_>}</queryTemplates>,
     <dbNames type="array">{$db-names!<_>{.}</_>}</dbNames>,
     if ($entries-are-cached) then <cache>{$entries-are-cached}</cache> else ())),
-    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
+    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>),
+    json-hal:create_document(xs:anyURI(util:uri()||'/files'), <note>all files that make up this dictionary</note>)], 2, 2, 1], cors:header(()))
   else
   error(xs:QName('response-codes:_404'),
                  $api-problem:codes_to_message(404))
@@ -314,7 +305,7 @@ function _:restoreDict($data, $content-type as xs:string, $wanted-response as xs
         else error(xs:QName('response-codes:_422'),
          'User directory does not exist',
          'You need to create the special dict_users first')
-      return (_:check_global_super_user(),
+      return (users:check_global_super_user(),
           util:eval(``[db:restore("`{$data/json/name}`__prof")]``, (), 'try-restore-dict_profile', true()),
           let $profile := profile:get($data/json/name),
               $restoreScripts := (profile:get-list-of-data-dbs-and-backups($profile)!
