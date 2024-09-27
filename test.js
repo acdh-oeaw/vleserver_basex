@@ -19,6 +19,6 @@ describe('WDE REST API', function() {
     describe('Dictionary data creation with schematron', require('./test/dicts-{dict_name}-entries-test-with-schematron').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary data creation with additional schematron schema', require('./test/dicts-{dict_name}-entries-test-with-additional-schema').curry(baseURI, basexAdminUser, basexAdminPW));
     describe('Dictionary data usage', require('./test/dicts-{dict_name}-entries-{entries_id}-test').curry(baseURI, basexAdminUser, basexAdminPW));
-    xdescribe('Dictionary file listing and upload', require('./test/dicts-{dict_name}-files-test').curry(baseURI, basexAdminUser, basexAdminPW));
+    describe('Dictionary file listing and upload', require('./test/dicts-{dict_name}-files-test').curry(baseURI, basexAdminUser, basexAdminPW));
     xdescribe('Dictionary file download and locking', require('./test/dicts-{dict_name}-files-{file_name}-test').curry(baseURI, basexAdminUser, basexAdminPW));
 });

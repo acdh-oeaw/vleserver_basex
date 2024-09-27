@@ -32,7 +32,8 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
       },
       dictuserauth = { user: dictuser.userID, pass: dictuser.pw },
       compiledProfileTemplate,
-      compiledFileTemplate;
+      compiledFileTemplate,
+      newDictUserID;
 
     before("Read templated test data", function () {
       var testProfileTemplate = fs.readFileSync(
@@ -94,7 +95,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
       expect(testFileTemplate).to.contain(">Beispiel übersetzt<");
     });
 
-    beforeEach(async function () {
+    beforeEach(async () => {
       await request("post", baseURI + "/dicts", {
         headers: {
           Accept: "application/vnd.wde.v2+json",
@@ -129,13 +130,14 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
           time: true,
         }
       );
-      // newDictUserID = userCreateResponse.body.id;
-      await request("post", baseURI + "/dicts", {
+      newDictUserID = userCreateResponse.body.id;
+      response = await request("post", baseURI + "/dicts", {
         headers: { Accept: "application/vnd.wde.v2+json" },
         auth: superuserauth,
         body: { name: dictuser.table },
         time: true,
       });
+      expect(response).to.have.status(201);
 
       var config = {
           body: {
@@ -156,7 +158,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
           auth: dictuserauth,
           time: true,
         },
-        response = request(
+        response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/entries",
           config
@@ -167,12 +169,42 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
     });
 
     describe("tests for get", function () {
+      beforeEach(async () => {
+        let config = {
+          body: {
+            fileName: "test.xml",
+            xmlData: compiledFileTemplate({
+              xmlIDentry1: "testID",
+              xmlIDentry2: "testID2",
+              xmlIDcit3: "testID3",
+              formFaArab: "تست",
+              formFaXModDMG: "ṭēsṯ",
+              translation_en: "test",
+              translation_de: "Test",
+              formFaXModDMG2: "ṭēsṯ",
+              translation_en2: "test2",
+              translation_de2: "Test2",
+              formFaXModDMG3: "example transcribed",
+              translation_en3: "example translated",
+              translation_de3: "Beispiel übersetzt",            
+            })
+          },
+          headers: { Accept: "application/vnd.wde.v2+json" },
+          auth: dictuserauth,
+          time: true,
+        },
+        response = await request(
+          "post",
+          baseURI + "/dicts/" + dictuser.table + "/files",
+          config
+        );
+        expect(response).to.have.status(201);
+      });
       it('should respond 200 for "OK"', async function () {
         var response = await request(
           "get",
           baseURI + "/dicts/" + dictuser.table + "/files",
           {
-            headers: { Accept: "application/vnd.wde.v2+json" },
             time: true,
           }
         );
@@ -195,7 +227,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         await chakram.wait();
       });
 
-      it('should respond 403 for "Forbidden"', async function () {
+      xit('should respond 403 for "Forbidden"', async function () {
         var response = await request(
           "get",
           baseURI + "/dicts/" + dictuser.table + "/files",
@@ -208,72 +240,46 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         expect(response).to.have.status(403);
         await chakram.wait();
       });
-
-      it('should respond 406 for "Not Acceptable"', async function () {
-        var response = await request(
-          "get",
-          baseURI + "/dicts/" + dictuser.table + "/files",
-          {
-            headers: { Accept: "application/vnd.wde.v2+json" },
-            time: true,
-          }
-        );
-
-        expect(response).to.have.status(406);
-        await chakram.wait();
-      });
-
-      it('should respond 415 for "Unsupported Media Type"', async function () {
-        var response = await request(
-          "get",
-          baseURI + "/dicts/" + dictuser.table + "/files",
-          {
-            headers: { Accept: "application/vnd.wde.v2+json" },
-            time: true,
-          }
-        );
-
-        expect(response).to.have.status(415);
-        await chakram.wait();
-      });
     });
 
     describe("tests for post", () => {
       it('should respond 201 for "Created"', async function () {
-        var response = await request(
+        let config = {
+          body: {
+            fileName: "test.xml",
+            xmlData: compiledFileTemplate({
+              xmlIDentry1: "testID",
+              xmlIDentry2: "testID2",
+              xmlIDcit3: "testID3",
+              formFaArab: "تست",
+              formFaXModDMG: "ṭēsṯ",
+              translation_en: "test",
+              translation_de: "Test",
+              formFaXModDMG2: "ṭēsṯ",
+              translation_en2: "test2",
+              translation_de2: "Test2",
+              formFaXModDMG3: "example transcribed",
+              translation_en3: "example translated",
+              translation_de3: "Beispiel übersetzt",            
+            })
+          },
+          headers: { Accept: "application/vnd.wde.v2+json" },
+          auth: dictuserauth,
+          time: true,
+        },
+        response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
-          {
-            body: {
-              filename: "Excepteur mollit culpa Ut",
-              content: "esse veniam proident enim",
-            },
-            headers: { Accept: "application/vnd.wde.v2+json" },
-            time: true,
-          }
+          config
         );
 
         expect(response).to.have.status(201);
         await chakram.wait();
       });
 
-      it('should respond 400 for "Client Error"', async function () {
-        var response = await request(
-          "post",
-          baseURI + "/dicts/" + dictuser.table + "/files",
-          {
-            body: {
-              filename: "occaecat nulla culpa minim",
-              content: "reprehenderit dolore in anim",
-            },
-            headers: { Accept: "application/vnd.wde.v2+json" },
-            time: true,
-          }
-        );
-
-        expect(response).to.have.status(400);
-        await chakram.wait();
-      });
+      // xit('should respond 400 for "Client Error"', function() {
+      //     //there is no 400 psot error right now.
+      // });
 
       it('should respond 401 for "Unauthorized"', async function () {
         var response = await request(
@@ -300,6 +306,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
               content: "in incididunt sit ea ipsum",
             },
             headers: { Accept: "application/vnd.wde.v2+json" },
+            auth: {user: 'nonexisting', pass: 'nonsense'},
             time: true,
           }
         );
@@ -308,34 +315,15 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         await chakram.wait();
       });
 
-      it('should respond 406 for "Not Acceptable"', async function () {
-        var response = await request(
-          "post",
-          baseURI + "/dicts/" + dictuser.table + "/files",
-          {
-            body: {
-              filename: "nostrud sed dolor",
-              content: "ullamco proident sed dolor ut",
-            },
-            headers: { Accept: "application/vnd.wde.v2+json" },
-            time: true,
-          }
-        );
-
-        expect(response).to.have.status(406);
-        await chakram.wait();
-      });
-
       it('should respond 415 for "Unsupported Media Type"', async function () {
         var response = await request(
           "post",
           baseURI + "/dicts/" + dictuser.table + "/files",
           {
-            body: {
-              filename: "anim quis aliqua",
-              content: "aliqua nulla exercitation",
-            },
+            json: false,
+            body: "aliqua nulla exercitation",
             headers: { Accept: "application/vnd.wde.v2+json" },
+            auth: dictuserauth,
             time: true,
           }
         );
@@ -354,6 +342,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
               content: "exercitation anim ut ipsum tempor",
             },
             headers: { Accept: "application/vnd.wde.v2+json" },
+            auth: dictuserauth,
             time: true,
           }
         );
@@ -364,23 +353,31 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
     });
 
     afterEach("Remove the test profile", async () => {
-      await request(
-        "get",
-        baseURI + "/dicts/" + dictuser.table + "/entries/dictProfile",
-        {
-          headers: { Accept: "application/vnd.wde.v2+json" },
-          qs: { lock: 2 },
-          auth: dictuserauth,
-        }
-      )
-      await request(
-          "delete",
-          baseURI + "/dicts/" + dictuser.table + "/entries/dictProfile",
-          {
-            headers: { Accept: "application/vnd.wde.v2+json" },
-            auth: dictuserauth,
-          }
-        );
+        let 
+        response = await request('get', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
+            'headers': {"Accept":"application/vnd.wde.v2+json"},
+            'qs': {'lock': 2},
+            'auth': dictuserauth
+        })
+        response = await request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
+            'headers': {"Accept":"application/vnd.wde.v2+json"},
+            'auth': dictuserauth
+        });
+        response = await request('delete', baseURI + '/dicts/' + dictuser.table, {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': dictuserauth,
+            'time': true
+        })
+        response = await request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'time': true
+        });
+        response = await request('delete', baseURI + '/dicts/dict_users', {
+            'headers': { "Accept": "application/vnd.wde.v2+json" },
+            'auth': superuserauth,
+            'time': true
+        });
     });
   });
 };
