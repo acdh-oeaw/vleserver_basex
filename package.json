@@ -2,6 +2,12 @@
   "name": "vleserver_basex",
   "version": "1.0.0",
   "description": "Server part of VLE for BaseX",
+  "engines": {
+    "node": "20.x",
+    "pnpm": "8.x",
+    "basex": "9.3.3",
+    "saxon": "12.5"
+  },
   "main": "test.js",
   "scripts": {
     "test": "mocha test.js"
@@ -18,13 +24,14 @@
   "homepage": "https://github.com/acdh-oeaw/vleserver_basex#readme",
   "dependencies": {
     "chakram": "^1.5.0",
-    "mocha": "^9.1.4"
+    "mocha": "^9.2.2"
   },
   "devDependencies": {
-    "handlebars": "^4.1.2"
+    "handlebars": "^4.7.8"
   },
   "basex": {
-      "parallel": "128",
-      "gzip": "true"
-  }
+    "parallel": "128",
+    "gzip": "true"
+  },
+  "packageManager": "pnpm@8.15.9+sha512.499434c9d8fdd1a2794ebf4552b3b25c0a633abcee5bb15e7b5de90f32f47b513aca98cd5cfd001c31f0db454bc3804edccd578501e4ca293a6816166bbd9f81"
 }
