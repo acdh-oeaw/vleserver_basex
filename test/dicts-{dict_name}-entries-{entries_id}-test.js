@@ -203,8 +203,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });
@@ -698,8 +698,8 @@ describe('tests for /dicts/{dict_name}/entries/{entries_id}', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });
