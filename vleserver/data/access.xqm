@@ -270,7 +270,7 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, 
 
 declare function _:create_new_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) as map(xs:string, map(xs:string, map(xs:string, item()?))) {
   let $ids_seq := ``[("`{string-join(map:keys($data), '","')}`")]``,
-      $dict-is-db := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
+      $dict-is-db := util:eval(``[db:exists("`{$dict}`")]``, (), 'create-new-entries-db-exists'),
       $dataType := distinct-values(for $entry in $data?*?entry return types:get_data_type($entry)),
       $dicts := if ($dataType = 'profile') then $dict||'__prof'      
                 else if ($dict-is-db) then $dict
@@ -314,6 +314,24 @@ return map {'current':$script_ret}
                                             'db_name': $target-collection}},
                                 '$id': ...}
 :)
+
+declare function _:create_new_file($data as map(xs:string, item()?), $dict as xs:string, $changingUser as xs:string) as map(xs:string, map(xs:string, map(xs:string, item()?))) {
+  let $dataTypes := distinct-values(for $entry in $data?xmlData//(*:entry, *:cit) return types:get_data_type($entry)),
+      $target-collection := _:get-collection-name-for-insert-data($dict, $dataTypes[1]),
+      $add-file-todb-script := ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+            declare variable $data external;
+            (db:replace("`{$target-collection}`", $data?fileName, $data?xmlData),
+            db:optimize("`{$target-collection}`"),
+            update:output(map:merge(for $id as xs:string in $data('xmlData')//(*:entry, *:cit)/@xml:id!xs:string(.)
+              return map {$id: map:merge((map{'db_name': "`{$target-collection}`"}, map{'entry': $data?xmlData//(*:entry, *:cit)[@xml:id = $id]}))})))
+          ]``,
+        $log := _:write-log('acc:add-file-todb $add-entry-todb-script := '||$add-file-todb-script||' $data := '||serialize($data, map{'method': 'basex'}), 'DEBUG'),
+      $script_ret := util:eval($add-file-todb-script, map {
+            'data': $data
+          }, 'add-file-todb', true())
+    , $log := _:write-log('acc:add-file-todb $script_ret := '||serialize($script_ret, map{'method': 'basex'}), 'DEBUG')
+return map {'current':$script_ret}
+};
 
 declare %private function _:add-change-records($id as xs:string, $data as map(*), $oldData as map(*), $dataType as xs:string, $changingUser as xs:string) {
   map {$id: if ($dataType = 'profile') then map:merge((map{ 'entry': $data?entry transform with { chg:add-change-record-to-profile(.) }}, $data))
