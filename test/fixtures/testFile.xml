@@ -71,7 +71,7 @@
             </entry>
          </div>
          <div type="examples">
-            <cit xml:id="{{xmlIDcit2}}" type="example">
+            <cit xml:id="{{xmlIDcit3}}" type="example">
                <quote xml:lang="ar-acm-x-shawi-vicav">{{formFaXModDMG3}}</quote>
                <cit type="translation" xml:lang="en">
                   <quote>{{translation_en3}}</quote>
