@@ -4,7 +4,7 @@
   "description": "Server part of VLE for BaseX",
   "engines": {
     "node": "20.x",
-    "pnpm": "8.x",
+    "npm": "10.x",
     "basex": "9.3.3",
     "saxon": "12.5"
   },
