@@ -122,6 +122,18 @@ return map:merge((for $altDisplayString in $profile//altDisplayString
   return map{xs:string($altDisplayString/@label): _:template-to-template-string-transformation($altDisplayString, $langId)}))
 };
 
+declare function _:get-special-characters($profile as document-node()) as element(specialCharacters)? {
+  $profile//specialCharacters update {
+    insert node attribute {"type"} {"array"} as first into .,
+    for $char in ./char return replace node $char with
+    <_ type="object">{
+      $char/* update {
+        if (.[self::text and ./*]) then replace value of node . with serialize(./*) else ()
+      }
+    }</_>
+  }  
+};
+
 declare function _:get-query-templates($profile as document-node()) as map(xs:string, xs:string) {
   let $queryTemplates := $profile//queryTemplates/queryTemplate
   return map:merge($queryTemplates!map{xs:string(./@label): xs:string(_:template-to-template-string-transformation(./text(), ''))})
