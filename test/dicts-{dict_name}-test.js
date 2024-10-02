@@ -92,7 +92,7 @@ describe('tests for /dicts/{dict_name}', function() {
         });
         describe('should respond 200 for "OK', async function() {
             it('when authenticated', async function() {
-                var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', {
+                var response = await request('get', baseURI + '/dicts/deseruntsitsuntproident', {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
                     'time': true
@@ -107,7 +107,7 @@ describe('tests for /dicts/{dict_name}', function() {
                     expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
                     expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
                 });
-                return chakram.wait();
+                await chakram.wait();
             });
 
             it('when unauthenticated (public)', async function() {
