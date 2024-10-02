@@ -155,10 +155,13 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
 declare function _:get_list_of_dict_characters($dict_name as xs:string) as element(specialCharacters) {
   let $profile := profile:get($dict_name),
       $specialCharacters := profile:get-special-characters($profile)
-  return if (exists($specialCharacters)) then $specialCharacters else 
+  return if (exists($specialCharacters)) then $specialCharacters else
   <specialCharacters type="array">{
+    try {
     for $c in sort(distinct-values(collection($dict_name)//text()[normalize-space() ne '']!u:chars(normalize-unicode(.,'NFC')))[not(matches(., '[-/()\[\]0-9a-zA-z<>,.;:+*?!~%=#"&apos;]|\s'))]) return
     <_ type="object"><value>{$c}</value></_>
+    } catch db:* | err:FODC0002 {
+    }
   }</specialCharacters> 
 };
 
