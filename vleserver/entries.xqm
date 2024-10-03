@@ -94,10 +94,11 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
          'Dictionary '||$dict_name||' does not exist'),
       $profile := profile:get($dict_name),
       $query-templates := profile:get-query-templates($profile),
+      $query-template-names := array:for-each($query-templates, function($e) {map:keys($e)})?*,
       $query-template-name := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$1'),
       $query-value := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$2'),
       $check_authenticated_for_q_sort_xquery := if ((
-        (exists($q) and not($query-template-name = map:keys($query-templates))) or
+        (exists($q) and not($query-template-name = $query-template-names)) or
         (exists($sort) and not($sort = ("none", "asc", "desc"))))
         and not($accept = 'application/vnd.wde.v2+json'))
       then error(xs:QName('response-codes:_403'), 
@@ -114,7 +115,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
          $api-problem:codes_to_message(403),
          'Locking entries is only allowed if authenticated')
       else true(),
-      $q_is_a_query_template := if (exists($q) and not($query-template-name = map:keys($query-templates))) then
+      $q_is_a_query_template := if (exists($q) and not($query-template-name = $query-template-names)) then
         error(xs:QName('entries:not_implemented'), 'Not yet implemented')
       else true(),
       $additional_ret_query_parameters := map:merge((
@@ -150,7 +151,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $userName := _:getUserNameFromAuthorization($auth_header),
       $total_items := 
           if ($q instance of xs:string) then
-            data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates($query-template-name), $query-value)
+            data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates?*!.($query-template-name), $query-value)
           else if ($ids instance of xs:string) then
             data-access:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
           else if ($id instance of xs:string) then
@@ -168,7 +169,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
-      $query-template := if (empty($query-template-name)) then () else $query-templates($query-template-name),
+      $query-template := if (empty($query-template-name)) then () else $query-templates?*!.($query-template-name),
       $relevant_nodes_or_dryed := if (exists($profile//useCache))
           then _:get-dryed-from-cache($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
           else _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items),

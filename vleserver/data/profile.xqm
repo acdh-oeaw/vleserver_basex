@@ -134,9 +134,9 @@ declare function _:get-special-characters($profile as document-node()) as elemen
   }  
 };
 
-declare function _:get-query-templates($profile as document-node()) as map(xs:string, xs:string) {
+declare function _:get-query-templates($profile as document-node()) as array(map(xs:string, xs:string)) {
   let $queryTemplates := $profile//queryTemplates/queryTemplate
-  return map:merge($queryTemplates!map{xs:string(./@label): xs:string(_:template-to-template-string-transformation(./text(), ''))})
+  return array{$queryTemplates!map{xs:string(./@label): xs:string(_:template-to-template-string-transformation(./text(), ''))}}
 };
 
 declare function _:create-sub-query($noSubstQuery as xs:string) as xs:string {

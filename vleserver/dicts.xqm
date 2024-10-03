@@ -141,7 +141,7 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
         $entries-are-cached := profile:use-cache($profile)
     return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), '__', [
     json-hal:create_document(xs:anyURI(util:uri()||'/entries'), (<note>all entries</note>,
-    <queryTemplates type="array">{map:keys($query-templates)!<_>{.}</_>}</queryTemplates>,
+    <queryTemplates type="array">{array:for-each($query-templates, function($e) {map:keys($e)})?*!<_>{.}</_>}</queryTemplates>,
     _:get_list_of_dict_characters($dict_name),
     <dbNames type="array">{$db-names!<_>{.}</_>}</dbNames>,
     if ($entries-are-cached) then <cache>{$entries-are-cached}</cache> else ())),
