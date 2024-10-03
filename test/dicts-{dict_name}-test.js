@@ -92,7 +92,25 @@ describe('tests for /dicts/{dict_name}', function() {
         });
         describe('should respond 200 for "OK', async function() {
             it('when authenticated', async function() {
-                var response = await request('get', baseURI + '/dicts/deseruntsitsuntproident', {
+                var config = { 
+                    'body': {
+                        "sid": "dictProfile",
+                        "lemma": "",
+                        "entry": compiledProfileTemplate({
+                            'dictName': dictuser.table,
+                            'displayString': '//tei:form/tei:orth[1]',
+                            'useCache': false
+                         })
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                };
+                var response = await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+
+                expect(response).to.have.status(201);
+                
+                response = await request('get', baseURI + '/dicts/' + dictuser.table, {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
                     'time': true
@@ -104,14 +122,15 @@ describe('tests for /dicts/{dict_name}', function() {
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.be.undefined;
                     expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
-                    expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
+                    expect(body._embedded._[0].queryTemplates).to.eql(["tei_all", "tei_lem", "tei_sid", "tei_pos", "tei_tr", "mds_names", "mds_any", "mds_title",]);
+                    expect(body._embedded._[0].specialCharacters).to.eql([{"value": "’"},{"value": "ʔ"},{"value": "ā"},{"value": "ḅ"}]);
                     expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
                 });
                 await chakram.wait();
             });
 
             it('when unauthenticated (public)', async function() {
-                var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', {
+                var response = await request('get', baseURI + '/dicts/deseruntsitsuntproident', {
                     'time': true
                 });
 
@@ -122,9 +141,10 @@ describe('tests for /dicts/{dict_name}', function() {
                     expect(body._embedded._[0].cache).to.be.undefined;
                     expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
                     expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
+                    expect(body._embedded._[0].specialCharacters).to.be.an.instanceof(Array);
                     expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
                 });
-                return chakram.wait();
+                await chakram.wait();
             });
 
             it('should report whether the cache is activated', async function(){
