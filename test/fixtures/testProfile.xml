@@ -63,6 +63,7 @@
 <mainLangLabel>{{mainLangLabel}}</mainLangLabel>
 <displayString>{{displayString}}</displayString>
 {{#if altDisplayString}}<altDisplayString label="{{altDisplayString/label}}">{{altDisplayString/displayString}}</altDisplayString>{{/if}}
+<specialCharacters><char><value>’</value></char><char><value>ʔ</value></char><char><value>ā</value></char><char><value>ḅ</value></char></specialCharacters>
 <entrySchema>
 <grammar xml:id="firstschema" xmlns="http://relaxng.org/ns/structure/1.0"
          xmlns:xlink="http://www.w3.org/1999/xlink"
