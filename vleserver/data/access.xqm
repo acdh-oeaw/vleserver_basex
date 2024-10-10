@@ -52,7 +52,7 @@ let $dicts := _:get-list-of-data-dbs($dict),
 return if (exists($found-in-parts)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
-                           'IDs '||$ids_seq||' not found')
+                           'IDs '||$ids_seq||' not found in '||string-join($dicts, ', ')||'.')
 };
 
 declare function _:get-real-dicts-id-starting-with($dict as xs:string, $id_start as xs:string) as xs:string+ {
