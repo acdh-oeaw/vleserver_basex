@@ -225,13 +225,15 @@ let $extract-sort-values-xquery := ``[`{string-join(_:get-xquery-namespace-decls
 return util:eval($extract-sort-values-xquery, map {'data': $data}, 'cache-update-extract-sort-values', true())
 };
 
-declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string) as xs:string {
+declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string, $referencedEntries as element(_)?) as xs:string {
   let $stylesheet := $profile/*/entryStyle/*[xsl:output[@method = $format]],
       $check_there_is_a_stylsheet := if (exists($stylesheet)) then true() else
       error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),
-            'There is no transformation for format '||$format)
-  return xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet, (), map {"cache": false()})
+            'There is no transformation for format '||$format),
+      $referencedEntries := if (exists($referencedEntries)) then $referencedEntries else <_ xmlns=""/>
+  return xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})
+  (: return serialize($profile/*/entryStyle/*[xsl:output[@method = $format]]) :)
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {

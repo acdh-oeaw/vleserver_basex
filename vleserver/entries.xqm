@@ -295,11 +295,11 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
     <owner>{$entry//*:fs[@type='change']/*[@name='owner']/*/@value/data()}</owner> else (),
     if (exists($isLockedBy)) then <locked>{$isLockedBy}</locked> else (),
     if (exists($entry)) then
-      let $entry_as_txt := if (exists($format)) then profile:transform-to-format($profile, $entry, $format) else serialize($entry)
+      let $entry_as_txt := if (exists($format)) then profile:transform-to-format($profile, $entry, $format, $referenced_entries) else serialize($entry)
       return (
       <type>{types:get_data_type($entry)}</type>,
       <entry>{$entry_as_txt}</entry>,
-      if (exists($referenced_entries)) then <referencedEntries type="object">
+      if (exists($referenced_entries) and not(exists($format))) then <referencedEntries type="object">
         {for $entry in $referenced_entries/*
          return element {$entry/@xml:id => replace('_', '__', 'q')} {serialize($entry)}}
       </referencedEntries>,
