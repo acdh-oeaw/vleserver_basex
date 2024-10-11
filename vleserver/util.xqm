@@ -218,7 +218,7 @@ declare function _:get-base-uri-public() as xs:string {
 declare function _:basic-auth-decode($encoded-auth as xs:string) as xs:string {
   (: Mostly ASCII/ISO-8859-1. Can be UTF-8. See https://stackoverflow.com/a/7243567. 
      Postman encodes ISO-8859-1 :)
-  let $base64 as xs:base64Binary := xs:base64Binary(replace($encoded-auth, '^Basic ', ''))
+  let $base64 as xs:base64Binary := xs:base64Binary(replace($encoded-auth, '^Basic ?', ''))
   return try {
     convert:binary-to-string($base64, 'UTF-8')
   } catch convert:string {
