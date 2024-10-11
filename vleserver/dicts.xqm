@@ -96,7 +96,9 @@ function _:createDict($data, $content-type as xs:string, $wanted-response as xs:
         else error(xs:QName('response-codes:_422'),
          'User directory does not exist',
          'You need to create the special dict_users first')
-      return (users:check_global_super_user(),
+      return 
+      try {
+        (users:check_global_super_user(),
           util:eval(``[declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 if (db:exists("`{$data/json/name}`__prof")) then
   error(xs:QName('response-codes:_409'),
@@ -112,6 +114,15 @@ else
           <title>{$api-problem:codes_to_message(201)}</title>
           <status>201</status>
         </problem>, cors:header(())))
+      } catch err:FODC0007 {
+        api-problem:result($start,
+        <problem xmlns="urn:ietf:rfc:7807">
+          <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+          <title>{$api-problem:codes_to_message(400)}</title>
+          <status>400</status>
+          <detail>{$err:description}</detail>
+        </problem>, cors:header(()))  
+      }
 };
 
 (:~
