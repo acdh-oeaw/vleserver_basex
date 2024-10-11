@@ -1,349 +1,403 @@
-'use strict';
-const mocha = require('mocha');
-const chakram = require('chakram');
-const request = chakram.request;
-const expect = chakram.expect;
-const fs = require('fs');
-const Handlebars = require('handlebars');
+import { describe, it, beforeAll, beforeEach, afterEach, expect } from 'vitest';
+import fetch from 'node-fetch-native';
+import fs from 'fs';
+import Handlebars from 'handlebars';
+import { safeJSONParse } from './utilSetup';
 
-module.exports = function(baseURI, basexAdminUser, basexAdminPW) {
-describe('tests for /dicts/{dict_name}', function() {
-    var superuser = {
-        "id": "",
-        "userID": basexAdminUser,
-        "pw": basexAdminPW,
-        "read": "y",
-        "write": "y",
-        "writeown": "n",
-        "table": "dict_users"
-      },
-        superuserauth = { "user": superuser.userID, "pass": superuser.pw },
-        newSuperUserID,
-        compiledProfileTemplate;
-    before(function () {
-        var testProfileTemplate = fs.readFileSync('test/fixtures/testProfile.xml', 'utf8');
-        expect(testProfileTemplate).to.contain("<tableName>{{dictName}}</tableName>");
-        expect(testProfileTemplate).to.contain("<displayString>{{displayString}}</displayString>");
-        compiledProfileTemplate = Handlebars.compile(testProfileTemplate);
-        testProfileTemplate = compiledProfileTemplate({
-            'dictName': 'replaced',
-            'mainLangLabel': 'aNCName',        
-            'displayString': '{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}',
-            'altDisplayString': {
-                'label': 'test',
-                'displayString': '//mds:titleInfo/mds:title'
-            },
-            'useCache': true
-        });
-        expect(testProfileTemplate).to.contain("<tableName>replaced</tableName>");
-        expect(testProfileTemplate).to.contain('displayString>{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}<');
-        expect(testProfileTemplate).to.contain('altDisplayString label="test">//mds:titleInfo/mds:title<');
-        expect(testProfileTemplate).to.contain('mainLangLabel>aNCName<');
-        expect(testProfileTemplate).to.contain('useCache/>');
-    });
-    beforeEach(function () {
-        return request('post', baseURI + '/dicts', {
-            'headers': {"Accept":"application/vnd.wde.v2+json",
-                        "Content-Type":"application/json"},
-            'body': {'name': 'dict_users'},
-            'time': true
-            })
-            .then(function(dictUsersCreated){
-            return request('post', baseURI + '/dicts/dict_users/users', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json",
-                            "Content-Type":"application/json"},
-                'body': superuser,
-                'time': true
-                })
-                .then(function(userCreateResponse) {
-                    newSuperUserID = userCreateResponse.body.id;
-                });
-        });
-    });
-
-    describe('tests for get', function() {
-        var dictuser = {
+export default function(baseURI, basexAdminUser, basexAdminPW) {
+    describe('tests for /dicts/{dict_name}', function() {
+        const superuser = {
             "id": "",
-            "userID": 'testUser0',
-            "pw": 'PassW0rd',
+            "userID": basexAdminUser,
+            "pw": basexAdminPW,
             "read": "y",
             "write": "y",
             "writeown": "n",
-            "table": "deseruntsitsuntproident"
-        },
-            dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
-            newDictUserID;
-        
-        beforeEach('Create test user and test table', async function(){
-            var userCreateResponse = await request('post', baseURI + '/dicts/dict_users/users', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json",
-                            "Content-Type":"application/json"},
-                'auth': superuserauth,
-                'body': dictuser,
-                'time': true
-            });
-            newDictUserID = userCreateResponse.body.id;
-            await request('post', baseURI + '/dicts', {
-                    'headers': {"Accept":"application/vnd.wde.v2+json"},
-                    'auth': superuserauth,
-                    'body': {"name": dictuser.table},
-                    'time': true
-            });
-        });
-        describe('should respond 200 for "OK', async function() {
-            it('when authenticated', async function() {
-                var config = { 
-                    'body': {
-                        "sid": "dictProfile",
-                        "lemma": "",
-                        "entry": compiledProfileTemplate({
-                            'dictName': dictuser.table,
-                            'displayString': '//tei:form/tei:orth[1]',
-                            'useCache': false
-                         })
-                    },
-                    'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'auth': dictuserauth,
-                    'time': true
-                };
-                var response = await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
+            "table": "dict_users"
+        };
+        const superuserauth = { "username": superuser.userID, "password": superuser.pw };
+        let newSuperUserID;
+        let compiledProfileTemplate;
 
-                expect(response).to.have.status(201);
+        beforeAll(async function () {
+            const testProfileTemplate = fs.readFileSync('test/fixtures/testProfile.xml', 'utf8');
+            expect(testProfileTemplate).toContain("<tableName>{{dictName}}</tableName>");
+            expect(testProfileTemplate).toContain("<displayString>{{displayString}}</displayString>");
+            compiledProfileTemplate = Handlebars.compile(testProfileTemplate);
+            const compiledTemplate = compiledProfileTemplate({
+                'dictName': 'replaced',
+                'mainLangLabel': 'aNCName',        
+                'displayString': '{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}',
+                'altDisplayString': {
+                    'label': 'test',
+                    'displayString': '//mds:titleInfo/mds:title'
+                },
+                'useCache': true
+            });
+            expect(compiledTemplate).toContain("<tableName>replaced</tableName>");
+            expect(compiledTemplate).toContain('displayString>{//mds:name[1]/mds:namePart}: {//mds:titleInfo/mds:title}<');
+            expect(compiledTemplate).toContain('altDisplayString label="test">//mds:titleInfo/mds:title<');
+            expect(compiledTemplate).toContain('mainLangLabel>aNCName<');
+            expect(compiledTemplate).toContain('useCache/>');
+        });
+
+        beforeEach(async function () {
+            const dictUsersCreated = await fetch(baseURI + '/dicts', {
+                method: 'POST',
+                headers: {
+                    "Accept": "application/vnd.wde.v2+json",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ 'name': 'dict_users' })
+            });
+
+            const userCreateResponse = await fetch(baseURI + '/dicts/dict_users/users', {
+                method: 'POST',
+                headers: {
+                    "Accept": "application/vnd.wde.v2+json",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(superuser)
+            });
+
+            const userCreateResponseBody = await userCreateResponse.json();
+            newSuperUserID = userCreateResponseBody.id;
+        });
+
+        describe('tests for get', function() {
+            const dictuser = {
+                "id": "",
+                "userID": 'testUser0',
+                "pw": 'PassW0rd',
+                "read": "y",
+                "write": "y",
+                "writeown": "n",
+                "table": "deseruntsitsuntproident"
+            };
+            const dictuserauth = { "username": dictuser.userID, "password": dictuser.pw };
+            let newDictUserID;
+
+            beforeEach(async function() {
+                const userCreateResponse = await fetch(baseURI + '/dicts/dict_users/users', {
+                    method: 'POST',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Content-Type": "application/json",
+                        "Authorization": 'Basic ' + btoa(`${superuserauth.username}:${superuserauth.password}`)
+                    },
+                    body: JSON.stringify(dictuser)
+                });
+
+                const userCreateResponseBody = await userCreateResponse.json();
+                newDictUserID = userCreateResponseBody.id;
+
+                const createDictUserTableResponse = await fetch(baseURI + '/dicts', {
+                    method: 'POST',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Content-Type": "application/json",
+                        "Authorization": 'Basic ' + btoa(`${superuserauth.username}:${superuserauth.password}`)
+                    },
+                    body: JSON.stringify({ "name": dictuser.table })
+                });
                 
-                response = await request('get', baseURI + '/dicts/' + dictuser.table, {
-                    'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'auth': dictuserauth,
-                    'time': true
-                });
+                const body = await createDictUserTableResponse.text(),
+                      jsonBody = safeJSONParse(body);
 
-                expect(response).to.have.status(200);
-                expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2");
-                    expect(body._embedded._[0].note).to.equal("all entries");
-                    expect(body._embedded._[0].cache).to.be.undefined;
-                    expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
-                    expect(body._embedded._[0].queryTemplates).to.eql(["tei_all", "tei_lem", "tei_sid", "tei_pos", "tei_tr", "mds_names", "mds_any", "mds_title",]);
-                    expect(body._embedded._[0].specialCharacters).to.eql([{"value": "’"},{"value": "ʔ"},{"value": "ā"},{"value": "ḅ"}]);
-                    expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
-                });
-                await chakram.wait();
+                expect(createDictUserTableResponse.status).toBe(201);
             });
 
-            it('when unauthenticated (public)', async function() {
-                var response = await request('get', baseURI + '/dicts/deseruntsitsuntproident', {
-                    'time': true
+            describe('should respond 200 for "OK"', function() {
+                it('when authenticated', async function() {
+                    const config = {
+                        method: 'POST',
+                        headers: {
+                            "Accept": "application/vnd.wde.v2+json",
+                            "Content-Type": "application/json",
+                            "Authorization": 'Basic ' + btoa(`${dictuserauth.username}:${dictuserauth.password}`)
+                        },
+                        body: JSON.stringify({
+                            "sid": "dictProfile",
+                            "lemma": "",
+                            "entry": compiledProfileTemplate({
+                                'dictName': dictuser.table,
+                                'displayString': '//tei:form/tei:orth[1]',
+                                'useCache': false
+                            })
+                        })
+                    };
+
+                    let response = await fetch(baseURI + '/dicts/' + dictuser.table + '/entries', config),
+                        body = await response.text(),
+                        jsonBody = safeJSONParse(body);
+                    expect(response.status).toBe(201);
+
+                    response = await fetch(baseURI + '/dicts/' + dictuser.table, {
+                        method: 'GET',
+                        headers: {
+                            "Accept": "application/vnd.wde.v2+json",
+                            "Authorization": 'Basic ' + btoa(`${dictuserauth.username}:${dictuserauth.password}`)
+                        }
+                    });
+
+                    body = await response.text(),
+                    jsonBody = safeJSONParse(body);
+                    expect(response.status).toBe(200);
+                    expect(jsonBody.total_items).toBe("2");
+                    expect(jsonBody._embedded._[0].note).toBe("all entries");
+                    expect(jsonBody._embedded._[0].cache).toBeUndefined();
+                    expect(jsonBody._embedded._[0].dbNames).toBeInstanceOf(Array);
+                    expect(jsonBody._embedded._[0].queryTemplates).toEqual(["tei_all", "tei_lem", "tei_sid", "tei_pos", "tei_tr", "mds_names", "mds_any", "mds_title"]);
+                    expect(jsonBody._embedded._[0].specialCharacters).toEqual([{ "value": "’" }, { "value": "ʔ" }, { "value": "ā" }, { "value": "ḅ" }]);
+                    expect(jsonBody._embedded._[1].note).toBe("all users with access to this dictionary");
                 });
 
-                expect(response).to.have.status(200);
-                expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2")
-                    expect(body._embedded._[0].note).to.equal("all entries");
-                    expect(body._embedded._[0].cache).to.be.undefined;
-                    expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
-                    expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
-                    expect(body._embedded._[0].specialCharacters).to.be.an.instanceof(Array);
-                    expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
-                });
-                await chakram.wait();
-            });
+                it('when unauthenticated (public)', async function() {
+                    const response = await fetch(baseURI + '/dicts/deseruntsitsuntproident', {
+                        method: 'GET'
+                    });
 
-            it('should report whether the cache is activated', async function(){
-                var config = { 
-                    'body': {
-                        "sid": "dictProfile",
-                        "lemma": "",
-                        "entry": compiledProfileTemplate({
-                            'dictName': dictuser.table,
-                            'displayString': '//tei:form/tei:orth[1]',
-                            'useCache': true
-                         })
-                    },
-                    'headers': { "Accept": "application/vnd.wde.v2+json" },
-                    'auth': dictuserauth,
-                    'time': true
-                };
-                await request('post', baseURI+'/dicts/'+dictuser.table+'/entries', config);
-                var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', {
-                    'time': true
+                    const body = await response.text(),
+                          jsonBody = safeJSONParse(body);
+                    expect(response.status).toBe(200);
+                    expect(jsonBody.total_items).toBe("2");
+                    expect(jsonBody._embedded._[0].note).toBe("all entries");
+                    expect(jsonBody._embedded._[0].cache).toBeUndefined();
+                    expect(jsonBody._embedded._[0].dbNames).toBeInstanceOf(Array);
+                    expect(jsonBody._embedded._[0].queryTemplates).toBeInstanceOf(Array);
+                    expect(jsonBody._embedded._[0].specialCharacters).toBeInstanceOf(Array);
+                    expect(jsonBody._embedded._[1].note).toBe("all users with access to this dictionary");
                 });
 
-                expect(response).to.have.status(200);
-                expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2")
-                    expect(body._embedded._[0].note).to.equal("all entries");
-                    expect(body._embedded._[0].cache).to.equal("true");
+                it('should report whether the cache is activated', async function() {
+                    const config = {
+                        method: 'POST',
+                        headers: {
+                            "Accept": "application/vnd.wde.v2+json",
+                            "Content-Type": "application/json",
+                            "Authorization": 'Basic ' + btoa(`${dictuserauth.username}:${dictuserauth.password}`)
+                        },
+                        body: JSON.stringify({
+                            "sid": "dictProfile",
+                            "lemma": "",
+                            "entry": compiledProfileTemplate({
+                                'dictName': dictuser.table,
+                                'displayString': '//tei:form/tei:orth[1]',
+                                'useCache': true
+                            })
+                        })
+                    };
+
+                    let response = await fetch(baseURI + '/dicts/' + dictuser.table + '/entries', config),
+                    body = await response.text(),
+                    jsonBody = safeJSONParse(body);
+
+                    expect(response.status).toBe(201);
+
+                    response = await fetch(baseURI + '/dicts/deseruntsitsuntproident', {
+                        method: 'GET'
+                    });
+
+                    body = await response.text(),
+                    jsonBody = safeJSONParse(body);;
+                    expect(response.status).toBe(200);
+                    expect(jsonBody.total_items).toBe("2");
+                    expect(jsonBody._embedded._[0].note).toBe("all entries");
+                    expect(jsonBody._embedded._[0].cache).toBe("true");
                 });
-                return chakram.wait();
-            });
-        });
-
-        it('should respond 401 for "Unauthorized"', function() {
-            var response = request('get', baseURI + '/dicts/magna', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                // access needs auth with wde.v2
-                'time': true
             });
 
-            expect(response).to.have.status(401);
-            return chakram.wait();
-        });
+            it('should respond 401 for "Unauthorized"', async function() {
+                const response = await fetch(baseURI + '/dicts/magna', {
+                    method: 'GET',
+                    headers: {
+                        // access needs auth with wde.v2
+                        "Accept": "application/vnd.wde.v2+json"
+                    }
+                });
 
-
-        it('should respond 403 for "Forbidden"', function() {
-            var response = request('get', baseURI + '/dicts/minimconsequataliquaoccaecat', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': {'user': 'nonexisting', 'pass': 'nonsense'},
-                'time': true
+                expect(response.status).toBe(401);
             });
 
-            expect(response).to.have.status(403);
-            return chakram.wait();
-        });
+            it('should respond 403 for "Forbidden"', async function() {
+                const response = await fetch(baseURI + '/dicts/minimconsequataliquaoccaecat', {
+                    method: 'GET',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Authorization": 'Basic ' + btoa('nonexisting:nonsense')
+                    }
+                });
+
+                expect(response.status).toBe(403);
+            });
 
         // 404 with wde.v2 is only possible if the table is gone but the user still exists.
         // This should never happen as the delete command removes also all the users.
         // Otherwise: 403
 
-        it('should respond 404 for "Not Found" (public)', function() {
-            var response = request('get', baseURI + '/dicts/insed', { 
-                'time': true
-            });
-
-            expect(response).to.have.status(404);
-            return chakram.wait();
-        });
-
-        it('should respond 404 "No function found that matches the request." for wrong accept', function () {
-            var response = request('get', baseURI + '/dicts/animlaborisdolore', {
-                'headers': { "Accept": "application/vnd.wde.v8+json" },
-                'time': true
-            });
-
-            expect(response).to.have.status(404);
-            expect(response).to.have.json(
-                (value) => expect(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
-                );
-            return chakram.wait();
-        });
-
-        // 415 is used for rejecting a body, so makes no sense here
-
-        afterEach(function() {
-            return request('delete', baseURI + '/dicts/' + dictuser.table, { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': dictuserauth,
-                'time': true
-            })
-            .then(function(dictDeletedResponse) {
-            return request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': superuserauth,
-                'time': true
-            });
-            });
-        });
-    });
-    
-    describe('tests for delete', function() {
-        var dictuser = { // a superuser for the test table
-            "id": "",
-            "userID": 'testUser0',
-            "pw": 'PassW0rd',
-            "read": "y",
-            "write": "y",
-            "writeown": "n",
-            "table": "deseruntsitsuntproident"
-        },
-            dictuserauth = {"user":dictuser.userID, "pass":dictuser.pw},
-            newDictUserID;
-        beforeEach('Create test user', function(){
-            return request('post', baseURI + '/dicts/dict_users/users', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json",
-                            "Content-Type":"application/json"},
-                'auth': superuserauth,
-                'body': dictuser,
-                'time': true
-            })
-            .then(function(userCreateResponse) {
-                newDictUserID = userCreateResponse.body.id;
-            });
-        });
-        it('should respond 204 for "No Content"', function() {
-            // A new table can only be created by a global super user
-            return request('post', baseURI + '/dicts', {
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': superuserauth,
-                'body': {"name": dictuser.table},
-                'time': true
-            })
-            .then(function(dictCreatedResponse) {
-                // A table can only be deleted by a super user of that table
-                // A global super user would need to make himself superuser of that table
-                var response = request('delete', baseURI + '/dicts/' + dictuser.table, { 
-                    'headers': {"Accept":"application/vnd.wde.v2+json"},
-                    'auth': dictuserauth,
-                    'time': true
+            it('should respond 404 for "Not Found" (public)', async function() {
+                const response = await fetch(baseURI + '/dicts/insed', {
+                    method: 'GET'
                 });
 
-                expect(response).to.have.status(204);
-                return chakram.wait();
+                expect(response.status).toBe(404);
+            });
+
+            it('should respond 404 "No function found that matches the request." for wrong accept', async function() {
+                const response = await fetch(baseURI + '/dicts/animlaborisdolore', {
+                    method: 'GET',
+                    headers: {
+                        "Accept": "application/vnd.wde.v8+json"
+                    }
+                });
+
+                const body = await response.text(),
+                      jsonBody = safeJSONParse(body);
+                expect(response.status).toBe(404);
+                expect(body === 'No function found that matches the request.' || body === 'Service not found.').toBe(true);
+            });
+
+            // 415 is used for rejecting a body, so makes no sense here
+
+            afterEach(async function() {
+                await fetch(baseURI + '/dicts/' + dictuser.table, {
+                    method: 'DELETE',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Authorization": 'Basic ' + btoa(`${dictuserauth.username}:${dictuserauth.password}`)
+                    }
+                });
+
+                await fetch(baseURI + '/dicts/dict_users/users/' + newDictUserID, {
+                    method: 'DELETE',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Authorization": 'Basic ' + btoa(`${superuserauth.username}:${superuserauth.password}`)
+                    }
+                });
             });
         });
 
+        describe('tests for delete', function() {
+            // a superuser for the test table
+            const dictuser = {
+                "id": "",
+                "userID": 'testUser0',
+                "pw": 'PassW0rd',
+                "read": "y",
+                "write": "y",
+                "writeown": "n",
+                "table": "deseruntsitsuntproident"
+            };
+            const dictuserauth = { "username": dictuser.userID, "password": dictuser.pw };
+            let newDictUserID;
 
-        it('should respond 401 for "Unauthorized"', function() {
-            var response = request('delete', baseURI + '/dicts/' + dictuser.table, { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'time': true
+            beforeEach(async function() {
+                const userCreateResponse = await fetch(baseURI + '/dicts/dict_users/users', {
+                    method: 'POST',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Content-Type": "application/json",
+                        "Authorization": 'Basic ' + btoa(`${superuserauth.username}:${superuserauth.password}`)
+                    },
+                    body: JSON.stringify(dictuser)
+                });
+
+                const userCreateResponseBody = await userCreateResponse.json();
+                newDictUserID = userCreateResponseBody.id;
             });
 
-            expect(response).to.have.status(401);
-            return chakram.wait();
-        });
+            it('should respond 204 for "No Content"', async function() {
+                let response = await fetch(baseURI + '/dicts', {
+                    method: 'POST',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Content-Type": "application/json",
+                        // A new table can only be created by a global super user
+                        "Authorization": 'Basic ' + btoa(`${superuserauth.username}:${superuserauth.password}`)
+                    },
+                    body: JSON.stringify({ "name": dictuser.table })
+                }),
+                body = await response.text(),
+                jsonBody = safeJSONParse(body);
 
+                expect(response.status).toBe(201);
 
-        it('should respond 403 for "Forbidden"', function() {
-            var response = request('delete', baseURI + '/dicts/eiusmodtempor', { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': {'user': 'nonexisting', 'pass': 'nonsense'},
-                'time': true
+                // A table can only be deleted by a super user of that table
+                // A global super user would need to make himself superuser of that table
+
+                response = await fetch(baseURI + '/dicts/' + dictuser.table, {
+                    method: 'DELETE',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Authorization": 'Basic ' + btoa(`${dictuserauth.username}:${dictuserauth.password}`)
+                    }
+                });
+                
+                body = await response.text(),
+                jsonBody = safeJSONParse(body);
+                expect(response.status).toBe(204);
             });
 
-            expect(response).to.have.status(403);
-            return chakram.wait();
-        });
+            it('should respond 401 for "Unauthorized"', async function() {
+                const response = await fetch(baseURI + '/dicts/' + dictuser.table, {
+                    method: 'DELETE',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json"
+                    }
+                });
 
-
-        // 404 for delete is not possible, it is always 403
-
-        it('should respond 406 for "Not Acceptable"', function() {
-            var response = request('delete', baseURI + '/dicts/aliquipcommodoid', { 
-                'headers': {"Accept":"application/vnd.wde.v8+json"},
-                'time': true
+                expect(response.status).toBe(401);
             });
 
-            expect(response).to.have.status(406);
-            return chakram.wait();
-        });
+            it('should respond 403 for "Forbidden"', async function() {
+                const response = await fetch(baseURI + '/dicts/eiusmodtempor', {
+                    method: 'DELETE',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Authorization": 'Basic ' + btoa('nonexisting:nonsense')
+                    }
+                });
 
-        // 415 is used for rejecting a body, so makes no sense here
+                const body = await response.text(),
+                      jsonBody = safeJSONParse(body);
+                expect(response.status).toBe(403);
+            });
 
-        afterEach('Remove test user', function(){
-            return request('delete', baseURI + '/dicts/dict_users/users/' + newDictUserID, { 
-                'headers': {"Accept":"application/vnd.wde.v2+json"},
-                'auth': superuserauth,
-                'time': true
+            // 404 for delete is not possible, it is always 403
+
+            it('should respond 406 for "Not Acceptable"', async function() {
+                const response = await fetch(baseURI + '/dicts/aliquipcommodoid', {
+                    method: 'DELETE',
+                    headers: {
+                        "Accept": "application/vnd.wde.v8+json"
+                    }
+                });
+
+                expect(response.status).toBe(406);
+            });
+
+            // 415 is used for rejecting a body, so makes no sense here
+
+            afterEach(async function() {
+                await fetch(baseURI + '/dicts/dict_users/users/' + newDictUserID, {
+                    method: 'DELETE',
+                    headers: {
+                        "Accept": "application/vnd.wde.v2+json",
+                        "Authorization": 'Basic ' + btoa(`${superuserauth.username}:${superuserauth.password}`)
+                    }
+                });
             });
         });
-    
+
+        afterEach(async function() {
+            await fetch(baseURI + '/dicts/dict_users', {
+                method: 'DELETE',
+                headers: {
+                    "Accept": "application/vnd.wde.v2+json",
+                    "Authorization": 'Basic ' + btoa(`${superuserauth.username}:${superuserauth.password}`)
+                }
+            });
+        });
     });
-    afterEach(function(){
-        return request('delete', baseURI + '/dicts/dict_users', { 
-            'headers': {"Accept":"application/vnd.wde.v2+json"},
-            'auth': superuserauth,
-            'time': true
-        });
-    });
-});
 }
