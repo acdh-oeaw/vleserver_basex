@@ -33,8 +33,12 @@ declare %private function _:get-skel-if-exists($dict as xs:string) as xs:string?
 };
 
 declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) as element() {
-  let $dict_name := _:get-real-dicts($dict_name, $id)
-  return util:eval(``[collection("`{$dict_name}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')  
+  let $dict_name := _:get-real-dicts($dict_name, $id),
+      $entry_by_id := util:eval(``[collection("`{$dict_name}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')
+  return if (exists($entry_by_id)) then $entry_by_id
+         else error(xs:QName('response-codes:_404'),
+                           'Not found',
+                           'ID '||$id||' not found in '||$dict_name||'.') 
 };
 
 declare function _:get-real-dicts($dict as xs:string, $ids as xs:string+) as xs:string+ {
@@ -171,7 +175,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
         `{profile:generate-local-extractor-function($profile)}`
-        let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..,
+        let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..[(@xml:id, @ID)],
             $ret := if (count($results) > `{$max-direct-xml}` and `{count($ids) > $max-direct-xml}`()) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
