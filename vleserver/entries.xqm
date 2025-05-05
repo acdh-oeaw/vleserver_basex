@@ -391,7 +391,7 @@ declare
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
   "entry": "The entry as XML fragment."
-}') 
+}]}') 
     %test:arg("userData", '{
 "entries": [{
   "sid": "The internal ID. May be empty string.",
