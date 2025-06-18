@@ -52,7 +52,7 @@ function _:getDictDictNameFiles($dict_name as xs:string, $auth_header as xs:stri
          $api-problem:codes_to_message(404),
          'Dictionary '||$dict_name||' does not exist'),
       $profile := profile:get($dict_name),
-      $db-names := profile:get-list-of-data-dbs($profile),
+      $db-names := ($dict_name, profile:get-list-of-data-dbs($profile)),
       $locked_entries := lcks:get_user_locking_entries($dict_name),
       $files_as_documents := for $db-name in $db-names
         (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
@@ -214,7 +214,7 @@ function _:getDictDictNameEntry($dict_name as xs:string, $db-name as xs:string, 
         return lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $lockedBy := lcks:get_user_locking_entries($dict_name)
   return if ($wanted-response!replace(., ';.*', '') = ('application/xml'))
-  then api-problem:or_result($start, _:fileAsXML#1, [$db-name], map:merge((map{'Content-Type': 'application/xml'}, cors:header(()))))
+  then api-problem:or_result($start, _:fileAsXML#2, [$dict_name, $db-name], map:merge((map{'Content-Type': 'application/xml'}, cors:header(()))))
   else api-problem:or_result($start, _:fileAsDocument#4, [rest:uri(), $db-name, string-join(distinct-values(map:for-each($lockedBy, function($id, $user){$user})), ', '), $wanted-response], cors:header(()))
   } catch lcks:held {
     error(xs:QName('response-codes:_422'),
@@ -231,8 +231,25 @@ declare %private function _:getUserNameFromAuthorization($auth_header as xs:stri
 
 declare
   %private
-function _:fileAsXML($db-name as xs:string) {
+function _:fileAsXML($dict_name as xs:string, $db-name as xs:string) {
+prof:sleep(5000),
+if ($dict_name ne $db-name) then
+util:eval(``[
 (# db:copynode false #) {
   collection($db-name)
-}
+}]``, (), 'fileAsXML_getCollection') else (
+  let $skel := util:eval(``[collection('`{$db-name}`__skel')]``, (), 'fileAsXML_getSkel'),
+      $includes := parse-xml-fragment(serialize($skel//processing-instruction())
+        => replace('<?','<','q')
+        => replace('?>','/>','q'))
+  return $skel update {
+    for $pi at $pos in .//processing-instruction()
+    let $xpath := data($includes/*[$pos]/@xpath),
+        $collection-name-regex := data($includes/*[$pos]/@collection-name-regex),
+        $data := util:eval(``[declare namespace tei = "http://www.tei-c.org/ns/1.0";
+          db:list()[matches(.,'`{$collection-name-regex}`')]!collection(.)`{$xpath}`]``,
+          (), 'fileAsXML_getData'||$pos)
+    return replace node $pi with $data
+  }
+)
 };
