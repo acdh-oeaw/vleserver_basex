@@ -1,5 +1,5 @@
 <meta xmlns="http://exist-db.org/xquery/repo">
-    <description>API Problem and JSON HAL based API for editing dictionary like XML datasets</description>
+    <description>API Problem and JSON HAL based API for editing dictionary like XML datasets. Accept application/json can be used for unauthenticated access.</description>
     <author>Omar Siam</author>
     <website>https://www.oeaw.ac.at/acdh/tools/vle/</website>
     <status>development</status>
