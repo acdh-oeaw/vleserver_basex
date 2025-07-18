@@ -5,8 +5,9 @@
   "engines": {
     "node": "20.x",
     "npm": "10.x",
+    "jvm": "11",
     "basex": "9.3.3",
-    "saxon": "12.5"
+    "saxon": "12.8"
   },
   "main": "test.js",
   "scripts": {
