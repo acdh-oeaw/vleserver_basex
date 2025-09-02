@@ -29,7 +29,7 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
           (web:response-header(
              if (exists($header-elements) and ($header-elements('Content-Type') = 'application/xml')) 
              then map {'method': 'xml'} 
-             else map {'method': 'json'},
+             else map {'method': 'json', 'indent': 'no'},
              $header-elements,
              map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
            _:inject-runtime($start-time-ns, $ret)
