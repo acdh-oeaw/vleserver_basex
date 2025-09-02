@@ -495,6 +495,22 @@ declare %private function _:create-new-data-db($profile as document-node()) as x
   return $ret
 };
 
+declare function _:get-dict-queries-by-values($dict-dbs as xs:string+) as map(*) {
+let $text_by_dict_by_queryTemplate := map:merge((
+  for $db in $dict-dbs[not(. = 'dict_users')]
+  return map{$db: 
+    let $profile := profile:get($db)
+    return map:merge((
+      for $template in $profile//queryTemplate
+      return map{
+        $template/@label: util:eval(profile:create-index-queries-for-db($profile, $template), (), 'index-query')
+      }))
+    })),
+    $dict_query_by_value := map:merge((map:for-each($text_by_dict_by_queryTemplate, function($dict, $index-map){ map:for-each($index-map, function($index, $values){ $values[not(.='')]!map{.: map{"query": map{$index: $dict}}}})})), map {"duplicates": "combine"}),
+    $dict_query_by_value := map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries){map{$value: map:merge($dict-queries, map {'duplicates': 'combine'})}}), map {"duplicates": "combine"})
+return map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries) { map {$value: map {"query": array{$dict-queries?*}}} }))
+};
+
 declare (: %private :) function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
 };
