@@ -49,7 +49,7 @@ declare
     %rest:produces('application/problem+xml')
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
   let $start := prof:current-ns(),
-      $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
+      $dicts := profile:get-all-dict-names(),
       $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(util:uri()||.), <name>{.}</name>)
   return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page], cors:header(()))
 };
@@ -155,12 +155,34 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
     <queryTemplates type="array">{array:for-each($query-templates, function($e) {map:keys($e)})?*!<_>{.}</_>}</queryTemplates>,
     _:get_list_of_dict_characters($dict_name),
     <dbNames type="array">{$db-names!<_>{.}</_>}</dbNames>,
-    if ($entries-are-cached) then <cache>{$entries-are-cached}</cache> else ())),
-    json-hal:create_document(xs:anyURI(util:uri()||'/users'), <note>all users with access to this dictionary</note>),
-    json-hal:create_document(xs:anyURI(util:uri()||'/files'), <note>all files that make up this dictionary</note>)], 2, 2, 1], cors:header(()))
+    if ($entries-are-cached)
+    then <cache>{$entries-are-cached}</cache>
+    else ()
+    (: <autocomplete type="object">{json:parse(serialize(data-access:get-dict-queries-by-values($dict_name), map {"method": "json", "indent": "no"}))/json/*}</autocomplete> :)
+    )),
+    json-hal:create_document(xs:anyURI(util:uri()||'users'), <note>all users with access to this dictionary</note>),
+    json-hal:create_document(xs:anyURI(util:uri()||'files'), <note>all files that make up this dictionary</note>),
+    json-hal:create_document(xs:anyURI(util:uri()||'autocomplete'), <note>JSON containing all possible query template names by query result texts</note>)
+  ], 4, 4, 1], cors:header(()))
   else
   error(xs:QName('response-codes:_404'),
                  $api-problem:codes_to_message(404))
+};
+
+declare
+    %rest:GET
+    %rest:path('/restvle/dicts/{$dict_name}/autocomplete')
+    %rest:produces('application/json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')    
+function _:getDictDictNameAutocomplete($dict_name as xs:string) as item()+ {
+  let $start := prof:current-ns()
+  return
+  api-problem:or_result($start, _:get_autocomplete_for_dict_name#1, [$dict_name], cors:header(()))
+};
+
+declare function _:get_autocomplete_for_dict_name($dict_name as xs:string) {
+  data-access:get-dict-queries-by-values($dict_name)
 };
 
 declare function _:get_list_of_dict_characters($dict_name as xs:string) as element(specialCharacters) {
