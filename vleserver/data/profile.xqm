@@ -36,6 +36,10 @@ declare function _:check-contains-valid-dictname($profile as document-node()) as
       'Got "'||serialize($profile/profile/tableName, map{'method': 'xml'})||'".')
 };
 
+declare function _:get-all-dict-names() as xs:string+ {
+  util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles')
+};
+
 declare function _:get($dict_name as xs:string) as document-node() {
   util:eval(``[collection("`{$dict_name}`__prof")]``, (), 'get-profile')
 };
@@ -163,6 +167,21 @@ declare variable $noSubstQuery as xs:string external;
 declare variable $subQuery as xs:string external;
 for $__db__ in $dbs return ]``|| $template
   return util:eval($template_query, map{'$dbs': $dbs, '$noSubstQuery': $noSubstQuery, '$subQuery': _:create-sub-query($noSubstQuery)}, 'create-queries-for-db')
+};
+
+declare function _:create-index-queries-for-db($profile as document-node(), $template as xs:string) as xs:string {
+  let $dbs as xs:string+ := _:get-list-of-data-dbs($profile),
+      $index_query as xs:string := ``[declare variable $dbs as xs:string+ external;
+declare variable $template as xs:string external;
+for $__db__ in $dbs return
+  replace($template, 'declare variable $__db__ external;', 'distinct-values((', 'q') =>
+  replace('$__db__', '"'||$__db__||'"', 'q') =>
+  replace('(@.+)\[.+\]/..\s+\|','$1 |') =>
+  replace('entry[', 'entry/', 'q') =>
+  replace('gramGrp[', 'gramGrp/', 'q') =>
+  replace('(\[contains\(.+|\[\s*text\(.+|\[\s*\{subQuery.+)', '/text() | ') =>
+  concat('())!normalize-space(.))')]``
+  return util:eval($index_query, map{'$dbs': $dbs, '$template': $template}, 'create-index-queries-for-db')  
 };
 
 declare function _:get-list-of-data-dbs($profile as document-node()) as xs:string* {
