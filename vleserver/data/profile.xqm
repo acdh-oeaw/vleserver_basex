@@ -245,7 +245,7 @@ return util:eval($extract-sort-values-xquery, map {'data': $data}, 'cache-update
 };
 
 declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string, $referencedEntries as element(_)?) as xs:string {
-  let $stylesheet := $profile/*/entryStyle/*[*:output[@method = $format]],
+  let $stylesheet := $profile/*/entryStyle/*[*:output[@method = $format]][1],
       $check_there_is_a_stylsheet := if (exists($stylesheet)) then true() else
       error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),

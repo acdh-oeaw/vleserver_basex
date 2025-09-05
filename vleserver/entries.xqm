@@ -332,16 +332,16 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
     %test:consumes('application/json')
-    %test:arg("userData", '{
+    %test:arg("userData", '{ "or": [{
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
   "entry": "The entry as XML fragment."
-} or
-entries: [{
+},
+{"entries": [{
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
   "entry": "The entry as XML fragment."
-}]')
+}]}]}')
 function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
   let $start := prof:current-ns(),
       $userName := _:getUserNameFromAuthorization($auth_header),
@@ -477,7 +477,7 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
     %test:consumes('application/json')
-    %test:arg("userData", '{entries: [{
+    %test:arg("userData", '{"entries": [{
   "id": "The xml:id of the entry to change",
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",

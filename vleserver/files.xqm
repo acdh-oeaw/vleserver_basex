@@ -101,7 +101,7 @@ declare
     %test:consumes('application/json')
     %test:arg("userData", '{
   "fileName": "File name.",
-  "xmlData": "File content.",
+  "xmlData": "File content."
 }')
 function _:createFile($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
   let $start := prof:current-ns(),
