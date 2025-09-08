@@ -36,7 +36,7 @@ declare function _:check-contains-valid-dictname($profile as document-node()) as
       'Got "'||serialize($profile/profile/tableName, map{'method': 'xml'})||'".')
 };
 
-declare function _:get-all-dict-names() as xs:string+ {
+declare function _:get-all-dict-names() as xs:string* {
   util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles')
 };
 
