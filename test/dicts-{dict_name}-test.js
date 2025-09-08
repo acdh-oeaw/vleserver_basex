@@ -118,7 +118,7 @@ describe('tests for /dicts/{dict_name}', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2");
+                    expect(body.total_items).to.equal("4");
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.be.undefined;
                     expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
@@ -136,7 +136,7 @@ describe('tests for /dicts/{dict_name}', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2")
+                    expect(body.total_items).to.equal("4")
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.be.undefined;
                     expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
@@ -169,7 +169,7 @@ describe('tests for /dicts/{dict_name}', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2")
+                    expect(body.total_items).to.equal("4")
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.equal("true");
                 });
