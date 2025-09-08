@@ -175,7 +175,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
       else ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
         `{string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`
         `{profile:generate-local-extractor-function($profile)}`
-        let $results := db:attribute("`{$dict}`", `{$ids_seq}`)/..[(@xml:id, @ID)],
+        let $results := db:attribute("`{$dict}`", `{$ids_seq}`)[name() = ('xml:id','ID')]/..,
             $ret := if (count($results) > `{$max-direct-xml}` and `{count($ids) > $max-direct-xml}`()) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
