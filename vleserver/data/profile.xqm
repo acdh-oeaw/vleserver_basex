@@ -251,7 +251,7 @@ declare function _:transform-to-format($profile as document-node(), $data as ele
             $api-problem:codes_to_message(400),
             'There is no transformation for format '||$format),
       $referencedEntries := if (exists($referencedEntries)) then $referencedEntries else <_ xmlns=""/>
-  return xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:parent(static-base-uri())} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})
+  return xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})
   (: return serialize($profile/*/entryStyle/*[xsl:output[@method = $format]]) :)
 };
 
