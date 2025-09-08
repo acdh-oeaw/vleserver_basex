@@ -244,14 +244,17 @@ let $extract-sort-values-xquery := ``[`{string-join(_:get-xquery-namespace-decls
 return util:eval($extract-sort-values-xquery, map {'data': $data}, 'cache-update-extract-sort-values', true())
 };
 
-declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string, $referencedEntries as element(_)?) as xs:string {
+(: Returns an xs:string except when JSON is requested. In that case the XSL is responsible for returnung a BaseX JSON XML representation. :)
+declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string, $referencedEntries as element(_)?) {
   let $stylesheet := $profile/*/entryStyle/*[*:output[@method = $format]][1],
       $check_there_is_a_stylsheet := if (exists($stylesheet)) then true() else
       error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),
             'There is no transformation for format '||$format),
       $referencedEntries := if (exists($referencedEntries)) then $referencedEntries else <_ xmlns=""/>
-  return xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})
+  return if (contains($format, 'json'))
+     then xslt:transform(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})/json/*
+     else xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})
   (: return serialize($profile/*/entryStyle/*[xsl:output[@method = $format]]) :)
 };
 
