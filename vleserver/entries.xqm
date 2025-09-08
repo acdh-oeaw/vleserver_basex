@@ -283,7 +283,7 @@ declare
   %private
 function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?) {
 (# db:copynode false #) {
-  let $referenced_ids := distinct-values($entry//@*[starts-with(data(.), '#')])!substring(., 2),
+  let $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target))),
       $referenced_entries := try {
         if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
       } catch response-codes:_404 { () }
