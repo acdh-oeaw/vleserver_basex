@@ -297,15 +297,15 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
     <owner>{$entry//*:fs[@type='change']/*[@name='owner']/*/@value/data()}</owner> else (),
     if (exists($isLockedBy)) then <locked>{$isLockedBy}</locked> else (),
     if (exists($entry)) then
-      let $entry_as_txt := if (exists($format)) then profile:transform-to-format($profile, $entry, $format, $referenced_entries) else serialize($entry)
+      let $entry_as_txt_or_json := if (exists($format)) then profile:transform-to-format($profile, $entry, $format, $referenced_entries) else serialize($entry)
       return (
       <type>{types:get_data_type($entry)}</type>,
-      <entry>{$entry_as_txt}</entry>,
+      <entry>{if ($entry_as_txt_or_json instance of xs:string) then $entry_as_txt_or_json else (attribute {'type'}{'object'}, $entry_as_txt_or_json)}</entry>,
       if (exists($referenced_entries) and not(exists($format))) then <referencedEntries type="object">
         {for $entry in $referenced_entries/*
          return element {$entry/@xml:id => replace('_', '__', 'q')} {serialize($entry)}}
       </referencedEntries>,
-      <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt)))}</storedEntryMd5>
+      if (not(exists($format))) then <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt_or_json)))}</storedEntryMd5> else ()
     )
     else ()))
 }
