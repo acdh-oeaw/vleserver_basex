@@ -11,10 +11,10 @@
             <xd:p><xd:b>Created on:</xd:b> Mar 28, 2025</xd:p>
             <xd:p><xd:b>Author:</xd:b>Omar Siam</xd:p>
             <xd:p>This stylesheet transrorms any XML to the XML representation
-            of JSON that BaseX uses. The representation contains all information
-            in the original XML and is with a few notable exceptions reversible.
-            This stylesheeet can work on its own but if you have special needs for chnaging how
-            XML elemnts are processed you should be able to import and override the behavior.</xd:p>
+                of JSON that BaseX uses. The representation contains all information
+                in the original XML and is with a few notable exceptions reversible.
+                This stylesheeet can work on its own but if you have special needs for chnaging how
+                XML elemnts are processed you should be able to import and override the behavior.</xd:p>
         </xd:desc>
     </xd:doc>
     
@@ -56,10 +56,10 @@
             </xsl:when>
             <xsl:when test="count($element) > 1">
                 <xsl:variable name="plural_ending" as="xs:string">
-                <xsl:choose>
-                    <xsl:when test="ends-with($element[1]/local-name(), 'y')">ies</xsl:when>
-                    <xsl:otherwise><xsl:value-of select="substring($element[1]/local-name(), string-length($element[1]/local-name()), 1)||'s'"/></xsl:otherwise>
-                </xsl:choose>
+                    <xsl:choose>
+                        <xsl:when test="ends-with($element[1]/local-name(), 'y')">ies</xsl:when>
+                        <xsl:otherwise><xsl:value-of select="substring($element[1]/local-name(), string-length($element[1]/local-name()), 1)||'s'"/></xsl:otherwise>
+                    </xsl:choose>
                 </xsl:variable>
                 <xsl:value-of select="string-join((data($element[1]/@type), substring($element[1]/local-name(), 1, string-length($element[1]/local-name()) - 1)), '__')||$plural_ending"/>
             </xsl:when>
@@ -145,20 +145,25 @@
                 <xsl:variable name="content">
                     <xsl:apply-templates select="$element-group" mode="#default"/>                    
                 </xsl:variable>
-                <xsl:if test="exists($content/(*|text()))">
-                    <xsl:element name="{tei:get-typed-element-name($element-group)}">
-                        <xsl:attribute name="type">object</xsl:attribute>
-                        <!-- this is the same as $content, but it is easier to debug in oxygenXML like this -->
-                        <xsl:apply-templates select="$element-group" mode="#default"/>
-                    </xsl:element>
-                </xsl:if>
+                <xsl:choose>
+                    <xsl:when test="exists($content/(@*|*|text()))">
+                        <xsl:element name="{tei:get-typed-element-name($element-group)}">
+                            <xsl:attribute name="type">object</xsl:attribute>
+                            <!-- this is the same as $content, but it is easier to debug in oxygenXML like this -->
+                            <xsl:apply-templates select="$element-group" mode="#default"/>
+                        </xsl:element>
+                    </xsl:when>
+                    <xsl:otherwise>
+                        <xsl:element name="{tei:get-typed-element-name($element-group)}"/>    
+                    </xsl:otherwise>
+                </xsl:choose>
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
-
+    
     <xd:doc>
         <xd:desc>Multiple elements are processed as arrays.
-        Array elements in the BaseX JSON representation are enclosed in _ tags.</xd:desc>
+            Array elements in the BaseX JSON representation are enclosed in _ tags.</xd:desc>
     </xd:doc>   
     <xsl:template match="*" mode="array">
         <_ type="object">
@@ -171,7 +176,7 @@
         <xd:desc>Handling of multiple text nodes or mixed content as an array.</xd:desc>
     </xd:doc>   
     <xsl:template match="*" mode="sequence">
-        <xsl:for-each-group select="*|text()[normalize-space(.) ne '']" group-adjacent="tei:get-typed-element-name(.)">
+        <xsl:for-each-group select="@*|*|text()[normalize-space(.) ne '']" group-adjacent="tei:get-typed-element-name(.)">
             <xsl:choose>
                 <xsl:when test="tei:is-ignored-element(current-group())"/>
                 <xsl:when test="tei:is-special-element(current-group())">
@@ -179,7 +184,12 @@
                         <xsl:with-param name="element-group" select="current-group()"/>
                     </xsl:call-template>
                 </xsl:when>
-                <xsl:otherwise>                    
+                <xsl:when test="current-group() instance of attribute()">
+                    <_ type="object">
+                        <xsl:apply-templates select="." mode="#default"/>
+                    </_>
+                </xsl:when>
+                <xsl:otherwise>
                     <_ type="object">
                         <xsl:call-template name="element-number-processing-switch">
                             <xsl:with-param name="element-group" select="current-group()"/>
@@ -192,14 +202,30 @@
     
     <xd:doc>
         <xd:desc>Multiple text nodes are transformed to a key '$$' and an array value.
-        These text nodes can be mixed with elements.</xd:desc>
+            These text nodes can be mixed with elements.</xd:desc>
     </xd:doc>   
-    <xsl:template match="*[normalize-space(string-join(text())) ne '' and count(text()) > 1]">        
+    <xsl:template match="*[normalize-space(string-join(text())) ne '' and count(text()) > 1]" mode="#default">        
         <xsl:apply-templates select="@*"/>
         <_0024_0024 type="array">
             <xsl:attribute name="type">array</xsl:attribute>
             <xsl:apply-templates select="." mode="sequence"/>
         </_0024_0024>        
+    </xsl:template>
+    
+    <xd:doc>
+        <xd:desc>Multiple text nodes are transformed to a key '$$' and an array value.
+            These text nodes can be mixed with elements.
+            Array mode.
+        </xd:desc>
+    </xd:doc>   
+    <xsl:template match="*[normalize-space(string-join(text())) ne '' and count(text()) > 1]" mode="array">
+        <_ type="object">
+            <xsl:apply-templates select="@*"/>
+            <_0024_0024 type="array">
+                <xsl:attribute name="type">array</xsl:attribute>
+                <xsl:apply-templates select="." mode="sequence"/>
+            </_0024_0024>
+        </_>
     </xsl:template>
     
     <xd:doc>
@@ -230,21 +256,27 @@
     </xd:doc>
     <xsl:template match="tei:fs" mode="#default">
         <feature type="object">
-           <xsl:apply-templates mode="tei-fs"/>
+            <xsl:apply-templates mode="tei-fs"/>
         </feature>
     </xsl:template>
-
+    
     <xd:doc>
         <xd:desc>TEI feature structures are key value representations.
             This is the variant for multiple feature structures at the same XML level.
         </xd:desc>
     </xd:doc>
-    <xsl:template match="tei:fs" mode="array sequence">
+    <xsl:template match="tei:fs[@type]" mode="array sequence">
         <_ type="object">
             <xsl:element name="{@type}">
                 <xsl:attribute name="type">object</xsl:attribute>
                 <xsl:apply-templates mode="tei-fs"/>
             </xsl:element>
+        </_>
+    </xsl:template>
+    
+    <xsl:template match="tei:fs" mode="array sequence">
+        <_ type="object">
+            <xsl:apply-templates mode="tei-fs"/>
         </_>
     </xsl:template>
     
@@ -255,7 +287,7 @@
     </xd:doc>
     <xsl:template match="tei:f" mode="tei-fs">
         <xsl:element name="{@name}">
-            <xsl:value-of select="tei:symbol/@value"/>
+            <xsl:value-of select="(tei:symbol/@value, text())[1]"/>
         </xsl:element>
     </xsl:template>
     
