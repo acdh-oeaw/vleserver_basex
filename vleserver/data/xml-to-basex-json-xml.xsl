@@ -12,29 +12,75 @@
             <xd:p><xd:b>Author:</xd:b>Omar Siam</xd:p>
             <xd:p>This stylesheet transrorms any XML to the XML representation
             of JSON that BaseX uses. The representation contains all information
-            in the original XML and is with a few notable exceptions reversible.</xd:p>
+            in the original XML and is with a few notable exceptions reversible.
+            This stylesheeet can work on its own but if you have special needs for chnaging how
+            XML elemnts are processed you should be able to import and override the behavior.</xd:p>
         </xd:desc>
     </xd:doc>
     
     <xd:doc>
-        <xd:desc>The following elements have a special use and need to be processed with their own logic.</xd:desc>
+        <xd:desc>The following elements have a special use and need to be ignored.
+            This is meant to be customized in stylesheets that import this one.
+        </xd:desc>
+        <xd:param name="element">One or more elements. The first one is checked if it matches the ignore list.</xd:param>
     </xd:doc>
-    <xsl:template match="*:dict|tei:standOff" mode="#all"/>
+    <xsl:function name="tei:is-ignored-element" as="xs:boolean">
+        <xsl:param name="element" as="node()+"/>
+        <xsl:sequence select="exists($element/(self::*:dict, self::tei:standOff))"/>
+    </xsl:function>
+    
+    <xd:doc>
+        <xd:desc>The following elements have a special use and need to be processd differently.
+            This function selects elements for processing without automatically generating an object or array
+            from the elements local-name().
+            This is meant to be customized in stylesheets that import this one.
+        </xd:desc>
+        <xd:param name="element">One or more elements. The first one is checked if it matches the list of special elements that should not be transformed automatically to an array or object.</xd:param>
+    </xd:doc>
+    <xsl:function name="tei:is-special-element" as="xs:boolean">
+        <xsl:param name="element" as="node()+"/>
+        <xsl:sequence select="exists($element/(self::tei:fs,self::tei:sense))"/>
+    </xsl:function>  
+    
+    <xd:doc>
+        <xd:desc>Returns a JSON name that follows the pattern @type_local-name().
+            @type is optional.
+        </xd:desc>
+        <xd:param name="element">One or more element of the same (TEI) kind.</xd:param>
+    </xd:doc>
+    <xsl:function name="tei:get-typed-element-name" as="xs:string">
+        <xsl:param name="element" as="node()+"/>
+        <xsl:choose>
+            <xsl:when test="tei:is-special-element($element[1])">
+                <xsl:value-of select="$element[1]/local-name()"/>
+            </xsl:when>
+            <xsl:when test="count($element) > 1">
+                <xsl:variable name="plural_ending" as="xs:string">
+                <xsl:choose>
+                    <xsl:when test="ends-with($element[1]/local-name(), 'y')">ies</xsl:when>
+                    <xsl:otherwise><xsl:value-of select="substring($element[1]/local-name(), string-length($element[1]/local-name()), 1)||'s'"/></xsl:otherwise>
+                </xsl:choose>
+                </xsl:variable>
+                <xsl:value-of select="string-join((data($element[1]/@type), substring($element[1]/local-name(), 1, string-length($element[1]/local-name()) - 1)), '__')||$plural_ending"/>
+            </xsl:when>
+            <xsl:otherwise>               
+                <xsl:value-of select="string-join((data($element[1]/@type), $element[1]/local-name()), '__')"/> 
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:function>
     
     <xd:doc>
         <xd:desc>The root element of BaseX'es JSON representation is json</xd:desc>
     </xd:doc>
     <xsl:template match="/">
         <json type="object">
-            <xsl:apply-templates/>
+            <xsl:apply-templates mode="named-object"/>
         </json>
     </xsl:template>
     
     <xd:doc>
         <xd:desc>Group all elements with the same local-name together.
             Process multiple elements with a name as array.
-            Use a very simple English 'plural' (+s) to destinguish such arrays from single elements.
-            Some (TEI) elements are only used for looking up additional info, ignore them. 
         </xd:desc>
     </xd:doc>
     <xsl:template match="*">
@@ -43,10 +89,23 @@
     </xsl:template>
     
     <xd:doc>
+        <xd:desc>Group all elements with the same local-name together.
+            Process multiple elements with a name as array.
+        </xd:desc>
+    </xd:doc>
+    <xsl:template match="*" mode="named-object">
+        <xsl:element name="{local-name()}">
+            <xsl:attribute name="type">object</xsl:attribute>
+            <xsl:apply-templates select="@*" mode="#default"/>
+            <xsl:call-template name="group-xml-elements"/>
+        </xsl:element>
+    </xsl:template>
+    
+    <xd:doc>
         <xd:desc>This handles the generation of JSON keys from XML elements.</xd:desc>
     </xd:doc>
     <xsl:template name="group-xml-elements">
-        <xsl:for-each-group select="*|text()[normalize-space(.) ne '']" group-adjacent="local-name()">
+        <xsl:for-each-group select="*|text()[normalize-space(.) ne '']" group-adjacent="tei:get-typed-element-name(.)">
             <xsl:call-template name="element-number-processing-switch">
                 <xsl:with-param name="element-group" select="current-group()"/>
             </xsl:call-template>
@@ -60,6 +119,13 @@
     <xsl:template name="element-number-processing-switch">
         <xsl:param name="element-group"/>
         <xsl:choose>
+            <xsl:when test="tei:is-ignored-element($element-group)"/>
+            <xsl:when test="tei:is-special-element($element-group) and count($element-group) = 1">
+                <xsl:apply-templates select="$element-group" mode="#default"/>  
+            </xsl:when>
+            <xsl:when test="tei:is-special-element($element-group) and count($element-group) > 1">
+                <xsl:apply-templates select="$element-group" mode="array"/>  
+            </xsl:when>
             <xsl:when test="$element-group/local-name() = ''">
                 <xsl:apply-templates select="$element-group" mode="#default"/> 
             </xsl:when>
@@ -68,9 +134,10 @@
                     <xsl:apply-templates select="$element-group" mode="array"/>                       
                 </xsl:variable>
                 <xsl:if test="exists($content/(*|text()))">
-                    <xsl:element name="{local-name()||'s'}">
+                    <xsl:element name="{tei:get-typed-element-name($element-group)}">
                         <xsl:attribute name="type">array</xsl:attribute>
-                        <xsl:sequence select="$content"/>
+                        <!-- this is the same as $content, but it is easier to debug in oxygenXML like this -->
+                        <xsl:apply-templates select="$element-group" mode="array"/>
                     </xsl:element>
                 </xsl:if>
             </xsl:when>
@@ -79,9 +146,10 @@
                     <xsl:apply-templates select="$element-group" mode="#default"/>                    
                 </xsl:variable>
                 <xsl:if test="exists($content/(*|text()))">
-                    <xsl:element name="{local-name()}">
+                    <xsl:element name="{tei:get-typed-element-name($element-group)}">
                         <xsl:attribute name="type">object</xsl:attribute>
-                        <xsl:sequence select="$content"/>
+                        <!-- this is the same as $content, but it is easier to debug in oxygenXML like this -->
+                        <xsl:apply-templates select="$element-group" mode="#default"/>
                     </xsl:element>
                 </xsl:if>
             </xsl:otherwise>
@@ -103,12 +171,22 @@
         <xd:desc>Handling of multiple text nodes or mixed content as an array.</xd:desc>
     </xd:doc>   
     <xsl:template match="*" mode="sequence">
-        <xsl:for-each-group select="*|text()[normalize-space(.) ne '']" group-adjacent="local-name()">
-            <_ type="object">
-                <xsl:call-template name="element-number-processing-switch">
-                    <xsl:with-param name="element-group" select="current-group()"/>
-                </xsl:call-template>
-            </_>
+        <xsl:for-each-group select="*|text()[normalize-space(.) ne '']" group-adjacent="tei:get-typed-element-name(.)">
+            <xsl:choose>
+                <xsl:when test="tei:is-ignored-element(current-group())"/>
+                <xsl:when test="tei:is-special-element(current-group())">
+                    <xsl:call-template name="element-number-processing-switch">
+                        <xsl:with-param name="element-group" select="current-group()"/>
+                    </xsl:call-template>
+                </xsl:when>
+                <xsl:otherwise>                    
+                    <_ type="object">
+                        <xsl:call-template name="element-number-processing-switch">
+                            <xsl:with-param name="element-group" select="current-group()"/>
+                        </xsl:call-template>
+                    </_>
+                </xsl:otherwise>
+            </xsl:choose>
         </xsl:for-each-group>
     </xsl:template>
     
@@ -151,10 +229,9 @@
         </xd:desc>
     </xd:doc>
     <xsl:template match="tei:fs" mode="#default">
-        <xsl:element name="{@type}">
-            <xsl:attribute name="type">object</xsl:attribute>
-            <xsl:apply-templates mode="tei-fs"/>
-        </xsl:element>
+        <feature type="object">
+           <xsl:apply-templates mode="tei-fs"/>
+        </feature>
     </xsl:template>
 
     <xd:doc>
