@@ -15,9 +15,22 @@
     <xsl:output method="json" indent="true"/>
     
     <xd:doc>
+        <xd:desc>Instead of specifying a type, objects can be listed in an attribute on the json root element</xd:desc>
+    </xd:doc>
+    <xsl:variable name="objects" select="tokenize(json/@objects/data())"/>    
+    <xd:doc>
+        <xd:desc>Instead of specifying a type, arrays/ can be listed in an attribute on the json root element</xd:desc>
+    </xd:doc>
+    <xsl:variable name="arrays" select="tokenize(json/@arrays/data())"/>    
+    <xd:doc>
+        <xd:desc>Instead of specifying a type, strings can be listed in an attribute on the json root element</xd:desc>
+    </xd:doc>
+    <xsl:variable name="strings" select="tokenize(json/@strings/data())"/>
+    
+    <xd:doc>
         <xd:desc>Process the marker element or an array element if it is marked as an object.</xd:desc>
     </xd:doc>
-    <xsl:template match="(json|_)[@type='object']" priority="2"> 
+    <xsl:template match="(json|_)[@type='object' or  local-name() = $objects]" priority="2"> 
         <xsl:map>
             <xsl:apply-templates select="*"/>
         </xsl:map>       
@@ -39,14 +52,14 @@
     <xd:doc>
         <xd:desc>Straight forward handling of JSON objects as XSL maps.</xd:desc>
     </xd:doc>    
-    <xsl:template match="*[@type='object']">
+    <xsl:template match="*[@type='object' or local-name() = $objects]">
         <xsl:map-entry key="_:decode-json-key(local-name())"><xsl:map><xsl:apply-templates select="*[@type=('object', 'array') or not(@type)]"/></xsl:map></xsl:map-entry>
     </xsl:template>
     
     <xd:doc>
         <xd:desc>A handling similar to maps for arrays is probosed for XSL 4.0. At the moment this should handle array values.</xd:desc>
     </xd:doc>
-    <xsl:template match="*[@type='array']">
+    <xsl:template match="*[@type='array' or local-name() = $arrays]">
         <xsl:variable name="object_contents" as="map(*)*">
             <xsl:apply-templates select="_[@type='object']"/>
         </xsl:variable>
@@ -62,7 +75,7 @@
     <xd:doc>
         <xd:desc>The default transformation for element: content is key: xs:string(value).</xd:desc>
     </xd:doc>
-    <xsl:template match="*[not(@type) or @type='string']">
+    <xsl:template match="*[not(@type) or @type='string' or local-name() = $strings]">
         <xsl:map-entry key="_:decode-json-key(local-name())"><xsl:sequence select="xs:string(.)"/></xsl:map-entry>
     </xsl:template>
     
