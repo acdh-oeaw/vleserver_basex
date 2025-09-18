@@ -300,7 +300,7 @@
     <xsl:template match="tei:*[starts-with(local-name(), 'list')]">
         <xsl:element name="{local-name()}">
             <xsl:attribute name="type">array</xsl:attribute>
-        <xsl:apply-templates mode="array"/>
+            <xsl:apply-templates mode="array" select="*"/>
         </xsl:element>
     </xsl:template>
     
