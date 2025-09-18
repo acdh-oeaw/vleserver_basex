@@ -41,6 +41,19 @@
         <xsl:param name="element" as="node()+"/>
         <xsl:sequence select="exists($element/(self::tei:fs,self::tei:sense,self::tei:*[starts-with(local-name(), 'list')]))"/>
     </xsl:function>  
+
+    <xd:doc>
+        <xd:desc>Hard coded key name encoder. Encodes only $ and @.
+            This actually references unicode codepoints.</xd:desc>
+        <xd:param name="in">The key name to be decoded.</xd:param>
+    </xd:doc>
+    <xsl:function name="tei:encode-json-key" as="xs:string">
+        <xsl:param name="in" as="xs:string"/>
+        <xsl:value-of select="
+            replace($in, '$', '_0024', 'q') =>
+            replace('@', '_0040', 'q') =>
+            replace('_', '__', 'q')"/>
+    </xsl:function>
     
     <xd:doc>
         <xd:desc>Returns a JSON name that follows the pattern @type_local-name().
@@ -50,23 +63,26 @@
     </xd:doc>
     <xsl:function name="tei:get-typed-element-name" as="xs:string">
         <xsl:param name="element" as="node()+"/>
-        <xsl:choose>
-            <xsl:when test="tei:is-special-element($element[1])">
-                <xsl:value-of select="$element[1]/local-name()"/>
-            </xsl:when>
-            <xsl:when test="count($element) > 1">
-                <xsl:variable name="plural_ending" as="xs:string">
-                    <xsl:choose>
-                        <xsl:when test="ends-with($element[1]/local-name(), 'y')">ies</xsl:when>
-                        <xsl:otherwise><xsl:value-of select="substring($element[1]/local-name(), string-length($element[1]/local-name()), 1)||'s'"/></xsl:otherwise>
-                    </xsl:choose>
-                </xsl:variable>
-                <xsl:value-of select="string-join((data($element[1]/@type), substring($element[1]/local-name(), 1, string-length($element[1]/local-name()) - 1)), '__')||$plural_ending"/>
-            </xsl:when>
-            <xsl:otherwise>               
-                <xsl:value-of select="string-join((data($element[1]/@type), $element[1]/local-name()), '__')"/> 
-            </xsl:otherwise>
-        </xsl:choose>
+        <xsl:variable name="typed-element-name">
+            <xsl:choose>
+                <xsl:when test="tei:is-special-element($element[1])">
+                    <xsl:value-of select="$element[1]/local-name()"/>
+                </xsl:when>
+                <xsl:when test="count($element) > 1">
+                    <xsl:variable name="plural_ending" as="xs:string">
+                        <xsl:choose>
+                            <xsl:when test="ends-with($element[1]/local-name(), 'y')">ies</xsl:when>
+                            <xsl:otherwise><xsl:value-of select="substring($element[1]/local-name(), string-length($element[1]/local-name()), 1)||'s'"/></xsl:otherwise>
+                        </xsl:choose>
+                    </xsl:variable>
+                    <xsl:value-of select="string-join((data($element[1]/@type), substring($element[1]/local-name(), 1, string-length($element[1]/local-name()) - 1)), '_')||$plural_ending"/>
+                </xsl:when>
+                <xsl:otherwise>               
+                    <xsl:value-of select="string-join((data($element[1]/@type), $element[1]/local-name()), '_')"/> 
+                </xsl:otherwise>
+            </xsl:choose>
+        </xsl:variable>
+        <xsl:value-of select="tei:encode-json-key($typed-element-name)"/>
     </xsl:function>
     
     <xd:doc>
@@ -94,7 +110,7 @@
         </xd:desc>
     </xd:doc>
     <xsl:template match="*" mode="named-object">
-        <xsl:element name="{local-name()}">
+        <xsl:element name="{tei:encode-json-key(local-name())}">
             <xsl:attribute name="type">object</xsl:attribute>
             <xsl:apply-templates select="@*" mode="#default"/>
             <xsl:call-template name="group-xml-elements"/>
@@ -267,7 +283,7 @@
     </xd:doc>
     <xsl:template match="tei:fs[@type]" mode="array sequence">
         <_ type="object">
-            <xsl:element name="{@type}">
+            <xsl:element name="{tei:encode-json-key(@type)}">
                 <xsl:attribute name="type">object</xsl:attribute>
                 <xsl:apply-templates mode="tei-fs"/>
             </xsl:element>
@@ -289,7 +305,7 @@
         </xd:desc>
     </xd:doc>
     <xsl:template match="tei:f" mode="tei-fs">
-        <xsl:element name="{@name}">
+        <xsl:element name="{tei:encode-json-key(@name)}">
             <xsl:value-of select="(tei:symbol/@value, text())[1]"/>
         </xsl:element>
     </xsl:template>
@@ -298,7 +314,7 @@
         <xd:desc>list* elements are by definition best represented as arrays</xd:desc>
     </xd:doc>
     <xsl:template match="tei:*[starts-with(local-name(), 'list')]">
-        <xsl:element name="{local-name()}">
+        <xsl:element name="{tei:encode-json-key(local-name())}">
             <xsl:attribute name="type">array</xsl:attribute>
             <xsl:apply-templates mode="array" select="*"/>
         </xsl:element>
