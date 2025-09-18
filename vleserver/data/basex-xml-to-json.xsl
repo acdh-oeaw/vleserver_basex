@@ -67,7 +67,7 @@
             <xsl:apply-templates select="_[@type='array']"/>
         </xsl:variable>
         <xsl:variable name="string_contents" as="xs:string*">
-            <xsl:apply-templates select="_[not(@type)]"/>
+            <xsl:apply-templates select="_[not(@type)]!xs:string(.)"/>
         </xsl:variable>
         <xsl:map-entry key="_:decode-json-key(local-name())" select="array{($object_contents, $array_contents, $string_contents)}"/> 
     </xsl:template>
@@ -75,7 +75,7 @@
     <xd:doc>
         <xd:desc>The default transformation for element: content is key: xs:string(value).</xd:desc>
     </xd:doc>
-    <xsl:template match="*[not(@type) or @type='string' or local-name() = $strings]">
+    <xsl:template match="*[not(@type) or @type='string' or local-name() = $strings]"  priority="-10">
         <xsl:map-entry key="_:decode-json-key(local-name())"><xsl:sequence select="xs:string(.)"/></xsl:map-entry>
     </xsl:template>
     
