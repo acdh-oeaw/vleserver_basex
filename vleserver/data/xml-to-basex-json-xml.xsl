@@ -274,6 +274,9 @@
         </_>
     </xsl:template>
     
+    <xd:doc>
+        <xd:desc>Second possible form to represend a key value pair</xd:desc>
+    </xd:doc>
     <xsl:template match="tei:fs" mode="array sequence">
         <_ type="object">
             <xsl:apply-templates mode="tei-fs"/>
@@ -288,6 +291,16 @@
     <xsl:template match="tei:f" mode="tei-fs">
         <xsl:element name="{@name}">
             <xsl:value-of select="(tei:symbol/@value, text())[1]"/>
+        </xsl:element>
+    </xsl:template>
+    
+    <xd:doc>
+        <xd:desc>list* elements are by definition best represented as arrays</xd:desc>
+    </xd:doc>
+    <xsl:template match="tei:*[starts-with(local-name(), 'list')]">
+        <xsl:element name="{local-name()}">
+            <xsl:attribute name="type">array</xsl:attribute>
+            <xsl:apply-templates mode="array"/>
         </xsl:element>
     </xsl:template>
     
