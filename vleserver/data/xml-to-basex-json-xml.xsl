@@ -39,7 +39,7 @@
     </xd:doc>
     <xsl:function name="tei:is-special-element" as="xs:boolean">
         <xsl:param name="element" as="node()+"/>
-        <xsl:sequence select="exists($element/(self::tei:fs,self::tei:sense))"/>
+        <xsl:sequence select="exists($element/(self::tei:fs,self::tei:sense,self::tei:*[starts-with(local-name(), 'list')]))"/>
     </xsl:function>  
     
     <xd:doc>
