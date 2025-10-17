@@ -39,7 +39,7 @@
     </xd:doc>
     <xsl:function name="tei:is-special-element" as="xs:boolean">
         <xsl:param name="element" as="node()+"/>
-        <xsl:sequence select="exists($element/(self::tei:fs,self::tei:sense,self::tei:*[starts-with(local-name(), 'list')]))"/>
+        <xsl:sequence select="exists($element/(self::tei:ref,self::tei:fs,self::tei:sense,self::tei:*[starts-with(local-name(), 'list')]))"/>
     </xsl:function>  
 
     <xd:doc>
@@ -304,6 +304,13 @@
     </xsl:template>
     
     <xd:doc>
+        <xd:desc>Text nodes on feature structures generally do not convey any information.
+            Ignore text nodes in TEI feature structures.
+        </xd:desc>
+    </xd:doc>
+    <xsl:template match="text()" mode="tei-fs"/>
+    
+    <xd:doc>
         <xd:desc>list* elements are by definition best represented as arrays</xd:desc>
     </xd:doc>
     <xsl:template match="tei:*[starts-with(local-name(), 'list')]">
@@ -327,10 +334,9 @@
         </_>
     </xsl:template>
     
-    <xd:doc>
-        <xd:desc>Text nodes on feature structures generally do not convey any information.
-            Ignore text nodes in TEI feature structures.
-        </xd:desc>
-    </xd:doc>
-    <xsl:template match="text()" mode="tei-fs"/>
+    <xsl:template match="tei:ref">
+        <ref type="object">
+            <xsl:apply-templates select="@*|*|text()"/>
+        </ref>
+    </xsl:template>
 </xsl:stylesheet>
