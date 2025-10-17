@@ -274,7 +274,7 @@
             This is the variant for multiple feature structures at the same XML level.
         </xd:desc>
     </xd:doc>
-    <xsl:template match="tei:fs[@type]" mode="array sequence">
+    <xsl:template match="tei:fs[@type]" mode="sequence">
         <_ type="object">
             <xsl:element name="{tei:encode-json-key(@type)}">
                 <xsl:attribute name="type">object</xsl:attribute>
@@ -282,6 +282,29 @@
             </xsl:element>
         </_>
     </xsl:template>
+    
+    <xd:doc>
+        <xd:desc>TEI feature structures are key value representations.
+            This is the variant for multiple feature structures at the same XML level.
+        </xd:desc>
+    </xd:doc>
+    <xsl:template match="tei:fs[@type][position() = 1]" mode="array">
+        <features type="array">
+            <xsl:for-each select="(., following-sibling::tei:fs[@type])">
+                <_ type="object">
+                    <xsl:element name="{tei:encode-json-key(@type)}">
+                        <xsl:attribute name="type">object</xsl:attribute>
+                        <xsl:apply-templates mode="tei-fs"/>
+                    </xsl:element>
+                </_>
+            </xsl:for-each>
+        </features>
+    </xsl:template>
+    
+    <xd:doc>
+        <xd:desc>As the whole group is processed with the first element ignore all others</xd:desc>
+    </xd:doc>
+    <xsl:template match="tei:fs[@type][position() > 1]" mode="array"/>
     
     <xd:doc>
         <xd:desc>Second possible form to represend a key value pair</xd:desc>
