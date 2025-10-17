@@ -137,13 +137,13 @@
         <xsl:choose>
             <xsl:when test="tei:is-ignored-element($element-group)"/>
             <xsl:when test="tei:is-special-element($element-group) and count($element-group) = 1">
-                <xsl:apply-templates select="$element-group" mode="#default"/>  
+                <xsl:apply-templates select="$element-group" mode="#current"/>  
             </xsl:when>
             <xsl:when test="tei:is-special-element($element-group) and count($element-group) > 1">
                 <xsl:apply-templates select="$element-group" mode="array"/>  
             </xsl:when>
             <xsl:when test="$element-group/local-name() = ''">
-                <xsl:apply-templates select="$element-group" mode="#default"/> 
+                <xsl:apply-templates select="$element-group" mode="#current"/> 
             </xsl:when>
             <xsl:when test="count($element-group) > 1">
                 <xsl:variable name="content">
@@ -254,15 +254,8 @@
     <xd:doc>
         <xd:desc>Text nodes are transformed to a key '$'.</xd:desc>
     </xd:doc>   
-    <xsl:template match="text()">
+    <xsl:template match="text()" mode="#default array sequence">
         <_0024><xsl:value-of select="normalize-space(.)"/></_0024>
-    </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>A text node that is part of multiple elements grouped together.</xd:desc>
-    </xd:doc>
-    <xsl:template match="text()" mode="array">
-        <_><_0024><xsl:value-of select="normalize-space(.)"/></_0024></_>
     </xsl:template>
     
     <xd:doc>
@@ -318,6 +311,20 @@
             <xsl:attribute name="type">array</xsl:attribute>
             <xsl:apply-templates mode="array" select="*"/>
         </xsl:element>
+    </xsl:template>
+
+    <xd:doc>
+        <xd:desc>list* elements are by definition best represented as arrays
+            In an array or sequence context declare them as objects.
+        </xd:desc>
+    </xd:doc>
+    <xsl:template match="tei:*[starts-with(local-name(), 'list')]" mode="array sequence">
+        <_ type="object">
+            <xsl:element name="{tei:encode-json-key(local-name())}">
+                <xsl:attribute name="type">array</xsl:attribute>
+                <xsl:apply-templates mode="array" select="*"/>
+            </xsl:element>
+        </_>
     </xsl:template>
     
     <xd:doc>
