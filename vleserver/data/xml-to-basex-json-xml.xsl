@@ -39,7 +39,7 @@
     </xd:doc>
     <xsl:function name="tei:is-special-element" as="xs:boolean">
         <xsl:param name="element" as="node()+"/>
-        <xsl:sequence select="exists($element/(self::tei:ref,self::tei:fs,self::tei:sense,self::tei:*[starts-with(local-name(), 'list')]))"/>
+        <xsl:sequence select="exists($element/(self::tei:ref,self::tei:fs,self::tei:*[starts-with(local-name(), 'list')]))"/>
     </xsl:function>  
 
     <xd:doc>
@@ -139,8 +139,8 @@
             <xsl:when test="tei:is-special-element($element-group) and count($element-group) = 1">
                 <xsl:apply-templates select="$element-group" mode="#current"/>  
             </xsl:when>
-            <xsl:when test="tei:is-special-element($element-group) and count($element-group) > 1">
-                <xsl:apply-templates select="$element-group" mode="array"/>  
+            <xsl:when test="tei:is-special-element($element-group) and count($element-group) > 1"> 
+               <xsl:apply-templates select="$element-group" mode="array"/>
             </xsl:when>
             <xsl:when test="$element-group/local-name() = ''">
                 <xsl:apply-templates select="$element-group" mode="#current"/> 
