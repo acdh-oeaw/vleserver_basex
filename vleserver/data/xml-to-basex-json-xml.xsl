@@ -39,7 +39,7 @@
     </xd:doc>
     <xsl:function name="tei:is-special-element" as="xs:boolean">
         <xsl:param name="element" as="node()+"/>
-        <xsl:sequence select="exists($element/(self::tei:ref,self::tei:fs,self::tei:*[starts-with(local-name(), 'list')]))"/>
+        <xsl:sequence select="exists($element/(self::tei:ref,self::tei:fs,self::tei:gram[@type='construction'],self::tei:*[starts-with(local-name(), 'list')]))"/>
     </xsl:function>  
 
     <xd:doc>
@@ -357,6 +357,11 @@
         </_>
     </xsl:template>
     
+    <xd:doc>
+        <xd:desc>tei:ref is marked as a special tag but this stylesheet can not know how to resolve refs.
+            So treat them like the automatic conversion as default.
+        </xd:desc>
+    </xd:doc>
     <xsl:template match="tei:ref">
         <ref type="object">
             <xsl:apply-templates select="@*|*|text()"/>
