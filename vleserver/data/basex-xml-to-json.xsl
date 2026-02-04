@@ -12,7 +12,7 @@
           handling of more types than string, object and array.
       </xd:desc>  
     </xd:doc>
-    <xsl:output method="json" indent="true"/>
+    <xsl:output method="json" indent="false"/>
     
     <xd:doc>
         <xd:desc>Instead of specifying a type, objects can be listed in an attribute on the json root element</xd:desc>
@@ -59,7 +59,7 @@
     <xd:doc>
         <xd:desc>A handling similar to maps for arrays is probosed for XSL 4.0. At the moment this should handle array values.</xd:desc>
     </xd:doc>
-    <xsl:template match="*[@type='array' or local-name() = $arrays]">
+    <xsl:template match="*[@type='array' or local-name() = $arrays]" priority="1">
         <xsl:variable name="object_contents" as="map(*)*">
             <xsl:apply-templates select="_[@type='object']"/>
         </xsl:variable>
@@ -70,6 +70,21 @@
             <xsl:apply-templates select="_[not(@type)]!xs:string(.)"/>
         </xsl:variable>
         <xsl:map-entry key="_:decode-json-key(local-name())" select="array{($object_contents, $array_contents, $string_contents)}"/> 
+    </xsl:template>
+    
+    <xd:doc>
+        <xd:desc>Arrays of Arrays of objects needs special handling</xd:desc>
+    </xd:doc>
+    <xsl:template match="*[@type='array' and ./_[@type='array']]" priority="2">
+        <xsl:variable name="contents" as="map(*)*">
+            <xsl:for-each select="./_[@type='array']">
+                <xsl:variable name="object_contents" as="map(*)*">
+                    <xsl:apply-templates select="_[@type='object']"/>
+                </xsl:variable>
+                <xsl:map-entry key="position()" select="array{($object_contents)}"/>
+            </xsl:for-each>
+        </xsl:variable>
+        <xsl:map-entry key="_:decode-json-key(local-name())" select="array{$contents?*}"/>
     </xsl:template>
     
     <xd:doc>
