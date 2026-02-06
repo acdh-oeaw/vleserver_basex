@@ -72,6 +72,7 @@
                     <xsl:variable name="plural_ending" as="xs:string">
                         <xsl:choose>
                             <xsl:when test="ends-with($element[1]/local-name(), 'y')">ies</xsl:when>
+                            <xsl:when test="ends-with($element[1]/local-name(), 's')">es</xsl:when>
                             <xsl:otherwise><xsl:value-of select="substring($element[1]/local-name(), string-length($element[1]/local-name()), 1)||'s'"/></xsl:otherwise>
                         </xsl:choose>
                     </xsl:variable>
