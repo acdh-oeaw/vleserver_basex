@@ -18,110 +18,38 @@
     <xsl:import href="xml-to-basex-json-xml.xsl"/>
     <xsl:param name="referencedEntriesSerialize"/>
     <xsl:variable name="referencedEntries" select="(parse-xml-fragment($referencedEntriesSerialize)/*, multipleParts/param_referencedEntriesSerialized/*)"/>
-    
-    <xsl:key name="local-xml-ids" match="*[@xml:id]" use="@xml:id"/>
-    
-    <xd:doc>
-        <xd:desc>This non xsl output and xsl:output enable the RestAPI to select this stylesheet for processing to JSON.
-            The actual transformation to JSON is part of BaseX.</xd:desc>
-    </xd:doc>
     <_:output method="json"/>
     <xsl:output method="xml" indent="true" omit-xml-declaration="true"/>
     
-    <xd:doc>
-        <xd:desc>This is meant as a multi purpose entry point.
-            There is a debug output of XML found in the database that returns a source and referenced XML snippets.
-            This stylesheet can also be used to transform an entry with no references or a whole dictionary.
-        </xd:desc>
-    </xd:doc>
-    <xsl:template match="/">
-        <json type="object">
-            <xsl:apply-templates select="if (exists(multipleParts/xmlSource/*)) then multipleParts/xmlSource/* else (*|text())" mode="named-object"/>
-        </json>
-    </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>If we process a dictionary file the entries and examples are encased in divs.
-            The RestAPI also encases and entry in a div.
-            So we deal with a div and one entry or cit or a div with multimple entries or cits here. 
-        </xd:desc>
-    </xd:doc>
-    <xsl:template match="tei:div">
+    <xsl:key name="local-xml-ids" match="*[@xml:id]" use="@xml:id"/>
+   
+    <xsl:template match="tei:div" mode="named-object">
         <xsl:apply-templates select="* except (tei:entry, tei:cit)"/>
+        <xsl:apply-templates select="(tei:entry, tei:cit)" mode="tei-cit-or-entry"/>
+    </xsl:template>
+    
+    <xsl:template match="tei:entry|tei:cit" mode="tei-cit-or-entry">
+        <xsl:element name="{local-name()}">
+            <xsl:attribute name="type">object</xsl:attribute>          
+            <xsl:apply-templates select="."/>
+        </xsl:element>
+    </xsl:template>
+    
+    <xsl:template match="tei:ref" mode="#default array">
+        <xsl:variable name="target" select="xs:string(@target)"/>
         <xsl:choose>
-            <xsl:when test="count((tei:entry, tei:cit)) > 1">
-                <xsl:if test="count(tei:entry) > 1">
-                    <entries type="array">
-                        <xsl:apply-templates select="tei:entry" mode="tei-cit-or-entries"/> 
-                    </entries>
-                </xsl:if>
-                <xsl:if test="count(tei:cit) > 1">
-                    <cits type="array">
-                        <xsl:apply-templates select="tei:cit" mode="tei-cit-or-entries"/> 
-                    </cits>
-                </xsl:if>               
+            <xsl:when test="$referencedEntries//*[@xml:id = substring($target, 2)]">
+                <xsl:call-template name="element-number-processing-switch">
+                    <xsl:with-param name="element-group" select="$referencedEntries//*[@xml:id = substring($target, 2)]"/>
+                </xsl:call-template>
             </xsl:when>
-            <xsl:otherwise><xsl:apply-templates select="(tei:entry, tei:cit)" mode="tei-cit-or-entry"/></xsl:otherwise>
-        </xsl:choose>       
-    </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>The order of the elements in an entry has relevance so we use the seqence of objects method here.
-        </xd:desc>
-    </xd:doc>
-    <xsl:template match="tei:entry" mode="tei-cit-or-entry">
-        <entry type="array">
-            <xsl:apply-templates select="." mode="sequence"/>
-        </entry>
-    </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>The order of the elements in a cit has relevance so we use the seqence of objects method here.
-        </xd:desc>
-    </xd:doc>   
-    <xsl:template match="tei:cit" mode="tei-cit-or-entry">
-        <cit type="array">
-            <xsl:apply-templates select="." mode="sequence"/>
-        </cit>
-    </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>The order of the elements in an entry has relevance so we use the seqence of objects method here.
-            This is used when the entry is part of an array of entries.
-        </xd:desc>
-    </xd:doc>   
-    <xsl:template match="tei:entry" mode="tei-cit-or-entries">
-        <_ type="object">
-            <entry type="array">
-                <xsl:apply-templates select="." mode="sequence"/>
-            </entry>
-        </_>
-    </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>The order of the elements in a cit has relevance so we use the seqence of objects method here.
-            This is used when the cit is part of an array of cits.
-        </xd:desc>
-    </xd:doc>    
-    <xsl:template match="tei:cit" mode="tei-cit-or-entries">
-        <_ type="object">
-            <cit type="array">
-                <xsl:apply-templates select="." mode="sequence"/>
-            </cit>
-        </_>
-    </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>In sense we have multiple cits with different types which have an order that matters.
-            Additionally senses are generated in the entry context that also has an order that matters.
-        </xd:desc>
-    </xd:doc>
-    <xsl:template match="tei:sense" mode="#default array">
-        <_ type="object">
-            <sense type="array">
-                <xsl:apply-templates select='.' mode="sequence"/>
-            </sense>
-        </_>
+            <xsl:otherwise>
+                <ref type="object">
+                    <xsl:apply-templates select="@*"/>
+                    <_0024>target not found</_0024>
+                </ref>
+            </xsl:otherwise>
+        </xsl:choose>
     </xsl:template>
     
     <xd:doc>
