@@ -138,7 +138,7 @@
         <xsl:choose>
             <xsl:when test="tei:is-ignored-element($element-group)"/>
             <xsl:when test="tei:is-special-element($element-group) and count($element-group) = 1">
-                <xsl:apply-templates select="$element-group" mode="#current"/>  
+                <xsl:apply-templates select="$element-group" mode="#default"/>  
             </xsl:when>
             <xsl:when test="tei:is-special-element($element-group) and count($element-group) > 1"> 
                <xsl:apply-templates select="$element-group" mode="array"/>
