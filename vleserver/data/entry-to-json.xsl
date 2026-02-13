@@ -29,27 +29,10 @@
     </xsl:template>
     
     <xsl:template match="tei:entry|tei:cit" mode="tei-cit-or-entry">
-        <xsl:element name="{local-name()}">
-            <xsl:attribute name="type">object</xsl:attribute>          
+        <xsl:element name="{tei:get-typed-element-name(.)}">
+            <xsl:attribute name="type">object</xsl:attribute>
             <xsl:apply-templates select="."/>
         </xsl:element>
-    </xsl:template>
-    
-    <xsl:template match="tei:ref" mode="#default array">
-        <xsl:variable name="target" select="xs:string(@target)"/>
-        <xsl:choose>
-            <xsl:when test="$referencedEntries//*[@xml:id = substring($target, 2)]">
-                <xsl:call-template name="element-number-processing-switch">
-                    <xsl:with-param name="element-group" select="$referencedEntries//*[@xml:id = substring($target, 2)]"/>
-                </xsl:call-template>
-            </xsl:when>
-            <xsl:otherwise>
-                <ref type="object">
-                    <xsl:apply-templates select="@*"/>
-                    <_0024>target not found</_0024>
-                </ref>
-            </xsl:otherwise>
-        </xsl:choose>
     </xsl:template>
     
     <xd:doc>
@@ -102,16 +85,26 @@
     <xsl:template match="tei:ref[@target]">
         <xsl:param name="current-targets" tunnel="true" as="xs:string*"/>
         <xsl:variable name="target" select="substring(data(@target),2)"/>
+        <xsl:variable name="resolved_target" select="($referencedEntries/descendant-or-self::*[@xml:id=$target], key('local-xml-ids', $target))[1]"/>
         <xsl:variable name="content">
           <xsl:choose>
               <xsl:when test="$target = $current-targets">
                   <xsl:apply-templates select="@*|*|text()"/>
                   <loop><xsl:value-of select="$target"/></loop>
               </xsl:when>
-              <xsl:otherwise>
-                  <xsl:apply-templates select="($referencedEntries/descendant-or-self::*[@xml:id=$target], key('local-xml-ids', $target))[1]" mode="tei-cit-or-entry">
+              <xsl:when test="$resolved_target">
+                  <xsl:apply-templates select="$resolved_target" mode="tei-cit-or-entry">
                       <xsl:with-param name="current-targets" tunnel="true" select="($target, $current-targets)"/>
                   </xsl:apply-templates>
+                  <xsl:if test="data($resolved_target/@type) != data(@type)">
+                      <_0024>target type missmatch</_0024>
+                  </xsl:if>
+              </xsl:when>
+              <xsl:otherwise>
+                  <ref type="object">
+                      <xsl:apply-templates select="@*"/>
+                      <_0024>target not found</_0024>
+                  </ref>
               </xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
