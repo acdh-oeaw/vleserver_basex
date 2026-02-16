@@ -16,8 +16,8 @@
     </xd:doc>
     
     <xsl:import href="xml-to-basex-json-xml.xsl"/>
-    <xsl:param name="referencedEntriesSerialize"/>
-    <xsl:variable name="referencedEntries" select="(parse-xml-fragment($referencedEntriesSerialize)/*, multipleParts/param_referencedEntriesSerialized/*)"/>
+    <xsl:param name="referencedEntriesSerialized" select="'&lt;_ xmlns=&quot;&quot;>parameter not referencedEntriesSerialized set!&lt;/_>'"/>
+    <xsl:variable name="referencedEntries" select="(parse-xml-fragment($referencedEntriesSerialized), multipleParts/param_referencedEntriesSerialized/*)"/>
     <_:output method="json"/>
     <xsl:output method="xml" indent="true" omit-xml-declaration="true"/>
     

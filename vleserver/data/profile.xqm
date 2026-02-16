@@ -251,7 +251,7 @@ declare function _:transform-to-format($profile as document-node(), $data as ele
       error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),
             'There is no transformation for format '||$format),
-      $referencedEntries := if (exists($referencedEntries)) then $referencedEntries else <_ xmlns=""/>
+      $referencedEntries := if (exists($referencedEntries)) then $referencedEntries else <_><_ xmlns="">No refreenced entries found</_></_>
   return if (contains($format, 'json'))
      then xslt:transform(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})/json/*
      else xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})
