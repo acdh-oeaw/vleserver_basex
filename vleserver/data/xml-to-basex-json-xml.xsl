@@ -197,9 +197,11 @@
             <xsl:choose>
                 <xsl:when test="tei:is-ignored-element(current-group())"/>
                 <xsl:when test="tei:is-special-element(current-group())">
-                    <xsl:call-template name="element-number-processing-switch">
-                        <xsl:with-param name="element-group" select="current-group()"/>
-                    </xsl:call-template>
+                    <_ type="object">
+                        <xsl:call-template name="element-number-processing-switch">
+                            <xsl:with-param name="element-group" select="current-group()"/>
+                        </xsl:call-template>
+                    </_>
                 </xsl:when>
                 <xsl:when test="current-group() instance of attribute()">
                     <_ type="object">
