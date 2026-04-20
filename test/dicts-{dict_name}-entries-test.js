@@ -1,7 +1,6 @@
 'use strict';
 const mocha = require('mocha');
 const chakram = require('chakram');
-const assert = require('chai').assert;
 const request = chakram.request;
 const expect = chakram.expect;
 const fs = require('fs');
@@ -308,8 +307,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });
@@ -377,20 +376,18 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 return chakram.wait();
             });
         });
-        afterEach('Remove the test profile', function(){
-            return request('get', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
+        afterEach('Remove the test profile', async () =>{
+            await request('get', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'qs': {'lock': 2},
                 'auth': dictuserauth
             })
-            .then(function(){
-            return request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
+            await request('delete', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', {
                 'headers': {"Accept":"application/vnd.wde.v2+json"},
                 'auth': dictuserauth
             });
         });
         });
-    });
 
     describe('tests for get', function() {
         describe('should respond 200 for "OK"', response200tests.curry(false));        
@@ -676,8 +673,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });
@@ -722,6 +719,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
             expect(body._embedded._[0].queryTemplates).to.have.length(8);
             expect(body._embedded._[0].queryTemplates).to.include('tei_all');
         });
+
 
         config = { 
             'body': {
@@ -793,20 +791,20 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         for (let i = 1; i < 10; i++) {
             ids += 'test0' + i + ','
         }
-        await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+        let response = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
             'headers': { "Accept": "application/vnd.wde.v2+json" },
             'qs': {
-                'lock': 5,
+                'lock': 10,
                 'ids': ids
             },
             'auth': dictuserauth
         });
         let deleteRequests = []
         for (let i = 1; i < 10; i++) {
-            deleteRequests.push(request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/test0' + i, {
+            response = await request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/test0' + i, {
                 'headers': { "Accept": "application/vnd.wde.v2+json" },
                 'auth': dictuserauth
-            }));
+            });
         }
         deleteRequests.push(request('delete', baseURI + '/dicts/' + dictuser.table + '/entries/dictProfile', {
             'headers': { "Accept": "application/vnd.wde.v2+json" },
@@ -815,7 +813,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
         await Promise.all(deleteRequests);
         // especially using cache needs a bit of time to finish removing all the database files.
         // if no pause is here there are 500 errors complaining about renaming if xxx.cache.0
-        await later(300);
+            await later(100);
     }
 
     // Perhaps not needed at all: Warnung! Dangerous! Deletes every entry except the system entries < 699 from the dictionary.
@@ -1056,8 +1054,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });

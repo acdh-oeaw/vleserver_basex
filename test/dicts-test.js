@@ -1,7 +1,6 @@
 'use strict';
 const mocha = require('mocha');
 const chakram = require('chakram');
-const assert = require('chai').assert;
 const request = chakram.request;
 const expect = chakram.expect;
 
@@ -21,7 +20,7 @@ describe('tests for /dicts', function() {
       },
         superuserauth = {"user":superuser.userID, "pass":superuser.pw},
         newSuperUserID;
-    describe('test the creation of the dict_users table - it is possible to create the dict-users table without credentials if the table does not exist', function(){
+    describe('test the creation of the dict_users table - it is possible to create the dict_users table without credentials if the table does not exist', function(){
         it('should response 200 for "OK"', async function(){
             var response = await request('post', baseURI + '/dicts', {
                 'headers': {"Accept":"application/vnd.wde.v2+json",
@@ -29,7 +28,7 @@ describe('tests for /dicts', function() {
                 'body': {'name': 'dict_users'},
                 'time': true
                 })
-            expect(+response.body.status).to.be.oneOf([201, 403])
+            expect(response.body.status).to.be.oneOf(["201", "403"])
             response = await request('post', baseURI + '/dicts/dict_users/users', { 
                         'headers': {"Accept":"application/vnd.wde.v2+json",
                                     "Content-Type":"application/json"},
@@ -146,8 +145,8 @@ describe('tests for /dicts', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });
@@ -178,8 +177,8 @@ describe('tests for /dicts', function() {
         });
         describe('Creating a dictionary', function(){
             var dictname = "sit_laborum_id";
-            it('should respond 201 for "Created"', function() {                
-                var response = request('post', baseURI + '/dicts', { 
+            it('should respond 201 for "Created"', async () => {                
+                var response = await request('post', baseURI + '/dicts', { 
                     'body': {"name": dictname},
                     'headers': {"Accept":"application/vnd.wde.v2+json"},                
                     'auth': superuserauth,
@@ -190,7 +189,7 @@ describe('tests for /dicts', function() {
                 expect(response).to.have.json(function(body) {
                     expect(body.title).to.equal("Created")
                 });
-                return chakram.wait();
+                await chakram.wait();
             });
             afterEach('Delete that dictionary', function(){
                 var dictuser = { // a superuser for the test table
@@ -276,8 +275,8 @@ describe('tests for /dicts', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });

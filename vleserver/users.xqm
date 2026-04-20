@@ -223,8 +223,25 @@ function _:getDictDictUserEntry404($_) {
                        'Not found')  
 };
 
-declare function _:is-su($dict as xs:string, $userID as xs:string) as xs:boolean {
-  collection('dict_users')/users/user[@name = $userID and @dict = $dict]/@type = 'su'
+declare function _:check_global_super_user() as empty-sequence() {
+  _:check_super_user("dict_users")
+};
+  
+declare function _:check_super_user($db-name as xs:string) as empty-sequence() {
+  util:eval(``[ declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+  let $auth := "`{util:basic-auth-decode(request:header('Authorization', ''))}`",
+      $name_pw := tokenize (
+                    if ($auth eq "") then "___no_user___:___no_password___"
+                                     else $auth,
+                  ':'),
+      $user_tag := try { collection('dict_users')/users/user[@name=$name_pw[1] and upper-case(@pw)=upper-case($name_pw[2]) and 
+                                                       @type="su" and @dict = "`{$db-name}`"] }
+                   catch err:FODC0002 { (: Until dict_users is created everyone is superuser :) true() }          
+      return if (exists($user_tag)) then () else
+        if ("`{$db-name}`" eq "dict-users") then error(xs:QName('response-codes:_403'),
+                       'Only global super users may create dictionaries.')
+        else error(xs:QName('response-codes:_403'),
+                       'This operation requires super user privileges for dict `{$db-name}`') ]``, (), 'check-super-user-'||$db-name)
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {

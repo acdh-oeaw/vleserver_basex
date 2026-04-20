@@ -35,10 +35,14 @@ declare %private function _:get-skel-if-exists($dict as xs:string) as xs:string?
 };
 
 declare function _:get-entry-by-id($dict_name as xs:string, $id as xs:string) as map(*) {
-  let $dict_name := _:get-real-dicts($dict_name, $id)
-  return api-problem:trace-info('@access@get-entry-by-id',
-      prof:track(util:eval(``[collection("`{$dict_name?value}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')
-  ), $dict_name?timings)
+  let $dict_name := _:get-real-dicts($dict_name, $id),
+      $entry_by_id := api-problem:trace-info('@access@get-entry-by-id',
+        prof:track(util:eval(``[collection("`{$dict_name?value}`")//*[@xml:id = "`{$id}`" or @ID = "`{$id}`"]]``, (), 'getDictDictNameEntry')
+      ), $dict_name?timings)
+  return if (exists($entry_by_id?value)) then $entry_by_id
+         else error(xs:QName('response-codes:_404'),
+                           'Not found',
+                           'ID '||$id||' not found in '||$dict_name||'.') 
 };
 
 declare function _:get-real-dicts($dict as xs:string, $ids as xs:string+) as map(*) {
@@ -60,7 +64,7 @@ let $dicts := _:get-list-of-data-dbs($dict),
 return if (exists($found-in-parts?value)) then $found-in-parts
        else error(xs:QName('response-codes:_404'),
                            'Not found',
-                           'IDs '||$ids_seq||' not found')
+                           'IDs '||$ids_seq||' not found in '||string-join($dicts, ', ')||'.')
 };
 
 declare function _:get-real-dicts-id-starting-with($dict as xs:string, $id_start as xs:string) as xs:string+ {
@@ -299,7 +303,7 @@ declare function _:do-get-index-data($c as document-node()*, $id as xs:string*, 
 
 declare function _:create_new_entries($data as map(xs:string, map(xs:string, item()?)), $dict as xs:string, $changingUser as xs:string) as map(xs:string, map(xs:string, map(xs:string, item()?))) {
   let $ids_seq := ``[("`{string-join(map:keys($data), '","')}`")]``,
-      $dict-is-db := util:eval(``[db:exists("`{$dict}`")]``, (), 'add-entry-todb-db-exists'),
+      $dict-is-db := util:eval(``[db:exists("`{$dict}`")]``, (), 'create-new-entries-db-exists'),
       $dataType := distinct-values(for $entry in $data?*?entry return types:get_data_type($entry)),
       $dicts := if ($dataType = 'profile') then $dict||'__prof'      
                 else if ($dict-is-db) then $dict
@@ -343,6 +347,24 @@ return map {'current':$script_ret}
                                             'db_name': $target-collection}},
                                 '$id': ...}
 :)
+
+declare function _:create_new_file($data as map(xs:string, item()?), $dict as xs:string, $changingUser as xs:string) as map(xs:string, map(xs:string, map(xs:string, item()?))) {
+  let $dataTypes := distinct-values(for $entry in $data?xmlData//(*:entry, *:cit) return types:get_data_type($entry)),
+      $target-collection := _:get-collection-name-for-insert-data($dict, $dataTypes[1]),
+      $add-file-todb-script := ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
+            declare variable $data external;
+            (db:replace("`{$target-collection}`", $data?fileName, $data?xmlData),
+            db:optimize("`{$target-collection}`"),
+            update:output(map:merge(for $id as xs:string in $data('xmlData')//(*:entry, *:cit)/@xml:id!xs:string(.)
+              return map {$id: map:merge((map{'db_name': "`{$target-collection}`"}, map{'entry': $data?xmlData//(*:entry, *:cit)[@xml:id = $id]}))})))
+          ]``,
+        $log := _:write-log('acc:add-file-todb $add-entry-todb-script := '||$add-file-todb-script||' $data := '||serialize($data, map{'method': 'basex'}), 'DEBUG'),
+      $script_ret := util:eval($add-file-todb-script, map {
+            'data': $data
+          }, 'add-file-todb', true())
+    , $log := _:write-log('acc:add-file-todb $script_ret := '||serialize($script_ret, map{'method': 'basex'}), 'DEBUG')
+return map {'current':$script_ret}
+};
 
 declare %private function _:add-change-records($id as xs:string, $data as map(*), $oldData as map(*), $dataType as xs:string, $changingUser as xs:string) {
   map {$id: if ($dataType = 'profile') then map:merge((map{ 'entry': $data?entry transform with { chg:add-change-record-to-profile(.) }}, $data))
@@ -531,6 +553,22 @@ declare %private function _:create-new-data-db($profile as document-node()) as x
     $ret := profile:get-list-of-data-dbs($profile)[last()]
     (: , $retLog := _:write-log('Created '||$new-db-name, 'DEBUG') :)
   return $ret
+};
+
+declare function _:get-dict-queries-by-values($dict-dbs as xs:string+) as map(*) {
+let $text_by_dict_by_queryTemplate := map:merge((
+  for $db in $dict-dbs[not(. = 'dict_users')]
+  return map{$db: 
+    let $profile := profile:get($db)
+    return map:merge((
+      for $template in $profile//queryTemplate
+      return map{
+        $template/@label: util:eval(profile:create-index-queries-for-db($profile, $template), (), 'index-query')
+      }))
+    })),
+    $dict_query_by_value := map:merge((map:for-each($text_by_dict_by_queryTemplate, function($dict, $index-map){ map:for-each($index-map, function($index, $values){ $values[not(.='')]!map{.: map{"query": map{$index: $dict}}}})})), map {"duplicates": "combine"}),
+    $dict_query_by_value := map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries){map{$value: map:merge($dict-queries, map {'duplicates': 'combine'})}}), map {"duplicates": "combine"})
+return map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries) { map {$value: map {"query": array{$dict-queries?*}}} }))
 };
 
 declare (: %private :) function _:write-log($message as xs:string, $severity as xs:string) {

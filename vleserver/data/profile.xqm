@@ -36,6 +36,10 @@ declare function _:check-contains-valid-dictname($profile as document-node()) as
       'Got "'||serialize($profile/profile/tableName, map{'method': 'xml'})||'".')
 };
 
+declare function _:get-all-dict-names() as xs:string* {
+  util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles')
+};
+
 declare function _:get($dict_name as xs:string) as document-node() {
   util:eval(``[collection("`{$dict_name}`__prof")]``, (), 'get-profile')
 };
@@ -122,9 +126,21 @@ return map:merge((for $altDisplayString in $profile//altDisplayString
   return map{xs:string($altDisplayString/@label): _:template-to-template-string-transformation($altDisplayString, $langId)}))
 };
 
-declare function _:get-query-templates($profile as document-node()) as map(xs:string, xs:string) {
+declare function _:get-special-characters($profile as document-node()) as element(specialCharacters)? {
+  $profile//specialCharacters update {
+    insert node attribute {"type"} {"array"} as first into .,
+    for $char in ./char return replace node $char with
+    <_ type="object">{
+      $char/* update {
+        if (.[self::text and ./*]) then replace value of node . with serialize(./*) else ()
+      }
+    }</_>
+  }  
+};
+
+declare function _:get-query-templates($profile as document-node()) as array(map(xs:string, xs:string)) {
   let $queryTemplates := $profile//queryTemplates/queryTemplate
-  return map:merge($queryTemplates!map{xs:string(./@label): xs:string(_:template-to-template-string-transformation(./text(), ''))})
+  return array{$queryTemplates!map{xs:string(./@label): xs:string(_:template-to-template-string-transformation(./text(), ''))}}
 };
 
 declare function _:create-sub-query($noSubstQuery as xs:string) as xs:string {
@@ -151,6 +167,21 @@ declare variable $noSubstQuery as xs:string external;
 declare variable $subQuery as xs:string external;
 for $__db__ in $dbs return ]``|| $template
   return util:eval($template_query, map{'$dbs': $dbs, '$noSubstQuery': $noSubstQuery, '$subQuery': _:create-sub-query($noSubstQuery)}, 'create-queries-for-db')
+};
+
+declare function _:create-index-queries-for-db($profile as document-node(), $template as xs:string) as xs:string {
+  let $dbs as xs:string+ := _:get-list-of-data-dbs($profile),
+      $index_query as xs:string := ``[declare variable $dbs as xs:string+ external;
+declare variable $template as xs:string external;
+for $__db__ in $dbs return
+  replace($template, 'declare variable $__db__ external;', 'distinct-values((', 'q') =>
+  replace('$__db__', '"'||$__db__||'"', 'q') =>
+  replace('(@.+)\[.+\]/..\s+\|','$1 |') =>
+  replace('entry[', 'entry/', 'q') =>
+  replace('gramGrp[', 'gramGrp/', 'q') =>
+  replace('(\[contains\(.+|\[\s*text\(.+|\[\s*\{subQuery.+)', '/text() | ') =>
+  concat('())!normalize-space(.))')]``
+  return util:eval($index_query, map{'$dbs': $dbs, '$template': $template}, 'create-index-queries-for-db')  
 };
 
 declare function _:get-list-of-data-dbs($profile as document-node()) as xs:string* {
@@ -217,13 +248,18 @@ let $extract-sort-values-xquery := ``[`{string-join(_:get-xquery-namespace-decls
 return util:eval($extract-sort-values-xquery, map {'data': $data}, 'profile-extract-sort-values', true())
 };
 
-declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string) as xs:string {
-  let $stylesheet := $profile/*/entryStyle/*[xsl:output[@method = $format]],
+(: Returns an xs:string except when JSON is requested. In that case the XSL is responsible for returnung a BaseX JSON XML representation. :)
+declare function _:transform-to-format($profile as document-node(), $data as element(), $format as xs:string, $referencedEntries as element(_)?) {
+  let $stylesheet := $profile/*/entryStyle/*[*:output[@method = $format]][1],
       $check_there_is_a_stylsheet := if (exists($stylesheet)) then true() else
       error(xs:QName('response-codes:_400'),
             $api-problem:codes_to_message(400),
-            'There is no transformation for format '||$format)
-  return xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet, (), map {"cache": false()})
+            'There is no transformation for format '||$format),
+      $referencedEntries := if (exists($referencedEntries)) then $referencedEntries else <_><_ xmlns="">No refreenced entries found</_></_>
+  return if (contains($format, 'json'))
+     then xslt:transform(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})/json/*
+     else xslt:transform-text(<tei:div type="entry">{$data}</tei:div>, $stylesheet update {insert node attribute {'xml:base'} {file:path-to-uri(file:parent(static-base-uri()))} as first into . }, map{"referencedEntriesSerialized": serialize($referencedEntries/*)}, map {"cache": false()})
+  (: return serialize($profile/*/entryStyle/*[xsl:output[@method = $format]]) :)
 };
 
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {

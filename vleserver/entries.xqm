@@ -95,10 +95,11 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
          'Dictionary '||$dict_name||' does not exist'),
       $profile := profile:get($dict_name),
       $query-templates := profile:get-query-templates($profile),
+      $query-template-names := array:for-each($query-templates, function($e) {map:keys($e)})?*,
       $query-template-name := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$1'),
       $query-value := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$2'),
       $check_authenticated_for_q_sort_xquery := if ((
-        (exists($q) and not($query-template-name = map:keys($query-templates))) or
+        (exists($q) and not($query-template-name = $query-template-names)) or
         (exists($sort) and not($sort = ("none", "asc", "desc"))))
         and not($accept = 'application/vnd.wde.v2+json'))
       then error(xs:QName('response-codes:_403'), 
@@ -115,7 +116,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
          $api-problem:codes_to_message(403),
          'Locking entries is only allowed if authenticated')
       else true(),
-      $q_is_a_query_template := if (exists($q) and not($query-template-name = map:keys($query-templates))) then
+      $q_is_a_query_template := if (exists($q) and not($query-template-name = $query-template-names)) then
         error(xs:QName('entries:not_implemented'), 'Not yet implemented')
       else true(),
       $additional_ret_query_parameters := map:merge((
@@ -153,7 +154,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       api-problem:trace-info('@entries@getDictDictNameEntries@total_items',
           prof:track(
           if ($q instance of xs:string) then
-            data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates($query-template-name), $query-value)
+            data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates?*!.($query-template-name), $query-value)
           else if ($ids instance of xs:string) then
            if (exists($profile//useCache))
             then cache:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
@@ -182,7 +183,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items?value div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
-      $query-template := if (empty($query-template-name)) then () else $query-templates($query-template-name),
+      $query-template := if (empty($query-template-name)) then () else $query-templates?*!.($query-template-name),
       $relevant_nodes_or_dryed := api-problem:trace-info('@entries@getDictDictNameEntries@relevant_nodes_or_dryed',
         prof:track(
           if (exists($profile//useCache))
@@ -213,7 +214,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
         let $lemma := $id/../@*[local-name() = $util:vleUtilSortKey||$label],
             $entry := $xml_snippets_without_sort_key?value($id),
-            $ret := _:entryAsDocument(xs:anyURI($base_uri||data($id)), $id, $lemma, $entry, $locked_entries($id), $profile, $format)
+            $ret := _:entryAsDocument(xs:anyURI($base_uri||data($id)), $dict_name, $id, $lemma, $entry, $locked_entries($id), $profile, $format)
         return map{'value': $ret?value,
                    'timings': array:join(($ret?timings))} (:array{$lemma?timings?*} ,  :)
         ))
@@ -330,38 +331,46 @@ let (: $start := prof:current-ns(), :)
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $lemma as xs:string, $entry as element()?) {
-  _:entryAsDocument($_self, $id, $lemma, $entry, (), (), ())
+function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry as element()?) {
+  _:entryAsDocument($_self, $dict_name, $id, $lemma, $entry, (), (), ())
 };
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?) {
-  _:entryAsDocument($_self, $id, $lemma, $entry, $isLockedBy, (), (), ())
+function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?) {
+  _:entryAsDocument($_self, $dict_name, $id, $lemma, $entry, $isLockedBy, (), (), ())
 };
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $caller_timings as array(*)?) {
+function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $dict_name as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $caller_timings as array(*)?) {
 api-problem:trace-info('@entries@entryAsDocument',
             prof:track(
 (# db:copynode false #) {
-  json-hal:create_document($_self, (
+  let $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target))),
+      $referenced_entries := try {
+        if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
+      } catch response-codes:_404 { () }
+  return json-hal:create_document($_self, (
     <id>{$id}</id>,
     <sid>{$id}</sid>,
     <lemma>{$lemma}</lemma>,
     if (exists($entry//*:fs[@type='change']/*[@name='status'])) then
-    <status>{$entry//*:fs[@type='change']/*[@name='status']/*/@value/data()}</status> else (),
+    <status>{distinct-values($entry//*:fs[@type='change']/*[@name='status']/*/@value)}</status> else (),
     if (exists($entry//*:fs[@type='change']/*[@name='owner'])) then
     <owner>{$entry//*:fs[@type='change']/*[@name='owner']/*/@value/data()}</owner> else (),
     if (exists($isLockedBy)) then <locked>{$isLockedBy}</locked> else (),
     if (exists($entry)) then
-      let $entry_as_txt := if (exists($format)) then profile:transform-to-format($profile, $entry, $format) else serialize($entry)
+      let $entry_as_txt_or_json := if (exists($format)) then profile:transform-to-format($profile, $entry, $format, $referenced_entries) else serialize($entry)
       return (
       <type>{types:get_data_type($entry)}</type>,
-      <entry>{$entry_as_txt}</entry>
-      , <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt)))}</storedEntryMd5> 
-      )
+      <entry>{if ($entry_as_txt_or_json instance of xs:string) then $entry_as_txt_or_json else (attribute {'type'}{'object'}, $entry_as_txt_or_json)}</entry>,
+      if (exists($referenced_entries) and not(exists($format))) then <referencedEntries type="object">
+        {for $entry in $referenced_entries/*
+         return element {$entry/@xml:id => replace('_', '__', 'q')} {serialize($entry)}}
+      </referencedEntries>,
+      if (not(exists($format))) then <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt_or_json)))}</storedEntryMd5> else ()
+    )
     else ()))
 }), $caller_timings)
 };
@@ -387,17 +396,16 @@ declare
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
     %test:consumes('application/json')
-    %test:arg("userData", '{"entries": [{
+    %test:arg("userData", '{ "or": [{
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
   "entry": "The entry as XML fragment."
-}]}') 
-    %test:arg("userData", '{
-"entries": [{
+},
+{"entries": [{
   "sid": "The internal ID. May be empty string.",
   "lemma": "A lemma. May be empty string.",
   "entry": "The entry as XML fragment."
-}]}')
+}]}]}')
 function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) {
   let $start := prof:current-ns(),
       $userName := _:getUserNameFromAuthorization($auth_header),
@@ -411,7 +419,7 @@ function _:createEntry($dict_name as xs:string, $userData, $content-type as xs:s
       return _:checkPassedDataIsValid($dict_name, $entryData, $content-type, $wanted-response)
   return if (exists($entries)) then
   let $create_new_data as map(xs:string, map(xs:string, item()?)) := map:merge(for $entry in $entries
-    return map {$entry?id: map:merge((map { "as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
+    return map {$entry?id: map:merge((map { "as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $dict_name, $entry?id,
           profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry)}, $entry))}),
       (: $log := _:write-log(serialize($create_new_data, map {'method': 'basex'}), 'INFO'), :)
       $create_new := _:create_new_entries($create_new_data, $dict_name, $userName)
@@ -439,7 +447,7 @@ declare %private function _:create_new_entries($data as map(xs:string, map(xs:st
   let $savedEntries := data-access:create_new_entries($data, $dict, $changingUser),
       $run_plugins := plugins:after_created($savedEntries, $dict, $changingUser)
     (: , $log := _:write-log('entries:create_new_entries() $savedEntries := '||serialize($savedEntries, map{'method': 'basex'}), "DEBUG") :)
-  return map:for-each($savedEntries('current'), function($id, $savedEntry) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $id, 
+  return map:for-each($savedEntries('current'), function($id, $savedEntry) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $dict, $id, 
   profile:extract-sort-values(profile:get($dict), $savedEntry?entry)/@*[local-name() = $util:vleUtilSortKey],
   $savedEntry?entry)})     
 };
@@ -546,8 +554,7 @@ declare
 }]}')
 function _:changeEntries($dict_name as xs:string, $userData, $as-user as xs:string?, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
   let $start := prof:current-ns(),
-      $userName := _:getUserNameFromAuthorization($auth_header),
-      $check_user_is_allowed_to_impersonate := if (not(exists($as-user)) or users:is-su($dict_name, $userName)) then true()
+      $check_user_is_allowed_to_impersonate := if (not(exists($as-user)) or users:check_super_user($dict_name)) then true()
       else error(xs:QName('response-codes:_403'),
          'You are not allowed to use the as-user query parameter',
          'Only super users may imperosnate other users'),      
@@ -568,8 +575,9 @@ function _:changeEntries($dict_name as xs:string, $userData, $as-user as xs:stri
       $entries := prof:track(for $entry in $userData/json/entries/_
       let $entryData := <_><json>{($userData/json/@*, $entry/*)}</json></_>
       return _:checkPassedDataIsValid($dict_name, $entryData, $content-type, $wanted-response)),    
-      $lockedBy := prof:track(lcks:get_user_locking_entries($dict_name, $userData/json/entries/_/id))
+      $lockedBy := prof:track(lcks:get_user_locking_entries($dict_name, $userData/json/entries/_/id)),
      (: return $lockedBy :)
+      $userName := _:getUserNameFromAuthorization($auth_header)
      ,  $checkLockedByCurrentUser := if ($userName = $lockedBy?value?*) then true()
         else error(xs:QName('response-codes:_422'),
                    'You don&apos;t own the lock for all the entries',
@@ -578,7 +586,7 @@ function _:changeEntries($dict_name as xs:string, $userData, $as-user as xs:stri
       (: $changes_data as map(xs:string, map(xs:string, item()?)) := :)
       $changes_data := api-problem:trace-info('@entries@changeEntries@changes_data',
               prof:track(map:merge(for $entry in $entries?value
-        return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $entry?id,
+        return map {$entry?id: map:merge((map {"as_document": _:entryAsDocument(try {xs:anyURI(util:uri()||'/'||$entry?id)} catch basex:http {xs:anyURI('urn:local')}, $dict_name, $entry?id,
           profile:extract-sort-values(profile:get($dict_name), $entry?entry)/@*[local-name() = $util:vleUtilSortKey], $entry?entry), "storedEntryMd5": $entry?storedEntryMd5}, $entry))}))),
       (: $log := _:write-log("entries:changeEntries$change_data "||serialize($changes_data, map {'method': 'basex'}), 'INFO'), :)
       $entries_as_documents := 
@@ -603,7 +611,7 @@ declare %private function _:change_entries($data as map(xs:string, map(xs:string
       (: $log := _:write-log(serialize($savedEntry?value, map{'method': 'basex'}), 'INFO'), :)
       $run_plugins := plugins:after_updated($savedEntry?value, $dict, $changingUser)
   return api-problem:trace-info('@entries@change_entries@create_documents',
-      prof:track(map:for-each($savedEntry?value('current'), function($id, $data) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $id, 
+      prof:track(map:for-each($savedEntry?value('current'), function($id, $data) {_:entryAsDocument(xs:anyURI(util:uri()||'/'||$id), $dict, $id, 
   profile:extract-sort-values(profile:get($dict), $data?entry)/@*[local-name() = $util:vleUtilSortKey],
   $data?entry)})), array:join(($caller_timings, $savedEntry?timings, $run_plugins?timings)))
 }; 
@@ -714,7 +722,7 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
           else _:get-nodes-or-dryed-direct($dict_name, $profile, (), (), $id, (), (), (), 1, 1, 1))),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $relevant_nodes_or_dryed?value/(@xml:id, @ID)),
       $entry := data-access:get-entries-by-ids($dict_name, data($relevant_nodes_or_dryed?value/(@xml:id, @ID)), $relevant_nodes_or_dryed?value/@db_name/data(), 1)
-  return api-problem:or_result($start, _:entryAsDocument#8, [util:uri(), $entry?value/*/(@xml:id, @ID), 
+  return api-problem:or_result($start, _:entryAsDocument#9, [util:uri(), $dict_name, $entry?value/*/(@xml:id, @ID), 
   profile:extract-sort-values($profile, $entry?value/*)/@*[local-name() = $util:vleUtilSortKey],
   $entry?value/* transform with {delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]}, $lockedBy, $profile, $format,
   array:join(($relevant_nodes_or_dryed?timings, $entry?timings))], cors:header(()))

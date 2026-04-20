@@ -30,7 +30,12 @@ declare function _:or_result($start-time-ns as xs:integer, $api-function as func
             $ret := if ($ret instance of map(*) and exists($ret?value)) then $ret?value else $ret
         return if ($ret instance of element(rfc7807:problem)) then _:return_problem($start-time-ns, $ret,$header-elements)
         else        
-          (web:response-header(map {'method': 'json'}, $header-elements, map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
+          (web:response-header(
+             if (exists($header-elements) and ($header-elements('Content-Type') = 'application/xml')) 
+             then map {'method': 'xml'} 
+             else map {'method': 'json', 'indent': 'no'},
+             $header-elements,
+             map{'message': $_:codes_to_message($ok-status), 'status': $ok-status}),
           (: admin:write-log('INFO', serialize($timings, map {"method": "basex"})), :)
           _:inject-runtime($start-time-ns, $ret, $timings)
           )

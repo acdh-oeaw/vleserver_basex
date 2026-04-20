@@ -1,7 +1,6 @@
 'use strict';
 const mocha = require('mocha');
 const chakram = require('chakram');
-const assert = require('chai').assert;
 const request = chakram.request;
 const expect = chakram.expect;
 const fs = require('fs');
@@ -96,7 +95,33 @@ describe('tests for /dicts/{dict_name}', function() {
         });
         describe('should respond 200 for "OK', async function() {
             it('when authenticated', async function() {
-                var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', {
+                var config = { 
+                    'body': {
+                        "sid": "dictProfile",
+                        "lemma": "",
+                        "entry": compiledProfileTemplate({
+                            'dictName': dictuser.table,
+                            'displayString': '//tei:form/tei:orth[1]',
+                            'useCache': false
+                         })
+                    },
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'auth': dictuserauth,
+                    'time': true
+                };
+                
+                let response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {'lock': 2},
+                    'auth': dictuserauth,                    
+                })
+                expect(response).to.have.status(200);
+
+                response = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', config);
+
+                expect(response).to.have.status(201);
+                
+                response = await request('get', baseURI + '/dicts/' + dictuser.table, {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'auth': dictuserauth,
                     'time': true
@@ -104,31 +129,33 @@ describe('tests for /dicts/{dict_name}', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2");
+                    expect(body.total_items).to.equal("4");
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.be.undefined;
                     expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
-                    expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
+                    expect(body._embedded._[0].queryTemplates).to.eql(["tei_all", "tei_lem", "tei_sid", "tei_pos", "tei_tr", "mds_names", "mds_any", "mds_title",]);
+                    expect(body._embedded._[0].specialCharacters).to.eql([{"value": "’"},{"value": "ʔ"},{"value": "ā"},{"value": "ḅ"}]);
                     expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
                 });
-                return chakram.wait();
+                await chakram.wait();
             });
 
             it('when unauthenticated (public)', async function() {
-                var response = request('get', baseURI + '/dicts/deseruntsitsuntproident', {
+                var response = await request('get', baseURI + '/dicts/deseruntsitsuntproident', {
                     'time': true
                 });
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2")
+                    expect(body.total_items).to.equal("4")
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.be.undefined;
                     expect(body._embedded._[0].dbNames).to.be.an.instanceof(Array);
                     expect(body._embedded._[0].queryTemplates).to.be.an.instanceof(Array);
+                    expect(body._embedded._[0].specialCharacters).to.be.an.instanceof(Array);
                     expect(body._embedded._[1].note).to.equal("all users with access to this dictionary");
                 });
-                return chakram.wait();
+                await chakram.wait();
             });
 
             it('should report whether the cache is activated', async function(){
@@ -147,7 +174,7 @@ describe('tests for /dicts/{dict_name}', function() {
                     'time': true
                 };
 
-                var response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+                let response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'qs': {'lock': 2},
                     'auth': dictuserauth,                    
@@ -163,7 +190,7 @@ describe('tests for /dicts/{dict_name}', function() {
 
                 expect(response).to.have.status(200);
                 expect(response).to.have.json((body) => {
-                    expect(body.total_items).to.equal("2")
+                    expect(body.total_items).to.equal("4")
                     expect(body._embedded._[0].note).to.equal("all entries");
                     expect(body._embedded._[0].cache).to.equal("true");
                 });
@@ -215,8 +242,8 @@ describe('tests for /dicts/{dict_name}', function() {
 
             expect(response).to.have.status(404);
             expect(response).to.have.json(
-                (value) => assert(value === 'No function found that matches the request.' || 
-                                  value === 'Service not found.', 'Unexpected status message: '+value)
+                (value) => expect(value === 'No function found that matches the request.' || 
+                                  value === 'Service not found.', 'Unexpected status message: '+value).to.equal(true)
                 );
             return chakram.wait();
         });

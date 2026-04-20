@@ -11,10 +11,12 @@ import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
 import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
+import module namespace users = 'https://www.oeaw.ac.at/acdh/tools/vle/users' at 'users.xqm';
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'data/cache.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
+import module namespace u = "http://basex.org/modules/util";
 import module namespace functx = "http://www.functx.com";
 
 declare namespace http = "http://expath.org/ns/http-client";
@@ -47,7 +49,7 @@ declare
     %rest:produces('application/problem+xml')
 function _:getDicts($pageSize as xs:integer, $page as xs:integer) {
   let $start := prof:current-ns(),
-      $dicts := util:eval(``[db:list()[ends-with(., '__prof') or . = 'dict_users']!replace(., '__prof', '')]``, (), 'get-list-of-dict-profiles'),
+      $dicts := profile:get-all-dict-names(),
       $dicts_as_documents := $dicts!json-hal:create_document(xs:anyURI(util:uri()||.), <name>{.}</name>)
   return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), 'dicts', array{$dicts_as_documents}, $pageSize, count($dicts), $page], cors:header(()))
 };
@@ -94,7 +96,9 @@ function _:createDict($data, $content-type as xs:string, $wanted-response as xs:
         else error(xs:QName('response-codes:_422'),
          'User directory does not exist',
          'You need to create the special dict_users first')
-      return (_:check_global_super_user(),
+      return 
+      try {
+        ( users:check_global_super_user(),
           util:eval(``[declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 if (db:exists("`{$data/json/name}`__prof")) then
   error(xs:QName('response-codes:_409'),
@@ -110,6 +114,15 @@ else
           <title>{$api-problem:codes_to_message(201)}</title>
           <status>201</status>
         </problem>, cors:header(())))
+      } catch err:FODC0007 {
+        api-problem:result($start,
+        <problem xmlns="urn:ietf:rfc:7807">
+          <type>https://tools.ietf.org/html/rfc7231#section-6</type>
+          <title>{$api-problem:codes_to_message(400)}</title>
+          <status>400</status>
+          <detail>{$err:description}</detail>
+        </problem>, cors:header(()))  
+      }
 };
 
 declare function _:check_global_super_user() as empty-sequence() {
@@ -152,15 +165,51 @@ function _:getDictDictName($dict_name as xs:string) as item()+ {
         $entries-are-cached := profile:use-cache($profile)
     return api-problem:or_result($start, json-hal:create_document_list#6, [util:uri(), '__', [
     json-hal:create_document(xs:anyURI(util:uri()||'entries'), (<note>all entries</note>,
-    <queryTemplates type="array">{map:keys($query-templates)!<_>{.}</_>}</queryTemplates>,
+    <queryTemplates type="array">{array:for-each($query-templates, function($e) {map:keys($e)})?*!<_>{.}</_>}</queryTemplates>,
+    _:get_list_of_dict_characters($dict_name),
     <dbNames type="array">{$db-names!<_>{.}</_>}</dbNames>,
-    if ($entries-are-cached) then <cache>{$entries-are-cached}</cache> else ())),
-    json-hal:create_document(xs:anyURI(util:uri()||'users'), <note>all users with access to this dictionary</note>)], 2, 2, 1], cors:header(()))
+    if ($entries-are-cached)
+    then <cache>{$entries-are-cached}</cache>
+    else ()
+    (: <autocomplete type="object">{json:parse(serialize(data-access:get-dict-queries-by-values($dict_name), map {"method": "json", "indent": "no"}))/json/*}</autocomplete> :)
+    )),
+    json-hal:create_document(xs:anyURI(util:uri()||'users'), <note>all users with access to this dictionary</note>),
+    json-hal:create_document(xs:anyURI(util:uri()||'files'), <note>all files that make up this dictionary</note>),
+    json-hal:create_document(xs:anyURI(util:uri()||'autocomplete'), <note>JSON containing all possible query template names by query result texts</note>)
+  ], 4, 4, 1], cors:header(()))
   else
   error(xs:QName('response-codes:_404'),
                  $api-problem:codes_to_message(404))
 };
 
+declare
+    %rest:GET
+    %rest:path('/restvle/dicts/{$dict_name}/autocomplete')
+    %rest:produces('application/json')
+    %rest:produces('application/problem+json')  
+    %rest:produces('application/problem+xml')    
+function _:getDictDictNameAutocomplete($dict_name as xs:string) as item()+ {
+  let $start := prof:current-ns()
+  return
+  api-problem:or_result($start, _:get_autocomplete_for_dict_name#1, [$dict_name], cors:header(()))
+};
+
+declare function _:get_autocomplete_for_dict_name($dict_name as xs:string) {
+  data-access:get-dict-queries-by-values($dict_name)
+};
+
+declare function _:get_list_of_dict_characters($dict_name as xs:string) as element(specialCharacters) {
+  let $profile := profile:get($dict_name),
+      $specialCharacters := profile:get-special-characters($profile)
+  return if (exists($specialCharacters)) then $specialCharacters else
+  <specialCharacters type="array">{
+    try {
+    for $c in sort(distinct-values(collection($dict_name)//text()[normalize-space() ne '']!u:chars(normalize-unicode(.,'NFC')))[not(matches(., '[-/()\[\]0-9a-zA-z<>,.;:+*?!~%=#"&apos;]|\s'))]) return
+    <_ type="object"><value>{$c}</value></_>
+    } catch db:* | err:FODC0002 {
+    }
+  }</specialCharacters> 
+};
 
 (:~
  : A list of all connecting URIs for the special dict_users dictionary.
@@ -320,7 +369,7 @@ function _:restoreDict($data, $content-type as xs:string, $wanted-response as xs
         else error(xs:QName('response-codes:_422'),
          'User directory does not exist',
          'You need to create the special dict_users first')
-      return (_:check_global_super_user(),
+      return (users:check_global_super_user(),
           util:eval(``[db:restore("`{$data/json/name}`__prof")]``, (), 'try-restore-dict_profile', true()),
           let $restoreScripts := profile:get-list-of-data-dbs-and-backups(profile:get($data/json/name))!
           ``[db:restore("`{.}`")]``
