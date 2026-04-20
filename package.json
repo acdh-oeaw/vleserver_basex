@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Server part of VLE for BaseX",
   "engines": {
-    "node": "20.x",
-    "npm": "10.x",
-    "jvm": "11",
+    "node": "24.x",
+    "npm": "11.x",
+    "jvm": "17",
     "basex": "10.6",
     "saxon": "12.8"
   },
