@@ -343,7 +343,7 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $id as xs:string, $dict_name as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $caller_timings as array(*)?) {
+function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $caller_timings as array(*)?) {
 api-problem:trace-info('@entries@entryAsDocument',
             prof:track(
 (# db:copynode false #) {
