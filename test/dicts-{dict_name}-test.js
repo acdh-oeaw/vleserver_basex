@@ -119,7 +119,7 @@ describe('tests for /dicts/{dict_name}', function() {
 
                 response = await request('put', baseURI+'/dicts/'+dictuser.table+'/entries/dictProfile', config);
 
-                expect(response).to.have.status(201);
+                expect(response).to.have.status(200);
                 
                 response = await request('get', baseURI + '/dicts/' + dictuser.table, {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
