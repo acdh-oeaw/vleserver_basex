@@ -554,10 +554,11 @@ declare
 }]}')
 function _:changeEntries($dict_name as xs:string, $userData, $as-user as xs:string?, $content-type as xs:string, $wanted-response as xs:string, $auth_header as xs:string) as item()+ {
   let $start := prof:current-ns(),
-      $check_user_is_allowed_to_impersonate := if (not(exists($as-user)) or users:check_super_user($dict_name)) then true()
-      else error(xs:QName('response-codes:_403'),
+      $check_user_is_allowed_to_impersonate := if (exists($as-user)) 
+      then users:check_super_user($dict_name),
+      (: error(xs:QName('response-codes:_403'),
          'You are not allowed to use the as-user query parameter',
-         'Only super users may imperosnate other users'),      
+         'Only super users may imperosnate other users'), :)      
       $check_content_type := if (starts-with($content-type,'application/json')) then true()
       (: in this case $data is an element(json) :) 
       else error(xs:QName('response-codes:_415'),
