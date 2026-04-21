@@ -131,7 +131,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
         }
       );
       newDictUserID = userCreateResponse.body.id;
-      response = await request("post", baseURI + "/dicts", {
+      let response = await request("post", baseURI + "/dicts", {
         headers: { Accept: "application/vnd.wde.v2+json" },
         auth: superuserauth,
         body: { name: dictuser.table },
@@ -139,7 +139,7 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
       });
       expect(response).to.have.status(201);
 
-      var config = {
+      let config = {
           body: {
             sid: "dictProfile",
             lemma: "",
@@ -157,14 +157,22 @@ module.exports = function (baseURI, basexAdminUser, basexAdminPW) {
           headers: { Accept: "application/vnd.wde.v2+json" },
           auth: dictuserauth,
           time: true,
-        },
-        response = await request(
-          "post",
-          baseURI + "/dicts/" + dictuser.table + "/entries",
-          config
-        );
+      }
+      
+      response = await request('get', baseURI + '/dicts/'+dictuser.table+'/entries/dictProfile', {
+          'headers': { "Accept": "application/vnd.wde.v2+json" },
+          'qs': {'lock': 2},
+          'auth': dictuserauth,                    
+      })
+      expect(response).to.have.status(200);
 
-      expect(response).to.have.status(201);
+      response = await request(
+        "put",
+        baseURI + "/dicts/" + dictuser.table + "/entries/dictProfile",
+        config
+      );
+
+      expect(response).to.have.status(200);
       await chakram.wait();
     });
 
