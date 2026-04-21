@@ -353,7 +353,7 @@ declare function _:create_new_file($data as map(xs:string, item()?), $dict as xs
       $target-collection := _:get-collection-name-for-insert-data($dict, $dataTypes[1]),
       $add-file-todb-script := ``[import module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
             declare variable $data external;
-            (db:replace("`{$target-collection}`", $data?fileName, $data?xmlData),
+            (db:put("`{$target-collection}`", $data?xmlData, $data?fileName),
             db:optimize("`{$target-collection}`"),
             update:output(map:merge(for $id as xs:string in $data('xmlData')//(*:entry, *:cit)/@xml:id!xs:string(.)
               return map {$id: map:merge((map{'db_name': "`{$target-collection}`"}, map{'entry': $data?xmlData//(*:entry, *:cit)[@xml:id = $id]}))})))
