@@ -554,7 +554,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
 
                 expect(response).to.have.status(500);
                 expect(response).to.have.json(function(body){
-                    expect(body.type).to.equal("not_implemented")
+                    expect(body.type).to.equal("https://www.oeaw.ac.at/acdh/tools/vle/entries")
+                    expect(body.instance).to.equal("https://www.oeaw.ac.at/acdh/tools/vle/entries/not_implemented")
                 });
                 return chakram.wait();
             });
