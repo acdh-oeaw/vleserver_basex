@@ -7,7 +7,6 @@ module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/entries';
 
 import module namespace rest = "http://exquery.org/ns/restxq";
 import module namespace req = "http://exquery.org/ns/request";
-import module namespace hash = "http://basex.org/modules/hash";
 import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json-hal-00' at 'json-hal.xqm';
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
@@ -369,7 +368,7 @@ api-problem:trace-info('@entries@entryAsDocument',
         {for $entry in $referenced_entries/*
          return element {$entry/@xml:id => replace('_', '__', 'q')} {serialize($entry)}}
       </referencedEntries>,
-      if (not(exists($format))) then <storedEntryMd5>{string(xs:hexBinary(hash:md5($entry_as_txt_or_json)))}</storedEntryMd5> else ()
+      if (not(exists($format))) then <storedEntryMd5>{data-access:md5($entry_as_txt_or_json)}</storedEntryMd5> else ()
     )
     else ()))
 }), $caller_timings)
