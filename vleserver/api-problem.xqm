@@ -68,7 +68,9 @@ declare %private function _:problem-from-catch-vars($start-time-ns as xs:integer
             $stack-trace := if ($value instance of map(*) and
                             $value($_:ADDITIONAL_STACK_TRACE) != '') then $value($_:ADDITIONAL_STACK_TRACE)||replace($stack-trace, '^.*Stack Trace:', '', 's') else $stack-trace,
             $error-line := if ($value instance of map(*) and
-                            $value($_:ADDITIONAL_STACK_TRACE) != '') then replace(tokenize($value($_:ADDITIONAL_STACK_TRACE), '&#x0a;')[1], 'Stopped at ', '')
+                            $value($_:ADDITIONAL_STACK_TRACE) != '') then
+                             let $first-line := tokenize($value($_:ADDITIONAL_STACK_TRACE), '&#x0a;')[1]
+                             return if (matches($first-line, 'Stopped at ')) then replace($first-line, 'Stopped at ', '') else ()
                             else $module||", "||$line-number||"/"||$column-number,
             $status-code := if (namespace-uri-from-QName($codes[1]) eq 'https://tools.ietf.org/html/rfc7231#section-6') then
           let $status-code-from-local-name := replace(local-name-from-QName($code), '_', '')
@@ -195,12 +197,12 @@ declare %private function _:return_result($to_return as node()) {
  :   'Catch and error',
  :   map:merge(
  :    (map{'additional': 'data'},
- :     api-problem:pass($err:code, $err:description, $err:value, $err:additional))
+ :     api-problem:pass($err:code, $err:description, $err:value, $err:stack-trace))
  :   )
  : )
  :)
 
-declare function _:pass($code as xs:QName, $description as xs:string?, $value as item()*, $stack-trace as xs:string*) as map(*) {
+declare function _:pass($code as xs:QName?, $description as xs:string?, $value as item()*, $stack-trace as xs:string*) as map(*) {
   if ($value instance of map(*)) then
       map:merge(($value,
       map {
@@ -244,8 +246,11 @@ declare
   %rest:error-param("stack-trace", "{$stack-trace}")
 function _:error-handler($code, $description, $value, $module, $line-number, $column-number, $additional, $stack-trace) as item()+ {
         let $start-time-ns := prof:current-ns(),
-            $additional := string-join($additional, '&#x0a;'),
             $origin := try { req:header("Origin") } catch basex:http {'urn:local'},
+            $header-elements := if (exists($origin)) then map{"Access-Control-Allow-Origin": $origin,
+                                "Access-Control-Allow-Credentials": "true"} else (),
+            $value-if-map := if ($value instance of map(*)) then $value else map {},
+            $additional := string-join($additional, '&#x0a;'),
             $code := if ($code instance of xs:string) then xs:QName($code) else $code,
             $type := try {
               namespace-uri-from-QName($code)
@@ -264,17 +269,12 @@ function _:error-handler($code, $description, $value, $module, $line-number, $co
                      xs:integer($status-code-from-local-name) >= 300 and
                      xs:integer($status-code-from-local-name) < 511) then xs:integer($status-code-from-local-name) else
                      (500, admin:write-log($additional, 'ERROR'))
-        return _:return_problem($start-time-ns,
-                <problem xmlns="urn:ietf:rfc:7807">
-                    <type>{$type}</type>
-                    <title>{$instance}: {$description}</title>
-                    <detail>{$value}</detail>
-                    <instance>{$instance}</instance>
-                    <status>{$status-code}</status>
-                    {if ($_:enable_trace and $additional) then <trace xml:space="preserve">{replace(replace($additional, '^.*Stopped at ', '', 's'), ':\n.*($|(\n\nStack Trace:(\n)))', '$3')}</trace> else ()}
-                    {if ($_:enable_trace and $stack-trace) then <trace xml:space="preserve">{$stack-trace}</trace> else ()}
-                </problem>, if (exists($origin)) then map{"Access-Control-Allow-Origin": $origin,
-                                "Access-Control-Allow-Credentials": "true"} else ())  
+        return _:problem-from-catch-vars($start-time-ns, $code, $description, $value, 
+                  $module, $line-number, $column-number,
+                  if ($stack-trace) then $stack-trace
+                  else if (not(empty($additional))) then string-join($additional, '&#x0a;')
+                  else "&#x0a;details removed in BaseX 10.7",
+                  map:merge(($value-if-map($_:ADDITIONAL_HEADER_ELEMENTS), $header-elements)))
 };
 
 declare %private function _:on_accept_to_json($problem as element(rfc7807:problem)) {
