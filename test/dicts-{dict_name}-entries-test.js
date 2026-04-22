@@ -596,8 +596,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     expect(body._embedded.entries[0].id).to.equal("dictProfile")
                     expect(body._embedded.entries[1].id).to.equal("test01")
                     expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ")
-                    expect(body._embedded.entries[9].id).to.equal("test09")
-                    expect(body._embedded.entries[9].lemma).to.equal("ṭēsṯ 9")
+                    expect(body._embedded.entries[9].id).to.equal("test05")
+                    expect(body._embedded.entries[9].lemma).to.equal("ṭēsṯ 5")
                 });
                 return chakram.wait();
             });
