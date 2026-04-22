@@ -4,6 +4,7 @@ module namespace _ = "https://www.oeaw.ac.at/acdh/tools/vle/util";
 declare namespace wde = "https://www.oeaw.ac.at/acdh/tools/vle";
 
 import module namespace jobs = "http://basex.org/modules/job";
+import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at "api-problem.xqm";
 import module namespace l = "http://basex.org/modules/admin";
 
 declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[last() > position()], '/');
@@ -101,7 +102,7 @@ declare function _:get-results-or-errors($js as xs:string*) {
                     <_:module>{$err:module}</_:module>
                     <_:line-number>{$err:line-number}</_:line-number>
                     <_:column-number>{$err:column-number}</_:column-number>
-                    <_:additional>{$err:additional}</_:additional>
+                    <_:stack-trace>{($err:stack-trace, $err:additional)[1]}</_:stack-trace>
                   </_:error>
                 })
 };
@@ -110,9 +111,13 @@ declare function _:throw-on-error-in-returns($ret) {
 if (exists($ret[. instance of node()]/self::_:error))
 then (
   (: admin:write-log(serialize($ret, map{'method': 'basex'}), 'INFO'), :)
-  $ret[. instance of node()]/self::_:error)[1]!error(QName(./_:code-namespace, ./_:code),
+  $ret[. instance of node()]/self::_:error)[1]!
+    error(QName(./_:code-namespace, ./_:code),
           ($ret[. instance of node()]/self::_:error)[1]/_:description,
-          string-join($ret[. instance of node()]/self::_:error/_:additional, '&#x0a;'))
+          api-problem:pass((), (),
+            ($ret[. instance of node()]/self::_:error)[1]/_:value,
+            string-join($ret[. instance of node()]/self::_:error/_:stack-trace, '&#x0a;')
+        ))           
 else $ret  
 };
 
