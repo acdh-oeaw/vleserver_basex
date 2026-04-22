@@ -16,8 +16,9 @@ import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/dat
 import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'data/cache.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
-import module namespace u = "http://basex.org/modules/util";
 import module namespace functx = "http://www.functx.com";
+
+(: import module namespace u = "http://basex.org/modules/util"; before XQuery 4.0 :)
 
 declare namespace http = "http://expath.org/ns/http-client";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
@@ -204,11 +205,16 @@ declare function _:get_list_of_dict_characters($dict_name as xs:string) as eleme
   return if (exists($specialCharacters)) then $specialCharacters else
   <specialCharacters type="array">{
     try {
-    for $c in sort(distinct-values(collection($dict_name)//text()[normalize-space() ne '']!u:chars(normalize-unicode(.,'NFC')))[not(matches(., '[-/()\[\]0-9a-zA-z<>,.;:+*?!~%=#"&apos;]|\s'))]) return
+    for $c in sort(distinct-values(collection($dict_name)//text()[normalize-space() ne '']!_:chars(normalize-unicode(.,'NFC')))[not(matches(., '[-/()\[\]0-9a-zA-z<>,.;:+*?!~%=#"&apos;]|\s'))]) return
     <_ type="object"><value>{$c}</value></_>
     } catch db:* | err:FODC0002 {
     }
   }</specialCharacters> 
+};
+
+declare %private function _:chars($value as xs:string) as xs:string* {
+ (: u:chars($value) before XQuery 4.0 :)
+ characters($value) 
 };
 
 (:~
