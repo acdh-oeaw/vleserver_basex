@@ -9,6 +9,8 @@ import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/pr
 import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'cache.xqm';
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
 
+(: import module namespace hash = "http://basex.org/modules/hash"; before XQuery 4.0 :)
+
 declare namespace tei = "http://www.tei-c.org/ns/1.0";
 declare namespace mds = "http://www.loc.gov/mods/v3";
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
@@ -53,7 +55,7 @@ let $dicts := _:get-list-of-data-dbs($dict),
       if (collection("`{$dict}`")//profile[@xml:id = `{$ids_seq}` or @ID = `{$ids_seq}`])
       then "`{$dict}`"
       else ()]``
-      else ``[if (try { db:attribute("`{$dict}`", `{$ids_seq}`) } catch db:open { () }) then "`{$dict}`" else ()]``
+      else ``[if (try { db:attribute("`{$dict}`", `{$ids_seq}`) } catch db:* { () }) then "`{$dict}`" else ()]``
     , ',&#x0a;')||')',
     $found-in-parts := if ($get-db-for-id-script ne '()') 
                        then api-problem:trace-info('@access@get-real-dicts',
@@ -190,7 +192,7 @@ let $dicts := if (exists($suggested_dbs)) then $suggested_dbs else _:get-list-of
         `{profile:generate-local-extractor-function($profile)}`
         api-problem:trace-info('@access@get-entries-by-ids',
         prof:track(
-        let $results := try { db:attribute("`{$dict}`", `{$ids_seq}`)/.. } catch db:open { () },
+        let $results := try { db:attribute("`{$dict}`", `{$ids_seq}`)/.. } catch db:* { () },
             $ret := if (count($results) > `{$max-direct-xml}` and `{count($ids) > $max-direct-xml}`()) then util:dehydrate($results, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $results
@@ -569,6 +571,11 @@ let $text_by_dict_by_queryTemplate := map:merge((
     $dict_query_by_value := map:merge((map:for-each($text_by_dict_by_queryTemplate, function($dict, $index-map){ map:for-each($index-map, function($index, $values){ $values[not(.='')]!map{.: map{"query": map{$index: $dict}}}})})), map {"duplicates": "combine"}),
     $dict_query_by_value := map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries){map{$value: map:merge($dict-queries, map {'duplicates': 'combine'})}}), map {"duplicates": "combine"})
 return map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries) { map {$value: map {"query": array{$dict-queries?*}}} }))
+};
+
+declare function _:md5($value as xs:string) as xs:string {
+  (: string(xs:hexBinary(hash:md5($value))) before XQuery 4.0 :)
+  string(hash($value))
 };
 
 declare (: %private :) function _:write-log($message as xs:string, $severity as xs:string) {

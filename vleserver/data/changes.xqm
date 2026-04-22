@@ -39,7 +39,7 @@ let $ids_seq := ``[("`{string-join(map:keys($ids_chsums), '","')}`")]``,
         (: need to remove %private at function declaration for logging to work! :)
         (: $log := _:write-log(serialize(($entriesToChange, $ids_chsums), map {'method': 'basex'}), 'INFO'), :)
         $entriesWithCsums := map:merge((for $id in map:keys($entriesToChange)
-          let $md5 := string(xs:hexBinary(hash:md5(serialize(db:get-pre("`{$db-name}`", $entriesToChange($id)?pre)))))
+          let $md5 := data-access:md5(serialize(db:get-pre("`{$db-name}`", $entriesToChange($id)?pre)))
           return (map{$id: map{'entry': db:get-pre("`{$db-name}`", $entriesToChange($id)?pre),
                               'md5': $md5}},
                  if (not(exists($ids_chsums($id))) or $ids_chsums($id) = $md5) then ()
@@ -78,11 +78,11 @@ declare %updating function _:add-change-record-to-profile($e as element(profile)
 
 declare function _:add-change-record($data as map(xs:string, item()?), $db-name as xs:string, $pre as xs:integer, $changingUser as xs:string) {
   util:eval(``[import module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/changes' at 'data/changes.xqm';    
-    import module namespace hash = "http://basex.org/modules/hash";
+    import module namespace data-access = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access' at 'data/access.xqm';
     declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
     declare variable $data as map(xs:string, item()?) external;
     let $stored_entry := db:get-pre("`{$db-name}`", `{$pre}`),
-        $stored_entry_md5 := string(xs:hexBinary(hash:md5(serialize($stored_entry)))),
+        $stored_entry_md5 := data-access:md5(serialize($stored_entry)),
         $check_md5_if_exists := if (not(exists($data?storedEntryMd5)) or $data?storedEntryMd5 eq $stored_entry_md5) then true()
       else error(xs:QName('response-codes:_409'),
                 'Checksum mismatch.',
