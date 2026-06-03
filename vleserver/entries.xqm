@@ -632,7 +632,8 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return api-problem:or_result($start, _:entryAsDocument#8, [rest:uri(), $dict_name, $entry/(@xml:id, @ID), 
+  return if (not($format) and (some $response in $wanted-response satisfies contains($response, "application/xml"))) then $entry
+    else api-problem:or_result($start, _:entryAsDocument#8, [rest:uri(), $dict_name, $entry/(@xml:id, @ID), 
   profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
   $entry, $lockedBy, profile:get($dict_name), $format], cors:header(()))
   } catch lcks:held {
