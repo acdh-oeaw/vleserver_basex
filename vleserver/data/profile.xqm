@@ -177,8 +177,8 @@ for $__db__ in $dbs return
   replace($template, 'declare variable $__db__ external;', 'distinct-values((', 'q') =>
   replace('$__db__', '"'||$__db__||'"', 'q') =>
   replace('(@.+)\[.+\]/..\s+\|','$1 |') =>
-  replace('entry[', 'entry/', 'q') =>
-  replace('gramGrp[', 'gramGrp/', 'q') =>
+  replace('entry[t', 'entry/t', 'q') =>
+  replace('gramGrp[t', 'gramGrp/t', 'q') =>
   replace('(\[contains\(.+|\[\s*text\(.+|\[\s*\{subQuery.+)', '/text() | ') =>
   concat('())!normalize-space(.))')]``
   return util:eval($index_query, map{'$dbs': $dbs, '$template': $template}, 'create-index-queries-for-db')  
