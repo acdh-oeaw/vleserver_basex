@@ -176,6 +176,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $relevant_dbs := distinct-values($relevant_nodes_or_dryed/@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $relevant_ids := for $nd in $relevant_nodes_or_dryed
+        order by $nd/@*[local-name() = $util:vleUtilSortScore] descending
         return typeswitch ($nd)
           case  element(util:d) return $nd/(@xml:id|@ID)
           default return $nd/(@xml:id|@ID),
@@ -188,7 +189,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries)/*
         else (),
       $xml_snippets_without_sort_key := $xml_snippets transform with {
-          delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey)]
+          delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey) or local-name() = $util:vleUtilSortScore]
         },
    (: $log := _:write-log('Before entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
       $start := prof:current-ns(), :)

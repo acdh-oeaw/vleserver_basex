@@ -128,10 +128,12 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
     $parent-queries := for $q at $p in $node-queries
      return ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
        import module namespace types = 'https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes' at 'data/elementTypes.xqm';
+       import module namespace data-access = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access' at 'data/access.xqm';
      `{if (matches($q, '^\s*declare\s+namespace\s')) then '(: using namespace declared in template :)'
        else string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`]``||
      replace($q, $node-queries-without-prolog[$p], ``[
-       `{profile:generate-local-extractor-function($profile)}`
+       declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
+       `{profile:generate-local-extractor-function($profile, $noSubstQuery)}`
        let $results := `{$node-queries-without-prolog[$p]}`,
            $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
            (: parent count, not query result count :)
@@ -139,6 +141,7 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
                 else ``[, $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $parent-nodes-to-return
+                (: ordering here will not work when dehydration is used and ordering is actually done elsewhere :)
                 let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
                 return $r transform with {insert node $extracted-data as first into . }
               }</_>
