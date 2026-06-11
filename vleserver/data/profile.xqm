@@ -143,6 +143,11 @@ declare function _:get-query-templates($profile as document-node()) as array(map
   return array{$queryTemplates!map{xs:string(./@label): xs:string(_:template-to-template-string-transformation(./text(), ''))}}
 };
 
+declare function _:redact-for-publishing($profile as document-node(), $xml-data as element()) as document-node() {
+  if (exists($profile//redactForPublishing)) then xslt:transform($xml-data, $profile//redactForPublishing/*)
+  else $xml-data
+};
+
 declare function _:create-sub-query($noSubstQuery as xs:string) as xs:string {
   let $q := _:remove-wildcards($noSubstQuery)
   return switch (true()) 

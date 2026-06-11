@@ -241,8 +241,8 @@ util:eval(``[
   let $skel := util:eval(``[collection('`{$db-name}`__skel')]``, (), 'fileAsXML_getSkel'),
       $includes := parse-xml-fragment(serialize($skel//processing-instruction())
         => replace('<?','<','q')
-        => replace('?>','/>','q'))
-  return $skel update {
+        => replace('?>','/>','q')),
+      $ret := $skel update {
     for $pi at $pos in .//processing-instruction()
     let $xpath := data($includes/*[$pos]/@xpath),
         $collection-name-regex := data($includes/*[$pos]/@collection-name-regex),
@@ -251,5 +251,6 @@ util:eval(``[
           (), 'fileAsXML_getData'||$pos)
     return replace node $pi with $data
   }
+  return profile:redact-for-publishing(profile:get($dict_name), $ret/*)
 )
 };
