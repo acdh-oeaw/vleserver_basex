@@ -237,9 +237,11 @@ return ``[declare function local:extractor($node as node()) as attribute()* {
     let $referenced_ids := distinct-values(($node//@*[starts-with(data(.), '#')]!substring(., 2), data($node//@target))),
     $referenced_entries := try {
        if (exists($referenced_ids)) then data-access:get-entries-by-ids("`{$profile/profile/tableName/text()}`", $referenced_ids) else ()
-    } catch response-codes:_404 { () }
-    return ft:score($node//* contains text "`{$q}`" using wildcards) + 
-           ft:score($referenced_entries//* contains text "`{$q}`" using wildcards) * 0.5
+    } catch response-codes:_404 { () },
+        $reweights := $node//text()[. contains text "`{$q}`" using wildcards]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ()),
+        $reweights := if (exists($reweights)) then $reweights else $referenced_entries//text()[. contains text "`{$q}`" using wildcards]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ())
+    return ft:score($node//* contains text "`{$q}`" using wildcards) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) + 
+           ft:score($referenced_entries//* contains text "`{$q}`" using wildcards) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) * 0.01
   } ]`` else () }`
   )
 };]``  

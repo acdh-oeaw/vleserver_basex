@@ -141,8 +141,9 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
                 else ``[, $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
               else if (count($results) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $parent-nodes-to-return
-                (: ordering here will not work when dehydration is used and ordering is actually done elsewhere :)
                 let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
+                (: ordering here will not work when dehydration is used and ordering is actually done elsewhere :)
+                (: order by $extracted-data[2] descending :)
                 return $r transform with {insert node $extracted-data as first into . }
               }</_>
               else ()
@@ -512,6 +513,47 @@ let $text_by_dict_by_queryTemplate := map:merge((
     $dict_query_by_value := map:merge((map:for-each($text_by_dict_by_queryTemplate, function($dict, $index-map){ map:for-each($index-map, function($index, $values){ $values[not(.='')]!map{.: map{"query": map{$index: $dict}}}})})), map {"duplicates": "combine"}),
     $dict_query_by_value := map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries){map{$value: map:merge($dict-queries, map {'duplicates': 'combine'})}}), map {"duplicates": "combine"})
 return map:merge(map:for-each($dict_query_by_value, function($value, $dict-queries) { map {$value: map {"query": array{$dict-queries?*}}} }))
+};
+
+(:~
+ : Gets the position of all elemets leading to a text node in an entry or cit XML 
+ :)
+declare function _:get-TEI-element-pos-data($text_node as text()) {
+  for $element in $text_node//(ancestor::* except (
+    ancestor::tei:TEI,
+    ancestor::tei:text,
+    ancestor::tei:body,
+    ancestor::tei:div, 
+    ancestor::tei:entry, ancestor::cit
+  ))
+  return map {
+    "name": local-name($element),
+    "type": $element/@type/data(),
+    "hpos": count($element/ancestor::*) - 4 + 1,
+    "vpos": count($element/preceding-sibling::*) + 1
+  }
+};
+
+(:~ 
+ : Uses the position information to calculate a score factor
+ :
+ : The idea is that the score factor gets smaller the further down and to the right
+ : the given sequence of element position data points.
+ :)
+declare function _:merge-element-data($data as map(*)*, $com as map(*)?) as map(*) {
+  if (not(exists($data))) then $com
+  else if (exists($com)) then _:merge-element-data(subsequence($data, 2), map {
+    "name": $com("name")||"/"||$data[1]("name"),
+    "type": if (exists($com("type"))) then $com("type") else $data[1]("type"),
+    "hpos": $com("hpos") * math:pow(0.5, $data[1]("hpos")),
+    "vpos": $com("vpos") * math:pow(0.5, $data[1]("vpos"))
+  })
+  else _:merge-element-data(subsequence($data, 2), map {
+    "name": $data[1]("name"),
+    "type": $data[1]("type"),
+    "hpos": math:pow(0.5, $data[1]("hpos")),
+    "vpos": math:pow(0.5, $data[1]("vpos"))
+  })
 };
 
 declare (: %private :) function _:write-log($message as xs:string, $severity as xs:string) {
