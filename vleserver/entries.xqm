@@ -195,7 +195,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $label := if (exists($altLemma)) then '-'||$altLemma else '',
       $entries_as_documents := for $id in $relevant_ids
         (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
-        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $dict_name, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id), $profile, $format)
+        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $dict_name, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id), $profile, $format, $query-value)
  (: , $log := _:write-log('Generate entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO') :)
   return api-problem:or_result($start-fun,
     json-hal:create_document_list#7, [
@@ -280,17 +280,19 @@ let (: $start := prof:current-ns(), :)
 declare
   %private
 function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry as element()?) {
-  _:entryAsDocument($_self, $dict_name, $id, $lemma, $entry, (), (), ())
+  _:entryAsDocument($_self, $dict_name, $id, $lemma, $entry, (), (), (), ())
 };
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?) {
+function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry_without_result_marks as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $query-value as xs:string?) {
 (# db:copynode false #) {
-  let $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target))),
+  let $entry := _:markHits($entry_without_result_marks, $query-value),
+      $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target))),
       $referenced_entries := try {
         if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
-      } catch response-codes:_404 { () }
+      } catch response-codes:_404 { () },
+      $referenced_entries := $referenced_entries!_:markHits(., $query-value) 
   return json-hal:create_document($_self, (
     <id>{$id}</id>,
     <sid>{$id}</sid>,
@@ -313,6 +315,13 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
     )
     else ()))
 }
+};
+
+declare
+  %private
+function _:markHits($e as element(), $query-value as xs:string?) as element() {
+  let $ret := if ($e[.//text() contains text {$query-value} using wildcards]) then ft:mark(($e update {})[.//text() contains text {$query-value} using wildcards], '__hit__') else $e
+  return $ret update { for $h in .//*:__hit__ return replace node $h with '&#x1F449;'||$h/text()||'&#x1F448;' }
 };
 
 (:~
@@ -600,6 +609,7 @@ function _:changeEntry($dict_name as xs:string, $id as xs:string, $userData, $co
  : @param $dict_name Name of an existing dictionary.
  : @param $id The @xml:id or @ID of the entry to be changed.
  : @param $lock Whether to lock the entry for later saving it.
+ : @param $highlight A full text query with wildcards that should be highlighted in the entry
  :
  : Can be a time in seconds that tells how long the entry should be
  : locked. Can be true for the maximum amount of time allowed.
@@ -614,6 +624,7 @@ declare
     %rest:path('/restvle/dicts/{$dict_name}/entries/{$id}')
     %rest:query-param("lock", "{$lock}")
     %rest:query-param("format", "{$format}")
+    %rest:query-param("highlight", "{$highlight}")
     %rest:header-param("Accept", "{$wanted-response}", "")
     %rest:header-param('Authorization', '{$auth_header}', "")
     %rest:produces('application/json')
@@ -621,7 +632,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
-function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $format as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string) {
+function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $format as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string, $highlight as xs:string?) {
   try {
   let $start := prof:current-ns(),
       $lockDuration := if ($lock castable as xs:integer) then
@@ -636,10 +647,10 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return if (not($format) and (some $response in $wanted-response satisfies contains($response, "application/xml"))) then $entry
-    else api-problem:or_result($start, _:entryAsDocument#8, [rest:uri(), $dict_name, $entry/(@xml:id, @ID), 
+  return if (not($format) and (some $response in $wanted-response satisfies contains($response, "application/xml"))) then _:markHits($entry, $highlight)
+    else api-problem:or_result($start, _:entryAsDocument#9, [rest:uri(), $dict_name, $entry/(@xml:id, @ID), 
   profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
-  $entry, $lockedBy, profile:get($dict_name), $format], cors:header(()))
+  $entry, $lockedBy, profile:get($dict_name), $format, $highlight], cors:header(()))
   } catch lcks:held {
     error(xs:QName('response-codes:_422'),
                    'You cannot lock entry '||$id,
