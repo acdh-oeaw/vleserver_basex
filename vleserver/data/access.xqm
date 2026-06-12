@@ -545,14 +545,14 @@ declare function _:merge-element-data($data as map(*)*, $com as map(*)?) as map(
   else if (exists($com)) then _:merge-element-data(subsequence($data, 2), map {
     "name": $com("name")||"/"||$data[1]("name"),
     "type": if (exists($com("type"))) then $com("type") else $data[1]("type"),
-    "hpos": $com("hpos") * math:pow(0.5, $data[1]("hpos")),
-    "vpos": $com("vpos") * math:pow(0.5, $data[1]("vpos"))
+    "hpos": $com("hpos") * math:pow(0.8, $data[1]("hpos")),
+    "vpos": $com("vpos") * math:pow(0.8, $data[1]("vpos"))
   })
   else _:merge-element-data(subsequence($data, 2), map {
     "name": $data[1]("name"),
     "type": $data[1]("type"),
-    "hpos": math:pow(0.5, $data[1]("hpos")),
-    "vpos": math:pow(0.5, $data[1]("vpos"))
+    "hpos": math:pow(0.8, $data[1]("hpos")),
+    "vpos": math:pow(0.8, $data[1]("vpos"))
   })
 };
 
