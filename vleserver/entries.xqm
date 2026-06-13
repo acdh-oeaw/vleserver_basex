@@ -319,7 +319,7 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
 
 declare
   %private
-function _:markHits($e as element(), $query-value as xs:string?) as element() {
+function _:markHits($e as element()?, $query-value as xs:string?) as element()? {
   let $ret := if ($e[.//text() contains text {$query-value} using wildcards]) then ft:mark(($e update {})[.//text() contains text {$query-value} using wildcards], '__hit__') else $e
   return $ret update { for $h in .//*:__hit__ return replace node $h with '&#x1F449;'||$h/text()||'&#x1F448;' }
 };
