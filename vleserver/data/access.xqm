@@ -135,7 +135,10 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
        declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
        `{profile:generate-local-extractor-function($profile, $noSubstQuery)}`
        let $results := `{$node-queries-without-prolog[$p]}`,
-           $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
+           $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node(),
+           $error_too_many := if (count($parent-nodes-to-return) > 1000) then error(xs:QName('response-codes:_417'),
+                           'Your search yields more than 1000 results',
+                           'Your search yields '||count($parent-nodes-to-return)||' results') else ()
            (: parent count, not query result count :)
        `{if ($count_only) then ``[return count($parent-nodes-to-return)]``
                 else ``[, $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
