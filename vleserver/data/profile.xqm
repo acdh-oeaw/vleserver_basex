@@ -218,10 +218,10 @@ declare function _:get-name-for-new-db($profile as document-node(), $current-db-
 };
 
 declare function _:generate-local-extractor-function($profile as document-node()) as xs:string {
-  _:generate-local-extractor-function($profile, ())
+  _:generate-local-extractor-function($profile, (), ())
 };
 
-declare function _:generate-local-extractor-function($profile as document-node(), $q as xs:string?) as xs:string {
+declare function _:generate-local-extractor-function($profile as document-node(), $q as xs:string?, $ft-settings as xs:string?) as xs:string {
 let $data-extractor-xquery := _:get-lemma-xquery($profile),
     $alt-extractor-xqueries := _:get-alt-lemma-xqueries($profile)
 return ``[declare function local:extractor($node as node()) as attribute()* {
@@ -243,10 +243,10 @@ return ``[declare function local:extractor($node as node()) as attribute()* {
     $referenced_entries := try {
        if (exists($referenced_ids)) then data-access:get-entries-by-ids("`{$profile/profile/tableName/text()}`", $referenced_ids) else ()
     } catch response-codes:_404 { () },
-        $reweights := $node//text()[. contains text "`{$q}`" using wildcards]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ()),
-        $reweights := if (exists($reweights)) then $reweights else $referenced_entries//text()[. contains text "`{$q}`" using wildcards]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ())
-    return ft:score($node//* contains text "`{$q}`" using wildcards) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) + 
-           ft:score($referenced_entries//* contains text "`{$q}`" using wildcards) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) * 0.001
+        $reweights := $node//text()[. contains text "`{$q}`" `{$ft-settings}`]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ()),
+        $reweights := if (exists($reweights)) then $reweights else $referenced_entries//text()[. contains text "`{$q}`" `{$ft-settings}`]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ())
+    return ft:score($node//* contains text "`{$q}`" `{$ft-settings}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) + 
+           ft:score($referenced_entries//* contains text "`{$q}`" `{$ft-settings}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) * 0.001
   } ]`` else () }`
   )
 };]``  
