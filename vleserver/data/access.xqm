@@ -16,6 +16,7 @@ declare variable $_:basePath as xs:string := string-join(tokenize(static-base-ur
 declare variable $_:selfName as xs:string := tokenize(static-base-uri(), '/')[last()];
 declare variable $_:enable_trace := false();
 declare variable $_:max-direct-xml := 25;
+declare variable $_:max-query-results := 1000;
 declare variable $_:default_index_options := map{'textindex': true(), 
                                                  'attrindex': true(),
                                                  'ftindex': true(), 'casesens': false(), 'diacritics': false(), 'language': 'en',
@@ -136,10 +137,11 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
        declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
        `{profile:generate-local-extractor-function($profile, $noSubstQuery, $ft-settings)}`
        let $results := `{$node-queries-without-prolog[$p]}`,
-           $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node(),
-           $error_too_many := if (count($parent-nodes-to-return) > 1000) then error(xs:QName('response-codes:_417'),
-                           'Your search yields more than 1000 results',
-                           'Your search yields '||count($parent-nodes-to-return)||' results') else ()
+           $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
+           `{ if (not($count_only)) then ``[,
+           $error_too_many := if (count($parent-nodes-to-return) > `{$_:max-query-results}`) then error(xs:QName('response-codes:_417'),
+                           'Your search yields more than `{$_:max-query-results}` results ('||count($parent-nodes-to-return)||')',
+                           'Search yields too many results') else () ]`` else () }`
            (: parent count, not query result count :)
        `{if ($count_only) then ``[return count($parent-nodes-to-return)]``
                 else ``[, $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
