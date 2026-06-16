@@ -10,6 +10,7 @@ declare variable $_:basePath := string-join(tokenize(static-base-uri(), '/')[las
 declare variable $_:selfName := tokenize(static-base-uri(), '/')[last()];
 declare variable $_:vleUtilSortKey := "vutlsk";
 declare variable $_:vleUtilSortScore := "vutlsc";
+declare variable $_:vleUtilFtSettings := "vutlfs";
 declare variable $_:ignoreSortValue := '   ignore';
 
 declare function _:eval($query as xs:string, $bindings as map(*)?, $jobName as xs:string) as item()* {

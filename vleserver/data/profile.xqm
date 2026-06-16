@@ -238,7 +238,7 @@ return ``[declare function local:extractor($node as node()) as attribute()* {
   }]``, ",&#x0a;") 
     else () }`
   `{ if (exists($q)) then``[,
-  attribute {$util:vleUtilSortScore} {
+  attribute {"`{$util:vleUtilSortScore}`"} {
     let $referenced_ids := distinct-values(($node//@*[starts-with(data(.), '#')]!substring(., 2), data($node//@target))),
     $referenced_entries := try {
        if (exists($referenced_ids)) then data-access:get-entries-by-ids("`{$profile/profile/tableName/text()}`", $referenced_ids) else ()
@@ -248,6 +248,8 @@ return ``[declare function local:extractor($node as node()) as attribute()* {
     return ft:score($node//* contains text "`{$q}`" `{$ft-settings}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) + 
            ft:score($referenced_entries//* contains text "`{$q}`" `{$ft-settings}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) * 0.001
   } ]`` else () }`
+  `{ if (exists($ft-settings)) then``[,
+  attribute {"`{$util:vleUtilFtSettings}`"} {"`{$ft-settings}`"} ]`` else () }`
   )
 };]``  
 };

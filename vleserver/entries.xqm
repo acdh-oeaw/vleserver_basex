@@ -188,7 +188,10 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
         then data-access:get-entries-by-ids($dict_name, data($relevant_ids), $relevant_dbs, $_:max_results_with_entries)/*
         else (),
       $xml_snippets_without_sort_key := $xml_snippets transform with {
-          delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey) or local-name() = $util:vleUtilSortScore]
+          delete node ./@*[starts-with(local-name(), $util:vleUtilSortKey) or local-name() = $util:vleUtilSortScore],
+          for $cn in .
+          return if (exists($cn/@*[local-name() = $util:vleUtilFtSettings])) then () else 
+          insert node $relevant_nodes_or_dryed[(@xml:id|@ID) = $cn/(@xml:id|@ID)]/@*[local-name() = $util:vleUtilFtSettings] as first into $cn
         },
    (: $log := _:write-log('Before entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO'),
       $start := prof:current-ns(), :)
@@ -320,8 +323,13 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
 declare
   %private
 function _:markHits($e as element()?, $query-value as xs:string?) as element()? {
-  let $ret := if ($e[.//text() contains text {$query-value} using wildcards]) then ft:mark(($e update {})[.//text() contains text {$query-value} using wildcards], '__hit__') else $e
-  return $ret update { for $h in .//*:__hit__ return replace node $h with '&#x1F449;'||$h/text()||'&#x1F448;' }
+  let $q := ``[
+    declare variable $e external;
+    let $ret := if ($e[.//text() contains text "`{$query-value}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`]) then ft:mark(($e update {})[.//text() contains text "`{$query-value}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`], '__hit__') else $e
+    return $ret update { for $h in .//*:__hit__ return replace node $h with '&#x1F449;'||$h/text()||'&#x1F448;' }
+  ]``
+  (: , $_ := admin:write-log($q, "INFO") :)
+  return util:eval($q, map {"e": $e}, "entries-markHits")
 };
 
 (:~
