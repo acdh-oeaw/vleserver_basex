@@ -301,7 +301,7 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
     <sid>{$id}</sid>,
     <lemma>{$lemma}</lemma>,
     if (exists($entry//*:fs[@type='change']/*[@name='status'])) then
-    <status>{distinct-values($entry//*:fs[@type='change']/*[@name='status']/*/@value)}</status> else (),
+    <status>{($entry//*:fs[@type='change']/*[@name='status']/*/@value)[last()]/data()}</status> else (),
     if (exists($entry//*:fs[@type='change']/*[@name='owner'])) then
     <owner>{$entry//*:fs[@type='change']/*[@name='owner']/*/@value/data()}</owner> else (),
     if (exists($isLockedBy)) then <locked>{$isLockedBy}</locked> else (),
