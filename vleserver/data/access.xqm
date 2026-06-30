@@ -139,7 +139,7 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
        let $results := `{$node-queries-without-prolog[$p]}`,
            $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
            `{ if (not($count_only)) then ``[,
-           $error_too_many := if (count($parent-nodes-to-return) > `{$_:max-query-results}`) then error(xs:QName('response-codes:_417'),
+           $error_too_many := if (count($parent-nodes-to-return) > `{$_:max-query-results}`) then error(xs:QName('response-codes:_400'),
                            'Your search yields more than `{$_:max-query-results}` results ('||count($parent-nodes-to-return)||')',
                            'Search yields too many results') else () ]`` else () }`
            (: parent count, not query result count :)
