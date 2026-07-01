@@ -126,7 +126,7 @@ return $found-in-parts
 declare function _:create-queries-for-dbs($dict as xs:string, $profile as document-node(), $noSubstQuery as xs:string, $template as xs:string, $count_only as xs:boolean) {
 let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $template, $count_only),
     $node-queries-without-prolog := $node-queries!replace(., '((xquery)|(declare)|(module)|(import))[^;]+;\s+', '', 'm'),
-    $ft-settings := ($node-queries!replace(., '.+contains\stext[^"]+"[^"]+"\s+((using\s[^u\]]+)+).+', '$1', 's'))[1],
+    $ft-settings := ($node-queries[contains(., 'contains text')]!replace(., '.+contains\stext[^"]+"[^"]+"\s+((using\s[^u\]]+)+).+', '$1', 's'))[1],
     $parent-queries := for $q at $p in $node-queries
      return ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
        import module namespace types = 'https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes' at 'data/elementTypes.xqm';

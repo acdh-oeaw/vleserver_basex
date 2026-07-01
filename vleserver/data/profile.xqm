@@ -223,6 +223,7 @@ declare function _:generate-local-extractor-function($profile as document-node()
 
 declare function _:generate-local-extractor-function($profile as document-node(), $q as xs:string?, $ft-settings as xs:string?) as xs:string {
 let $data-extractor-xquery := _:get-lemma-xquery($profile),
+    $data-extractor-xquery-uses-fulltext := contains($data-extractor-xquery, 'contains text'),
     $alt-extractor-xqueries := _:get-alt-lemma-xqueries($profile)
 return ``[declare function local:extractor($node as node()) as attribute()* {
   ($node/@ID, $node/@xml:id,
@@ -237,7 +238,7 @@ return ``[declare function local:extractor($node as node()) as attribute()* {
     else string-join(`{$alt-extractor-xqueries($label)}`!normalize-space(.), ', ')
   }]``, ",&#x0a;") 
     else () }`
-  `{ if (exists($q)) then``[,
+  `{ if (exists($q) and $data-extractor-xquery-uses-fulltext) then``[,
   attribute {"`{$util:vleUtilSortScore}`"} {
     let $referenced_ids := distinct-values(($node//@*[starts-with(data(.), '#')]!substring(., 2), data($node//@target))),
     $referenced_entries := try {
