@@ -16,7 +16,7 @@ declare variable $_:basePath as xs:string := string-join(tokenize(static-base-ur
 declare variable $_:selfName as xs:string := tokenize(static-base-uri(), '/')[last()];
 declare variable $_:enable_trace := false();
 declare variable $_:max-direct-xml := 25;
-declare variable $_:max-query-results := 1000;
+declare variable $_:max-query-results := 1300;
 declare variable $_:default_index_options := map{'textindex': true(), 
                                                  'attrindex': true(),
                                                  'ftindex': true(), 'casesens': false(), 'diacritics': false(), 'language': 'en',
@@ -117,10 +117,32 @@ return ``[<_ db_name="`{$db_name}`">{
 declare function _:get-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-template as xs:string, $query-value as xs:string) as element()* {
   let $get-entries-selected-by-query-scritps := _:create-queries-for-dbs($dict, $profile, $query-value, $query-template, false()),
     (: $log-script1 := _:write-log($get-entries-selected-by-query-scritps[1], 'INFO'), :)
-    $found-in-parts := if (exists($get-entries-selected-by-query-scritps))
+    $found-in-parts-1 := if (exists($get-entries-selected-by-query-scritps))
       then util:evals($get-entries-selected-by-query-scritps, (),
-        'get-entries-selected-by-query-scritps', true()) else ()
-return $found-in-parts
+        'get-entries-selected-by-query-scritps', true()) else (), 
+    $found-in-parts := if (not(exists($found-in-parts-1)) or $found-in-parts-1/@count > $_:max-query-results) then $found-in-parts-1 else
+      let $referenced_ids := typeswitch ($found-in-parts-1)
+          case  element(util:dryed) 
+            return util:hydrate($found-in-parts-1/*, ``[declare function local:filter($n) { ($n/@xml:id, distinct-values(($n//@*[starts-with(data(.), '#')]!substring(., 2), data($n//@target)[not(starts-with(., 'http'))])) )};]``)
+          default 
+            return for $n in $found-in-parts-1/* 
+              return <util:h>{($n/@xml:id, distinct-values(($n//@*[starts-with(data(.), '#')]!substring(., 2), data($n//@target)[not(starts-with(., 'http'))])) )}</util:h>,
+          $all-referenced_entries := try {
+             if (exists($referenced_ids)) then _:get-entries-by-ids($dict, distinct-values(tokenize(string-join($referenced_ids//text(), ' ')))) else ()
+          } catch response-codes:_404 { () },
+          $all-referenced_entries := typeswitch ($all-referenced_entries)
+          case  element(util:dryed) 
+            return <_>{util:hydrate($all-referenced_entries/*)/*}</_>
+          default
+            return $all-referenced_entries,
+          $referenced_entries := $referenced_ids update {
+            for $h in .[text()] return replace node $h/text() with $all-referenced_entries/*[@xml:id = tokenize($h/text())]
+          }
+          return util:evals($get-entries-selected-by-query-scritps, map{
+            "referenced_entries": $referenced_entries
+          },
+            'get-2-entries-selected-by-query-scritps', true())
+    return $found-in-parts
 };
 
 declare function _:create-queries-for-dbs($dict as xs:string, $profile as document-node(), $noSubstQuery as xs:string, $template as xs:string, $count_only as xs:boolean) {
@@ -134,14 +156,9 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
      `{if (matches($q, '^\s*declare\s+namespace\s')) then '(: using namespace declared in template :)'
        else string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`]``||
      replace($q, $node-queries-without-prolog[$p], ``[
-       declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
        `{profile:generate-local-extractor-function($profile, $noSubstQuery, $ft-settings)}`
        let $results := `{$node-queries-without-prolog[$p]}`,
            $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
-           `{ if (not($count_only)) then ``[,
-           $error_too_many := if (count($parent-nodes-to-return) > `{$_:max-query-results}`) then error(xs:QName('response-codes:_400'),
-                           'Your search yields more than `{$_:max-query-results}` results ('||count($parent-nodes-to-return)||')',
-                           'Search yields too many results') else () ]`` else () }`
            (: parent count, not query result count :)
        `{if ($count_only) then ``[return count($parent-nodes-to-return)]``
                 else ``[, $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
