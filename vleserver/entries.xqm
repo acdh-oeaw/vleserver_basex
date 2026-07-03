@@ -291,7 +291,7 @@ declare
 function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry_without_result_marks as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $query-value as xs:string?) {
 (# db:copynode false #) {
   let $entry := _:markHits($entry_without_result_marks, $query-value),
-      $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target))),
+      $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target)[not(starts-with(., 'http'))])),
       $referenced_entries := try {
         if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
       } catch response-codes:_404 { () },
