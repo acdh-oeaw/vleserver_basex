@@ -128,7 +128,7 @@ declare function _:get-entries-selected-by-query($dict as xs:string, $profile as
             return for $n in $found-in-parts-1/* 
               return <util:h>{($n/@xml:id, distinct-values(($n//@*[starts-with(data(.), '#')]!substring(., 2), data($n//@target)[not(starts-with(., 'http'))])) )}</util:h>,
           $all-referenced_ids := distinct-values(tokenize(string-join($referenced_ids//text(), ' '))),
-          $all-referenced_entries := if ($all-referenced_ids) then try {
+          $all-referenced_entries := if (exists($all-referenced_ids)) then try {
              if (exists($referenced_ids)) then _:get-entries-by-ids($dict, $all-referenced_ids) else ()
           } catch response-codes:_404 { () } else (),
           $all-referenced_entries := typeswitch ($all-referenced_entries)
