@@ -66,6 +66,7 @@
         <xsl:variable name="typed-element-name">
             <xsl:choose>
                 <xsl:when test="tei:is-special-element($element[1])">
+                    
                     <xsl:value-of select="$element[1]/local-name()"/>
                 </xsl:when>
                 <xsl:when test="count($element) > 1">
@@ -140,8 +141,11 @@
             <xsl:when test="tei:is-special-element($element-group) and count($element-group) = 1">
                 <xsl:apply-templates select="$element-group" mode="#default"/>  
             </xsl:when>
-            <xsl:when test="tei:is-special-element($element-group) and count($element-group) > 1"> 
-               <xsl:apply-templates select="$element-group" mode="array"/>
+            <xsl:when test="tei:is-special-element($element-group) and count($element-group) > 1">
+                <xsl:variable name="wrapped-element-group">
+                    <_><xsl:sequence select="$element-group"/></_>
+                </xsl:variable>
+                <xsl:apply-templates select="$wrapped-element-group" mode="array"/>
             </xsl:when>
             <xsl:when test="$element-group/local-name() = ''">
                 <xsl:apply-templates select="$element-group" mode="#current"/> 
@@ -366,8 +370,21 @@
         </xd:desc>
     </xd:doc>
     <xsl:template match="tei:ref">
-        <ref type="object">
+        <xsl:element name="{./*[1]/@type||'__'||./*[1]/local-name()}">
+            <xsl:attribute name="type">object</xsl:attribute>
             <xsl:apply-templates select="@*|*|text()"/>
-        </ref>
+        </xsl:element>
+    </xsl:template>
+    
+    <xd:doc>
+        <xd:desc>tei:ref is marked as a special tag but this stylesheet can not know how to resolve refs.
+            So treat them like the automatic conversion as default. Multiple refs version.
+        </xd:desc>
+    </xd:doc>
+    <xsl:template match="_[tei:ref]" mode="array">
+        <xsl:element name="{./*[1]/@type||'__'||./*[1]/local-name()||'s'}">
+            <xsl:attribute name="type">array</xsl:attribute>
+            <xsl:apply-templates select="@*|*|text()" mode="array"/>
+        </xsl:element>
     </xsl:template>
 </xsl:stylesheet>
