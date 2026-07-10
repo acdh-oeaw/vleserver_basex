@@ -370,7 +370,7 @@
         </xd:desc>
     </xd:doc>
     <xsl:template match="tei:ref">
-        <xsl:element name="{./*[1]/@type||'__'||./*[1]/local-name()}">
+        <xsl:element name="{./@type||'__'||./local-name()}">
             <xsl:attribute name="type">object</xsl:attribute>
             <xsl:apply-templates select="@*|*|text()"/>
         </xsl:element>
