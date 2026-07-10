@@ -49,20 +49,15 @@
     <xd:doc>
         <xd:desc>Construction gramGrp members work differently than the gramGrp used to describe lemmas</xd:desc>
     </xd:doc>
-    <xsl:template match="tei:gram[@type='construction'][position() = 1]" mode="array">
+    <xsl:template match="_[tei:gram[@type='construction']]" mode="array">
         <construction__grams type="array">
-            <xsl:for-each select="(., ./following-sibling::*)">
+            <xsl:for-each select="./*">
                <_ type="array">                   
                    <xsl:apply-templates select='.' mode="sequence"/>  
                </_> 
             </xsl:for-each>
         </construction__grams>
     </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>Delete, already processed above</xd:desc>
-    </xd:doc>
-    <xsl:template match="tei:gram[@type='construction'][position() > 1]" mode="array"/>
     
     <xd:doc>
         <xd:desc>tei:ref are usually treated as pointers within the document. As @type oRef they point to something in a sentence structure</xd:desc>

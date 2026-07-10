@@ -295,9 +295,9 @@
             This is the variant for multiple feature structures at the same XML level.
         </xd:desc>
     </xd:doc>
-    <xsl:template match="tei:fs[@type][position() = 1]" mode="array">
+    <xsl:template match="_[tei:fs[@type]]" mode="array">
         <features type="array">
-            <xsl:for-each select="(., following-sibling::tei:fs[@type])">
+            <xsl:for-each select="./*">
                 <_ type="object">
                     <xsl:element name="{tei:encode-json-key(@type)}">
                         <xsl:attribute name="type">object</xsl:attribute>
@@ -307,11 +307,6 @@
             </xsl:for-each>
         </features>
     </xsl:template>
-    
-    <xd:doc>
-        <xd:desc>As the whole group is processed with the first element ignore all others</xd:desc>
-    </xd:doc>
-    <xsl:template match="tei:fs[@type][position() > 1]" mode="array"/>
     
     <xd:doc>
         <xd:desc>Second possible form to represend a key value pair</xd:desc>
