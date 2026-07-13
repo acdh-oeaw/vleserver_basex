@@ -580,6 +580,20 @@ declare function _:merge-element-data($data as map(*)*, $com as map(*)?) as map(
   })
 };
 
+declare function _:get-special-characters($dict_name as xs:string) as element(specialCharacters)?{
+  let $xqueries := _:get-list-of-data-dbs($dict_name)[not(ends-with(., '__prof'))]!
+(``[declare namespace tei = "http://www.tei-c.org/ns/1.0";
+  collection("`{.}`")//tei:teiHeader]``),
+      $teiHeader := util:evals($xqueries, (), 'get-teiHeader', true())[1]
+  return if (count($teiHeader//tei:list[@type="keyboardCharacters"]//tei:c) > 0)
+  then <specialCharacters type="array">{
+    for $item in $teiHeader//tei:list[@type="keyboardCharacters"]/tei:item
+  return <_ type="object">
+    <value>{$item/tei:c/text()}</value>
+  </_>
+  }</specialCharacters> else ()
+};
+
 declare (: %private :) function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
 };

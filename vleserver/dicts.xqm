@@ -187,7 +187,7 @@ declare function _:get_autocomplete_for_dict_name($dict_name as xs:string) {
 
 declare function _:get_list_of_dict_characters($dict_name as xs:string) as element(specialCharacters) {
   let $profile := profile:get($dict_name),
-      $specialCharacters := profile:get-special-characters($profile)
+      $specialCharacters := (data-access:get-special-characters($dict_name),profile:get-special-characters($profile))[1]
   return if (exists($specialCharacters)) then $specialCharacters else
   <specialCharacters type="array">{
     try {
