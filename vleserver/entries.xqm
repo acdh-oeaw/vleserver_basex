@@ -100,7 +100,8 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $parsed-query-template-names := $parsed-query//fn:queryTemplate!normalize-space(.),
       $check_authenticated_for_q_sort_xquery := if ((
         (exists($q) and not(every $query-template-name in $parsed-query-template-names satisfies $query-template-name = $query-template-names)) or
-        (exists($sort) and not($sort = ("none", "asc", "desc"))))
+        (exists($sort) and not($sort = ("none", "asc", "desc"))) or 
+        (not(exists($parsed-query/*)) and exists($parsed-query/text())))
         and not($accept = 'application/vnd.wde.v2+json'))
       then error(xs:QName('response-codes:_403'), 
          $api-problem:codes_to_message(403),
