@@ -291,7 +291,7 @@ let (: $start := prof:current-ns(), :)
 declare
   %private
 function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry as element()?) {
-  _:entryAsDocument($_self, $dict_name, $id, $lemma, $entry, (), (), (), ())
+  _:entryAsDocument($_self, $dict_name, $id, $lemma, $entry, (), (), (), <fn:expr/>)
 };
 
 declare
