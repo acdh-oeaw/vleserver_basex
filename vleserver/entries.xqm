@@ -150,13 +150,13 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
             'id= does not select anything')
          else true(),
       $userName := _:getUserNameFromAuthorization($auth_header),
-      $used-query-templates := map:merge(
+      $used-query-templates := if ($q instance of xs:string) then map:merge(
         for $query-template-name in $parsed-query-template-names
         return $query-templates?*!(
           if (.($query-template-name)) 
           then map{$query-template-name: .($query-template-name)}
           else ()
-        )),
+        )) else (),
       $total_items := 
           if ($q instance of xs:string) then
             data-access:count-entries-selected-by-query($dict_name, $profile, $used-query-templates, $parsed-query)
@@ -216,12 +216,12 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
 };
 
 declare function _:get-dryed-from-cache($dict_name as xs:string,
-  $profile as document-node(), $query-template as xs:string?, $query-value as xs:string?,
+  $profile as document-node(), $query-templates as map(xs:string, xs:string)?, $query-value as element(fn:expr),
   $id as xs:string?, $ids as xs:string*,
   $sort as xs:string?, $label as xs:string?,
   $from as xs:integer, $num as xs:integer, $total_items_expected as xs:integer) {
     try {
-        if ($query-template instance of xs:string) then
+        if ($query-templates instance of map(xs:string, xs:string)) then
           error(xs:QName('cache:missing'), 'Not implemented yet')
         else if ($ids instance of xs:string) then
           cache:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'), $from, $num, $sort, $label, $total_items_expected)
@@ -233,12 +233,12 @@ declare function _:get-dryed-from-cache($dict_name as xs:string,
         else cache:get-all-entries($dict_name, $from, $num, $sort, $label, $total_items_expected)
     } catch cache:missing {
        _:write-log('cache miss', 'INFO'),
-       _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $label, $from, $num, $total_items_expected)
+       _:get-nodes-or-dryed-direct($dict_name, $profile, $query-templates, $query-value, $id, $ids, $sort, $label, $from, $num, $total_items_expected)
     }
 };
 
 declare %private function _:get-nodes-or-dryed-direct($dict_name as xs:string,
-  $profile as document-node(), $query-template as xs:string?, $query-value as xs:string?,
+  $profile as document-node(), $query-templates as map(xs:string, xs:string)?, $query-value as element(fn:expr),
   $id as xs:string?, $ids as xs:string*,
   $sort as xs:string?, $label as xs:string?,
   $from as xs:integer, $num as xs:integer,
@@ -253,8 +253,8 @@ let (: $start := prof:current-ns(), :)
             'Use caching if you need to browse more entries.'),
     $label := if (exists($label)) then '-'||$label else '',
     $nodes_or_dryed := try {
-        if ($query-template instance of xs:string) then
-          data-access:get-entries-selected-by-query($dict_name, $profile, $query-template, $query-value)
+        if ($query-templates instance of map(xs:string, xs:string)) then
+          data-access:get-entries-selected-by-query($dict_name, $profile, $query-templates, $query-value)
         else if ($ids instance of xs:string) then
           data-access:get-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
         else if ($id instance of xs:string) then
