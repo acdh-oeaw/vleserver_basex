@@ -663,11 +663,13 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
                    'Only wde.v2 clients may request locking'),
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
-      $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID))
-  return if (not($format) and (some $response in $wanted-response satisfies contains($response, "application/xml"))) then _:markHits($entry, $highlight)
+      $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID)),
+      $highlightExpr := <fn:expr><fn:term><fn:query>{$highlight}</fn:query></fn:term></fn:expr>
+  return if (not($format) and (some $response in $wanted-response satisfies contains($response, "application/xml")))
+    then _:markHits($entry, $highlightExpr)
     else api-problem:or_result($start, _:entryAsDocument#9, [rest:uri(), $dict_name, $entry/(@xml:id, @ID), 
   profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
-  $entry, $lockedBy, profile:get($dict_name), $format, $highlight], cors:header(()))
+  $entry, $lockedBy, profile:get($dict_name), $format, $highlightExpr], cors:header(()))
   } catch lcks:held {
     error(xs:QName('response-codes:_422'),
                    'You cannot lock entry '||$id,
