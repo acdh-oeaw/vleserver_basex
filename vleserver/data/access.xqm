@@ -114,8 +114,8 @@ return ``[<_ db_name="`{$db_name}`">{
 </_>]``
 };
 
-declare function _:get-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-template as xs:string, $query-value as xs:string) as element()* {
-  let $get-entries-selected-by-query-scritps := _:create-queries-for-dbs($dict, $profile, $query-value, $query-template, false()),
+declare function _:get-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-templates as map(xs:string, xs:string), $query-value as element(fn:expr)) as element()* {
+  let $get-entries-selected-by-query-scritps := _:create-queries-for-dbs($dict, $profile, $query-value, $query-templates, false()),
     (: $log-script1 := _:write-log($get-entries-selected-by-query-scritps[1], 'INFO'), :)
     $found-in-parts-1 := if (exists($get-entries-selected-by-query-scritps))
       then util:evals($get-entries-selected-by-query-scritps, (),
@@ -146,19 +146,27 @@ declare function _:get-entries-selected-by-query($dict as xs:string, $profile as
     return $found-in-parts
 };
 
-declare function _:create-queries-for-dbs($dict as xs:string, $profile as document-node(), $noSubstQuery as xs:string, $template as xs:string, $count_only as xs:boolean) {
-let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $template, $count_only),
-    $node-queries-without-prolog := $node-queries!replace(., '((xquery)|(declare)|(module)|(import))[^;]+;\s+', '', 'm'),
-    $ft-settings := ($node-queries[contains(., 'contains text')]!replace(., '.+contains\stext[^"]+"[^"]+"\s+((using\s[^u\]]+)+).+', '$1', 's'))[1],
-    $parent-queries := for $q at $p in $node-queries
+declare function _:create-queries-for-dbs($dict as xs:string, $profile as document-node(), $parsed-query as element(fn:expr), $query-templates as map(xs:string, xs:string), $count_only as xs:boolean) as xs:string {
+let $first-term := ($parsed-query//fn:term)[1],
+    $first-node-queries := profile:create-queries-for-dbs($profile, normalize-space($first-term/fn:query), $query-templates(normalize-space($first-term/fn:queryTemplate)), $count_only),
+    $first-node-queries-without-prolog := $first-node-queries!replace(., '((xquery)|(declare)|(module)|(import))[^;]+;\s+', '', 'm'),
+    $all-node-queries := map:merge((
+      for $term in $parsed-query//fn:term
+      group by $key := string-join($term/*!normalize-space(.), '')
+      let $node-queries := profile:create-queries-for-dbs($profile, normalize-space($term[1]/fn:query), $query-templates(normalize-space($term[1]/fn:queryTemplate)), $count_only),
+          $node-queries-without-prolog := $node-queries!replace(., '((xquery)|(declare)|(module)|(import))[^;]+;\s+', '', 'm')
+      return map{$key: $node-queries-without-prolog}
+    )),
+    $ft-settings := ($first-node-queries[contains(., 'contains text')]!replace(., '.+contains\stext[^"]+"[^"]+"\s+((using\s[^u\]]+)+).+', '$1', 's'))[1],
+    $parent-queries := for $q at $p in $first-node-queries
      return ``[import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
        import module namespace types = 'https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes' at 'data/elementTypes.xqm';
        import module namespace data-access = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access' at 'data/access.xqm';
      `{if (matches($q, '^\s*declare\s+namespace\s')) then '(: using namespace declared in template :)'
        else string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`]``||
-     replace($q, $node-queries-without-prolog[$p], ``[
-       `{profile:generate-local-extractor-function($profile, $noSubstQuery, $ft-settings)}`
-       let $results := `{$node-queries-without-prolog[$p]}`,
+     replace($q, $first-node-queries-without-prolog, ``[
+       `{profile:generate-local-extractor-function($profile, normalize-space($first-term/fn:query), $ft-settings)}`
+       let $results := `{_:generate-query-from-parsed-expr($parsed-query, $all-node-queries, $p)}`,
            $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
            (: parent count, not query result count :)
        `{if ($count_only) then ``[return count($parent-nodes-to-return)]``
@@ -175,6 +183,11 @@ let $node-queries := profile:create-queries-for-dbs($profile, $noSubstQuery, $te
   return $parent-queries
 };
 
+declare function _:generate-query-from-parsed-expr($parsed-query as element(fn:expr), $all-node-queries as map(xs:string, xs:string+), $p as xs:integer) {
+let $first-term := ($parsed-query//fn:term)[1],
+    $first-node-queries-without-prolog := $all-node-queries(string-join($first-term/*!normalize-space(.), ''))[$p]
+return $first-node-queries-without-prolog[$p]
+};
 (:~ 
  : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
  : If the actual node is returned then an attribute $util:vleUtilSortKey is inserted.
@@ -221,8 +234,8 @@ return if (exists($found-in-parts)) then $found-in-parts
                            'IDs '||$ids_seq||' not found')
 };
 
-declare function _:count-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-template as xs:string, $query-value as xs:string) as xs:integer {
-  let $xqueries := _:create-queries-for-dbs($dict, $profile, $query-value, $query-template, true())
+declare function _:count-entries-selected-by-query($dict as xs:string, $profile as document-node(), $query-templates as map(xs:string, xs:string), $query-value as element(fn:expr)) as xs:integer {
+  let $xqueries := _:create-queries-for-dbs($dict, $profile, $query-value, $query-templates, true())
   return sum(util:evals($xqueries, (), 'count-entries-selected-by-query', true()))
 };
 

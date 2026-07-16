@@ -11,7 +11,8 @@ import module namespace hash = "http://basex.org/modules/hash";
 import module namespace json-hal = 'https://tools.ietf.org/html/draft-kelly-json-hal-00' at 'json-hal.xqm';
 import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at 'api-problem.xqm';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at 'util.xqm';
-import module namespace cors = 'https://www.oeaw.ac.at/acdh/tools/vle/cors' at 'cors.xqm';
+import module namespace cors = "https://www.oeaw.ac.at/acdh/tools/vle/cors" at 'cors.xqm';
+import module namespace parser = "https://www.oeaw.ac.at/acdh/tools/vle/query-parser" at "query-parser.xqm";
 import module namespace data-access = "https://www.oeaw.ac.at/acdh/tools/vle/data/access" at 'data/access.xqm';
 import module namespace cache = "https://www.oeaw.ac.at/acdh/tools/vle/data/cache" at 'data/cache.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at 'data/profile.xqm';
@@ -95,10 +96,10 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $profile := profile:get($dict_name),
       $query-templates := profile:get-query-templates($profile),
       $query-template-names := array:for-each($query-templates, function($e) {map:keys($e)})?*,
-      $query-template-name := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$1'),
-      $query-value := if (empty($q)) then () else replace($q, '^([^=]+)=(.*)$', '$2'),
+      $parsed-query := parser:query-to-expr-tree($q, $query-template-names),
+      $parsed-query-template-names := $parsed-query//fn:queryTemplate!normalize-space(.),
       $check_authenticated_for_q_sort_xquery := if ((
-        (exists($q) and not($query-template-name = $query-template-names)) or
+        (exists($q) and not(every $query-template-name in $parsed-query-template-names satisfies $query-template-name = $query-template-names)) or
         (exists($sort) and not($sort = ("none", "asc", "desc"))))
         and not($accept = 'application/vnd.wde.v2+json'))
       then error(xs:QName('response-codes:_403'), 
@@ -115,7 +116,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
          $api-problem:codes_to_message(403),
          'Locking entries is only allowed if authenticated')
       else true(),
-      $q_is_a_query_template := if (exists($q) and not($query-template-name = $query-template-names)) then
+      $q_is_a_query_template := if (not(exists($parsed-query/*)) and exists($parsed-query/text())) then
         error(xs:QName('entries:not_implemented'), 'Not yet implemented')
       else true(),
       $additional_ret_query_parameters := map:merge((
@@ -149,9 +150,16 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
             'id= does not select anything')
          else true(),
       $userName := _:getUserNameFromAuthorization($auth_header),
+      $used-query-templates := map:merge(
+        for $query-template-name in $parsed-query-template-names
+        return $query-templates?*!(
+          if (.($query-template-name)) 
+          then map{$query-template-name: .($query-template-name)}
+          else ()
+        )),
       $total_items := 
           if ($q instance of xs:string) then
-            data-access:count-entries-selected-by-query($dict_name, $profile, $query-templates?*!.($query-template-name), $query-value)
+            data-access:count-entries-selected-by-query($dict_name, $profile, $used-query-templates, $parsed-query)
           else if ($ids instance of xs:string) then
             data-access:count-entries-by-ids($dict_name, tokenize($ids, '\s*,\s*'))
           else if ($id instance of xs:string) then
@@ -169,10 +177,9 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $pageSize := max(($pageSize, 1)),
       $page := min((xs:integer(ceiling($total_items div $pageSize)), max((1, $page)))),
       $from := (($page - 1) * $pageSize) + 1,
-      $query-template := if (empty($query-template-name)) then () else $query-templates?*!.($query-template-name),
       $relevant_nodes_or_dryed := if (exists($profile//useCache))
-          then _:get-dryed-from-cache($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
-          else _:get-nodes-or-dryed-direct($dict_name, $profile, $query-template, $query-value, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items),
+          then _:get-dryed-from-cache($dict_name, $profile, $used-query-templates, $parsed-query, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items)
+          else _:get-nodes-or-dryed-direct($dict_name, $profile, $used-query-templates, $parsed-query, $id, $ids, $sort, $altLemma, $from, $pageSize, $total_items),
       $relevant_dbs := distinct-values($relevant_nodes_or_dryed/@db_name/data()),
       (: $log := _:write-log('Relevant DBs: '||string-join($relevant_dbs, ', '), 'INFO'), :)
       $relevant_ids := for $nd in $relevant_nodes_or_dryed
@@ -198,7 +205,7 @@ function _:getDictDictNameEntries($dict_name as xs:string, $auth_header as xs:st
       $label := if (exists($altLemma)) then '-'||$altLemma else '',
       $entries_as_documents := for $id in $relevant_ids
         (: $relevant_ids is sorted, so the sequence generated here is sorted as well. :)
-        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $dict_name, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id), $profile, $format, $query-value)
+        return _:entryAsDocument(try {xs:anyURI(rest:uri()||'/'||data($id))} catch basex:http {xs:anyURI('urn:local')}, $dict_name, $id, $id/../@*[local-name() = $util:vleUtilSortKey||$label], $xml_snippets_without_sort_key[(@xml:id, @ID) = data($id)], $locked_entries($id), $profile, $format, $parsed-query)
  (: , $log := _:write-log('Generate entries: '||((prof:current-ns() - $start) idiv 10000) div 100||' ms', 'INFO') :)
   return api-problem:or_result($start-fun,
     json-hal:create_document_list#7, [
