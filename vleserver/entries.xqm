@@ -296,14 +296,14 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
 
 declare
   %private
-function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry_without_result_marks as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $query-value as xs:string?) {
+function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry_without_result_marks as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $parsed-query as element(fn:expr)) {
 (# db:copynode false #) {
-  let $entry := _:markHits($entry_without_result_marks, $query-value),
+  let $entry := _:markHits($entry_without_result_marks, $parsed-query),
       $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target)[not(starts-with(., 'http'))])),
       $referenced_entries := try {
         if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
       } catch response-codes:_404 { () },
-      $referenced_entries := $referenced_entries!_:markHits(., $query-value) 
+      $referenced_entries := $referenced_entries!_:markHits(., $parsed-query) 
   return json-hal:create_document($_self, (
     <id>{$id}</id>,
     <sid>{$id}</sid>,
@@ -330,10 +330,11 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
 
 declare
   %private
-function _:markHits($e as element()?, $query-value as xs:string?) as element()? {
-  let $q := ``[
+function _:markHits($e as element()?, $parsed-query as element(fn:expr)) as element()? {
+  let $first-term := ($parsed-query//fn:term)[1],
+      $q := ``[
     declare variable $e external;
-    let $ret := if ($e[.//text() contains text "`{$query-value}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`]) then ft:mark(($e update {})[.//text() contains text "`{$query-value}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`], '__hit__') else $e
+    let $ret := if ($e[.//text() contains text "`{$first-term/fn:query}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`]) then ft:mark(($e update {})[.//text() contains text "`{$first-term/fn:query}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`], '__hit__') else $e
     return $ret update { for $h in .//*:__hit__ return replace node $h with '&#x1F449;'||$h/text()||'&#x1F448;' }
   ]``
   (: , $_ := admin:write-log($q, "INFO") :)
