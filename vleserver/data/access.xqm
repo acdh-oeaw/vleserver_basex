@@ -3,6 +3,7 @@ xquery version "3.1";
 module namespace _ = 'https://www.oeaw.ac.at/acdh/tools/vle/data/access';
 import module namespace util = "https://www.oeaw.ac.at/acdh/tools/vle/util" at '../util.xqm';
 import module namespace types = "https://www.oeaw.ac.at/acdh/tools/vle/data/elementTypes" at 'elementTypes.xqm';
+import module namespace parser = "https://www.oeaw.ac.at/acdh/tools/vle/query-parser" at "../query-parser.xqm";
 import module namespace chg = "https://www.oeaw.ac.at/acdh/tools/vle/data/changes" at 'changes.xqm';
 import module namespace profile = "https://www.oeaw.ac.at/acdh/tools/vle/data/profile" at "profile.xqm";
 import module namespace admin = "http://basex.org/modules/admin"; (: for logging :)
@@ -166,12 +167,17 @@ let $first-term := ($parsed-query//fn:term)[1],
        else string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`]``||
      replace($q, $first-node-queries-without-prolog, ``[
        `{profile:generate-local-extractor-function($profile, normalize-space($first-term/fn:query), $ft-settings)}`
-       let $results := `{_:generate-query-from-parsed-expr($parsed-query, $all-node-queries, $p)}`,
-           $parent-nodes-to-return := ($results!types:get-first-parent-node-to-return(.))/self::node()
+       let ]``||
+       string-join(for $term in $parsed-query//fn:term
+       return ``[
+         $results := `{_:generate-query-from-parsed-term($term, $all-node-queries, $p)}`,
+         $parent-nodes-to-return-`{$term/@n}` := ($results!types:get-first-parent-node-to-return(.))/self::node(),]``, '')||
+       ``[
+         $parent-nodes-to-return := `{_:parsed-expr-tree-to-xquery-expr($parsed-query)}`   
            (: parent count, not query result count :)
        `{if ($count_only) then ``[return count($parent-nodes-to-return)]``
-                else ``[, $ret := if (count($results) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
-              else if (count($results) > 0) then <_ db_name="`{$dict}`">{
+                else ``[, $ret := if (count($parent-nodes-to-return) > `{$_:max-direct-xml}`) then util:dehydrate($parent-nodes-to-return, local:extractor#1)
+              else if (count($parent-nodes-to-return) > 0) then <_ db_name="`{$dict}`">{
                 for $r in $parent-nodes-to-return
                 let $extracted-data := local:extractor($r)[not(. instance of attribute(ID) or . instance of attribute(xml:id))]
                 (: ordering here will not work when dehydration is used and ordering is actually done elsewhere :)
@@ -183,10 +189,16 @@ let $first-term := ($parsed-query//fn:term)[1],
   return $parent-queries
 };
 
-declare function _:generate-query-from-parsed-expr($parsed-query as element(fn:expr), $all-node-queries as map(xs:string, xs:string+), $p as xs:integer) {
-let $first-term := ($parsed-query//fn:term)[1],
-    $first-node-queries-without-prolog := $all-node-queries(string-join($first-term/*!normalize-space(.), ''))[$p]
-return $first-node-queries-without-prolog[$p]
+declare function _:generate-query-from-parsed-term($parsed-query as element(fn:term), $all-node-queries as map(xs:string, xs:string+), $p as xs:integer) {
+let $node-queries-without-prolog := $all-node-queries(string-join($parsed-query/*!normalize-space(.), ''))[$p]
+return $node-queries-without-prolog[$p]
+};
+
+declare function _:parsed-expr-tree-to-xquery-expr($el as node()) as xs:string+ {  
+  parser:expr-tree-to-any($el, ' union ', ' intersect ', 
+    function($el){``[(`{string-join($el/*!_:parsed-expr-tree-to-xquery-expr(.), '')}`)]``},
+    function($el){``[$parent-nodes-to-return-`{$el/@n}`]``}
+  )
 };
 (:~ 
  : If there are more than $_:max-direct-xml results per DB then only a "dryed" representation is returned.
