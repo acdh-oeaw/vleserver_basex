@@ -395,8 +395,8 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 return chakram.wait();
             });
             
-            it('query using a stored template XQuery', function () {
-                var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+            it('query using a stored template XQuery', async function () {
+                var response = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
                     'qs': {"q": "tei_all=ṭēsṯ"},
                     'auth': dictuserauth,
@@ -412,6 +412,75 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     expect(body._links.self.href).to.contain("q=tei_all")
                     expect(body._links.first.href).to.contain("q=tei_all")
                     expect(body._links.last.href).to.contain("q=tei_all")
+                });
+            });
+            
+            it('query using a two stored template XQuery (or)', async function () {
+                var response = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {"q": "tei_lem=ṭēsṯ 3|tei_pos=properNoun"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.total_items).to.equal("2")
+                    expect(body._embedded.entries).to.have.length(2)
+                    expect(body._embedded.entries[0].id).to.equal("test01")
+                    expect(body._embedded.entries[0].lemma).to.equal("ṭēsṯ")
+                    expect(body._embedded.entries[1].id).to.equal("test03")
+                    expect(body._embedded.entries[1].lemma).to.equal("ṭēsṯ 3")
+                    expect(body._links.self.href).to.contain("q=tei_lem")
+                    expect(body._links.first.href).to.contain("q=tei_lem")
+                    expect(body._links.last.href).to.contain("q=tei_lem")
+                    expect(body._links.self.href).to.contain("%7Ctei_pos")
+                    expect(body._links.first.href).to.contain("%7Ctei_pos")
+                    expect(body._links.last.href).to.contain("%7Ctei_pos")
+                });
+                return chakram.wait();
+            });
+            
+            it('query using a two stored template XQuery (and)', async function () {
+                var response = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {"q": "tei_lem=ṭēsṯ 8&tei_pos=verb"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.total_items).to.equal("1")
+                    expect(body._embedded.entries).to.have.length(1)
+                    expect(body._embedded.entries[0].id).to.equal("test08")
+                    expect(body._embedded.entries[0].lemma).to.equal("ṭēsṯ 8")
+                    expect(body._links.self.href).to.contain("q=tei_lem")
+                    expect(body._links.first.href).to.contain("q=tei_lem")
+                    expect(body._links.last.href).to.contain("q=tei_lem")
+                    expect(body._links.self.href).to.contain("%26tei_pos")
+                    expect(body._links.first.href).to.contain("%26tei_pos")
+                    expect(body._links.last.href).to.contain("%26tei_pos")
+                });
+                return chakram.wait();
+            });
+            
+            it('query using a two stored template XQuery (and or combined)', async function () {
+                var response = await request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
+                    'headers': { "Accept": "application/vnd.wde.v2+json" },
+                    'qs': {"q": "tei_lem=ṭēsṯ.*&(tei_pos=verb|tei_pos=noun)"},
+                    'auth': dictuserauth,
+                    'time': true
+                });
+
+                expect(response).to.have.status(200);
+                expect(response).to.have.json(function(body){
+                    expect(body.total_items).to.equal("8")
+                    expect(body._embedded.entries).to.have.length(8)
+                    expect(body._embedded.entries[0].id).to.equal("test02")
+                    expect(body._embedded.entries[0].lemma).to.equal("ṭēsṯ 2")
+                    expect(body._embedded.entries[7].id).to.equal("test09")
+                    expect(body._embedded.entries[7].lemma).to.equal("ṭēsṯ 9")
                 });
                 return chakram.wait();
             });
@@ -437,7 +506,6 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                 return chakram.wait();
             });
 
-            // added T.K. start - Task 14954: More 404 tests needed for id parameters
             it('query for empty id - should response 404 "Not Found"', function () {
                 var response = request('get', baseURI + '/dicts/' + dictuser.table + '/entries', {
                     'headers': { "Accept": "application/vnd.wde.v2+json" },
@@ -685,6 +753,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                     'formFaXModDMG': 'ṭēsṯ',
                     'translation_en': 'test',
                     'translation_de': 'Test',
+                    'pos': 'properNoun',
                     })
             },
             'headers': { "Accept": "application/vnd.wde.v2+json" },
@@ -719,6 +788,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                         'formFaXModDMG': 'ṭēsṯ ' + i,
                         'translation_en': 'test' + i,
                         'translation_de': 'Test' + i,
+                        'pos': 'noun',
                         })
                 });
         }
@@ -732,6 +802,7 @@ describe('tests for /dicts/{dict_name}/entries', function() {
                         'formFaXModDMG': 'ṭēsṯ ' + i,
                         'translation_en': 'test' + i,
                         'translation_de': 'Test' + i,
+                        'pos': 'verb',
                         })
                 });
         }
