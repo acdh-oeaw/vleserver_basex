@@ -10,7 +10,7 @@ import module namespace api-problem = "https://tools.ietf.org/html/rfc7807" at '
 declare namespace response-codes = "https://tools.ietf.org/html/rfc7231#section-6";
 
 declare function _:query-to-expr-tree($query as xs:string?, $valid-template-names as xs:string*) as element(fn:expr) {
-  try {
+  (try {
   let $terms := analyze-string($query, "[^()]+") update for $paren in ./fn:non-match return replace node $paren with util:chars($paren)!<paren>{.}</paren>,
       $termsWithLevels := _:add-level($terms/*,0)
   return <expr xmlns="http://www.w3.org/2005/xpath-functions">{_:build-tree($termsWithLevels, 0)}</expr> update 
@@ -40,15 +40,22 @@ declare function _:query-to-expr-tree($query as xs:string?, $valid-template-name
   ))/*
   } catch err:XUDY0027 {
     <expr xmlns="http://www.w3.org/2005/xpath-functions">{$query}</expr>
-  }
+  }) update for $term at $n in .//fn:term return insert node attribute {"n"}{$n} as first into $term
 };
 
 declare function _:expr-tree-to-query($el as node()) as xs:string+ {
+  _:expr-tree-to-any($el, '|', '&amp;', 
+    function($el){``[(`{string-join($el/*!_:expr-tree-to-query(.), '')}`)]``},
+    function($el){xs:string($el)}
+  )
+};
+
+declare function _:expr-tree-to-any($el as node(), $union-string as xs:string, $intersect-string as xs:string, $expr-string as function(element(fn:expr)) as xs:string, $term-string as function(element(fn:term)) as xs:string) {  
   typeswitch($el)
-    case element(fn:expr) return ``[(`{string-join($el/*!_:expr-tree-to-query(.), '')}`)]``
-    case element(fn:union) return '|'
-    case element(fn:intersect) return '&amp;'    
-    case element(fn:term) return xs:string($el)
+    case element(fn:expr) return $expr-string($el)
+    case element(fn:union) return $union-string 
+    case element(fn:intersect) return $intersect-string    
+    case element(fn:term) return $term-string($el)
     default return $el
 };
 
