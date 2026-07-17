@@ -299,12 +299,12 @@ declare
 function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry_without_result_marks as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $parsed-query as element(fn:expr)) {
 (# db:copynode false #) {
   let $ft-settings := $entry_without_result_marks/@*[local-name() = $util:vleUtilFtSettings],
-      $entry := _:markHits($entry_without_result_marks, $parsed-query, $ft-settings),
+      $entry := _:markHits($profile, $entry_without_result_marks, $parsed-query, $ft-settings),
       $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target)[not(starts-with(., 'http'))])),
       $referenced_entries := try {
         if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
       } catch response-codes:_404 { () },
-      $referenced_entries := $referenced_entries!_:markHits(., $parsed-query, $ft-settings) 
+      $referenced_entries := $referenced_entries!_:markHits($profile, ., $parsed-query, $ft-settings) 
   return json-hal:create_document(_:uri-add-highlight($_self, $parsed-query, $ft-settings), (
     <id>{$id}</id>,
     <sid>{$id}</sid>,
@@ -331,13 +331,17 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
 
 declare
   %private
-function _:markHits($e as element()?, $parsed-query as element(fn:expr), $ft-settings as xs:string?) as element()? {
+function _:markHits($profile as document-node(), $e as element()?, $parsed-query as element(fn:expr), $ft-settings as xs:string?) as element()? {
   let $ft-settings := if (exists($ft-settings)) then $ft-settings else " using case sensitive using diacritics sensitive",
+      $left-search-marker := profile:get-search-hit-markers($profile)[1],
+      $right-search-marker := if (profile:get-search-hit-markers($profile)[2]) 
+        then profile:get-search-hit-markers($profile)[2] 
+        else $left-search-marker,
       $q := ``[
     declare variable $e external;
     (: `{serialize($parsed-query)}` :)
     let $ret := if ($e[.//text() `{profile:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`]) then ft:mark(($e update {})[.//text() `{profile:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`], '__hit__') else $e
-    return $ret update { for $h in .//*:__hit__ return replace node $h with '&#x1F449;'||$h/text()||'&#x1F448;' }
+    return $ret update { for $h in .//*:__hit__ return replace node $h with "`{$left-search-marker}`"||$h/text()||"`{$right-search-marker}`" }
   ]``
   , $_ := admin:write-log($q, "INFO")
   return util:eval($q, map {"e": $e}, "entries-markHits")
@@ -662,6 +666,7 @@ declare
 function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $format as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string, $highlight as xs:string?, $ft-settings as xs:string?) {
   try {
   let $start := prof:current-ns(),
+      $profile := profile:get($dict_name),
       $lockDuration := if ($lock castable as xs:integer) then
                          let $lockAsDuration := xs:dayTimeDuration('PT'||$lock||'S') 
                          return if ($lockAsDuration > $lcks:maxLockTime) then $lcks:maxLockTime else $lockAsDuration
@@ -679,7 +684,7 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID)),
       $highlightExpr := <fn:expr>{tokenize($highlight, ',')!<fn:term><fn:query>{.}</fn:query></fn:term>}</fn:expr>
   return if (not($format) and (some $response in $wanted-response satisfies contains($response, "application/xml")))
-    then _:markHits($entry, $highlightExpr, $ft-settings)
+    then _:markHits($profile, $entry, $highlightExpr, $ft-settings)
     else api-problem:or_result($start, _:entryAsDocument#9, [rest:uri(), $dict_name, $entry/(@xml:id, @ID), 
   profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
   $entry, $lockedBy, profile:get($dict_name), $format, $highlightExpr], cors:header(()))

@@ -283,6 +283,15 @@ declare function _:transform-to-format($profile as document-node(), $data as ele
   (: return serialize($profile/*/entryStyle/*[xsl:output[@method = $format]]) :)
 };
 
+declare function _:get-search-hit-markers($profile as document-node()) as xs:string+ {
+  let $ret := subsequence((
+    $profile//searchHitMarker/left/text(),
+    $profile//searchHitMarker/right/text(),
+    $profile//searchHitMarker/text()   
+  ), 1, 2)
+  return if (exists($ret)) then $ret else ('&#x1F449;', '&#x1F448;')
+};
+
 declare %private function _:write-log($message as xs:string, $severity as xs:string) {
   if ($_:enable_trace) then admin:write-log($message, $severity) else ()
 };
