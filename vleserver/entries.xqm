@@ -299,12 +299,16 @@ declare
 function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry_without_result_marks as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $parsed-query as element(fn:expr)) {
 (# db:copynode false #) {
   let $ft-settings := $entry_without_result_marks/@*[local-name() = $util:vleUtilFtSettings],
-      $entry := _:markHits($profile, $entry_without_result_marks, $parsed-query, $ft-settings),
+      $entry := if (exists($profile)) 
+        then _:markHits($profile, $entry_without_result_marks, $parsed-query, $ft-settings) 
+        else $entry_without_result_marks,
       $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target)[not(starts-with(., 'http'))])),
       $referenced_entries := try {
         if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
       } catch response-codes:_404 { () },
-      $referenced_entries := $referenced_entries!_:markHits($profile, ., $parsed-query, $ft-settings) 
+      $referenced_entries := if (exists($profile)) 
+        then $referenced_entries!_:markHits($profile, ., $parsed-query, $ft-settings)
+        else $referenced_entries
   return json-hal:create_document(_:uri-add-highlight($_self, $parsed-query, $ft-settings), (
     <id>{$id}</id>,
     <sid>{$id}</sid>,
