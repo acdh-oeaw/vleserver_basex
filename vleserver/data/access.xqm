@@ -166,7 +166,7 @@ let $first-term := ($parsed-query//fn:term)[1],
      `{if (matches($q, '^\s*declare\s+namespace\s')) then '(: using namespace declared in template :)'
        else string-join(profile:get-xquery-namespace-decls($profile), '&#x0a;')}`]``||
      replace($q, $first-node-queries-without-prolog, ``[
-       `{profile:generate-local-extractor-function($profile, normalize-space($first-term/fn:query), $ft-settings)}`
+       `{profile:generate-local-extractor-function($profile, $parsed-query, $ft-settings)}`
        let ]``||
        string-join(for $term in $parsed-query//fn:term
        return ``[

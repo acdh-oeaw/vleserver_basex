@@ -218,10 +218,10 @@ declare function _:get-name-for-new-db($profile as document-node(), $current-db-
 };
 
 declare function _:generate-local-extractor-function($profile as document-node()) as xs:string {
-  _:generate-local-extractor-function($profile, (), ())
+  _:generate-local-extractor-function($profile, <fn:expr/>, ())
 };
 
-declare function _:generate-local-extractor-function($profile as document-node(), $q as xs:string?, $ft-settings as xs:string?) as xs:string {
+declare function _:generate-local-extractor-function($profile as document-node(), $parsed-query as element(fn:expr), $ft-settings as xs:string?) as xs:string {
 let $data-extractor-xquery := _:get-lemma-xquery($profile),
     $alt-extractor-xqueries := _:get-alt-lemma-xqueries($profile)
 return ``[declare variable $referenced_entries external := ();
@@ -238,17 +238,23 @@ return ``[declare variable $referenced_entries external := ();
     else string-join(`{$alt-extractor-xqueries($label)}`!normalize-space(.), ', ')
   }]``, ",&#x0a;") 
     else () }`
-  `{ if (exists($q) and contains($ft-settings, "using")) then``[,
+  `{ if (exists($parsed-query//fn:term) and contains($ft-settings, "using")) then``[,
   attribute {"`{$util:vleUtilSortScore}`"} {
-    let $reweights := $node//text()[. contains text "`{$q}`" `{$ft-settings}`]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ()),
-        $reweights := if (exists($reweights)) then $reweights else $referenced_entries//text()[. contains text "`{$q}`" `{$ft-settings}`]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ())
-    return ft:score($node//* contains text "`{$q}`" `{$ft-settings}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) + 
-           ft:score($referenced_entries//* contains text "`{$q}`" `{$ft-settings}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) * 0.001
+    let $reweights := $node//text()[. `{_:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ()),
+        $reweights := if (exists($reweights)) then $reweights else $referenced_entries//text()[. `{_:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`]!data-access:merge-element-data(data-access:get-TEI-element-pos-data(.), ())
+    return ft:score($node//* `{_:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) + 
+           ft:score($referenced_entries//* `{_:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`) * sum($reweights!.("hpos")) * sum($reweights!.("vpos")) * 0.001
   } ]`` else () }`
   `{ if (exists($ft-settings)) then``[,
   attribute {"`{$util:vleUtilFtSettings}`"} {"`{$ft-settings}`"} ]`` else () }`
   )
 };]``  
+};
+
+declare function _:generate-mark-and-score-ft-search($parsed-query as element(fn:expr), $ft-settings as xs:string) {
+``[contains text {`{
+      string-join($parsed-query//fn:query!('"'||normalize-space(.)||'"'), ',')
+    }`} any `{$ft-settings}`]``
 };
 
 declare function _:use-cache($profile as document-node()) as xs:boolean {

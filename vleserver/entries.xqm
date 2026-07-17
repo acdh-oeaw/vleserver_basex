@@ -298,13 +298,14 @@ declare
   %private
 function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as xs:string, $lemma as xs:string, $entry_without_result_marks as element()?, $isLockedBy as xs:string?, $profile as document-node()?, $format as xs:string?, $parsed-query as element(fn:expr)) {
 (# db:copynode false #) {
-  let $entry := _:markHits($entry_without_result_marks, $parsed-query),
+  let $ft-settings := $entry_without_result_marks/@*[local-name() = $util:vleUtilFtSettings],
+      $entry := _:markHits($entry_without_result_marks, $parsed-query, $ft-settings),
       $referenced_ids := distinct-values(($entry//@*[starts-with(data(.), '#')]!substring(., 2), data($entry//@target)[not(starts-with(., 'http'))])),
       $referenced_entries := try {
         if (exists($referenced_ids)) then data-access:get-entries-by-ids($dict_name, $referenced_ids) else ()
       } catch response-codes:_404 { () },
-      $referenced_entries := $referenced_entries!_:markHits(., $parsed-query) 
-  return json-hal:create_document($_self, (
+      $referenced_entries := $referenced_entries!_:markHits(., $parsed-query, $ft-settings) 
+  return json-hal:create_document(_:uri-add-highlight($_self, $parsed-query, $ft-settings), (
     <id>{$id}</id>,
     <sid>{$id}</sid>,
     <lemma>{$lemma}</lemma>,
@@ -330,15 +331,23 @@ function _:entryAsDocument($_self as xs:anyURI, $dict_name as xs:string, $id as 
 
 declare
   %private
-function _:markHits($e as element()?, $parsed-query as element(fn:expr)) as element()? {
-  let $first-term := ($parsed-query//fn:term)[1],
+function _:markHits($e as element()?, $parsed-query as element(fn:expr), $ft-settings as xs:string?) as element()? {
+  let $ft-settings := if (exists($ft-settings)) then $ft-settings else " using case sensitive using diacritics sensitive",
       $q := ``[
     declare variable $e external;
-    let $ret := if ($e[.//text() contains text "`{$first-term/fn:query}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`]) then ft:mark(($e update {})[.//text() contains text "`{$first-term/fn:query}`" `{$e/@*[local-name() = $util:vleUtilFtSettings]}`], '__hit__') else $e
+    (: `{serialize($parsed-query)}` :)
+    let $ret := if ($e[.//text() `{profile:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`]) then ft:mark(($e update {})[.//text() `{profile:generate-mark-and-score-ft-search($parsed-query, $ft-settings)}`], '__hit__') else $e
     return $ret update { for $h in .//*:__hit__ return replace node $h with '&#x1F449;'||$h/text()||'&#x1F448;' }
   ]``
-  (: , $_ := admin:write-log($q, "INFO") :)
+  , $_ := admin:write-log($q, "INFO")
   return util:eval($q, map {"e": $e}, "entries-markHits")
+};
+
+declare function _:uri-add-highlight($uri as xs:anyURI, $parsed-query as element(fn:expr), $ft-settings as xs:string?) as xs:anyURI {
+  xs:anyURI($uri||(if (contains($uri, '?')) then '&amp;' else '?')||string-join((
+    if (exists($parsed-query//fn:term)) then 'highlight='||string-join($parsed-query//fn:query!normalize-space(.), ',') else (),
+    if (exists($parsed-query//fn:term) and exists($ft-settings)) then 'ft='||$ft-settings else ())
+  , '&amp;'))
 };
 
 (:~
@@ -642,6 +651,7 @@ declare
     %rest:query-param("lock", "{$lock}")
     %rest:query-param("format", "{$format}")
     %rest:query-param("highlight", "{$highlight}")
+    %rest:query-param("ft", "{$ft-settings}")
     %rest:header-param("Accept", "{$wanted-response}", "")
     %rest:header-param('Authorization', '{$auth_header}', "")
     %rest:produces('application/json')
@@ -649,7 +659,7 @@ declare
     %rest:produces('application/vnd.wde.v2+json')
     %rest:produces('application/problem+json')  
     %rest:produces('application/problem+xml')
-function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $format as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string, $highlight as xs:string?) {
+function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock as xs:string?, $format as xs:string?, $wanted-response as xs:string+, $auth_header as xs:string, $highlight as xs:string?, $ft-settings as xs:string?) {
   try {
   let $start := prof:current-ns(),
       $lockDuration := if ($lock castable as xs:integer) then
@@ -663,10 +673,13 @@ function _:getDictDictNameEntry($dict_name as xs:string, $id as xs:string, $lock
                    'Only wde.v2 clients may request locking'),
       $lockEntry := if (exists($lockDuration)) then lcks:lock_entry($dict_name, _:getUserNameFromAuthorization($auth_header), $id, current-dateTime() + $lockDuration) else (),
       $entry := data-access:get-entry-by-id($dict_name, $id),
+      $entry := if (exists($ft-settings)) 
+        then $entry update insert node attribute {$util:vleUtilFtSettings} {$ft-settings} as first into .
+        else $entry,
       $lockedBy := lcks:get_user_locking_entry($dict_name, $entry/(@xml:id, @ID)),
-      $highlightExpr := <fn:expr><fn:term><fn:query>{$highlight}</fn:query></fn:term></fn:expr>
+      $highlightExpr := <fn:expr>{tokenize($highlight, ',')!<fn:term><fn:query>{.}</fn:query></fn:term>}</fn:expr>
   return if (not($format) and (some $response in $wanted-response satisfies contains($response, "application/xml")))
-    then _:markHits($entry, $highlightExpr)
+    then _:markHits($entry, $highlightExpr, $ft-settings)
     else api-problem:or_result($start, _:entryAsDocument#9, [rest:uri(), $dict_name, $entry/(@xml:id, @ID), 
   profile:extract-sort-values(profile:get($dict_name), $entry)/@*[local-name() = $util:vleUtilSortKey],
   $entry, $lockedBy, profile:get($dict_name), $format, $highlightExpr], cors:header(()))
