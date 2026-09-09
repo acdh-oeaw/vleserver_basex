@@ -174,9 +174,16 @@ for $__db__ in $dbs return ]``|| $template
   return util:eval($template_query, map{'$dbs': $dbs, '$noSubstQuery': $noSubstQuery, '$subQuery': _:create-sub-query($noSubstQuery)}, 'create-queries-for-db')
 };
 
-declare function _:create-index-queries-for-db($profile as document-node(), $template as xs:string) as xs:string {
+declare function _:create-index-queries-for-db($profile as document-node(), $template as element()) as xs:string {
   let $dbs as xs:string+ := _:get-list-of-data-dbs($profile),
-      $index_query as xs:string := ``[declare variable $dbs as xs:string+ external;
+      $label := $template/@label/data(),
+      $index_query as xs:string := if (exists($template/../indexTemplate[@label = $label]))
+      then ``[declare variable $dbs as xs:string+ external;
+declare variable $indexTemplate as xs:string external;
+for $__db__ in $dbs return
+  replace($indexTemplate, 'declare variable $__db__ external;', '', 'q') =>
+  replace('$__db__', '"'||$__db__||'"', 'q')]``
+      else ``[declare variable $dbs as xs:string+ external;
 declare variable $template as xs:string external;
 for $__db__ in $dbs return
   replace($template, 'declare variable $__db__ external;', 'distinct-values((', 'q') =>
@@ -186,7 +193,7 @@ for $__db__ in $dbs return
   replace('gramGrp[t', 'gramGrp/t', 'q') =>
   replace('(\[contains\(.+|\[\s*text\(.+|\[\s*\{subQuery.+)', '/text() | ') =>
   concat('())!normalize-space(.))')]``
-  return util:eval($index_query, map{'$dbs': $dbs, '$template': $template}, 'create-index-queries-for-db')  
+  return util:eval($index_query, map{'$dbs': $dbs, '$template': $template, '$indexTemplate': $template/../indexTemplate[@label = $label]}, 'create-index-queries-for-db')  
 };
 
 declare function _:get-list-of-data-dbs($profile as document-node()) as xs:string* {
