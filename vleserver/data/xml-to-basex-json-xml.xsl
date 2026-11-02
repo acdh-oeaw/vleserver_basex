@@ -324,7 +324,7 @@
     </xd:doc>
     <xsl:template match="tei:f" mode="tei-fs">
         <xsl:element name="{tei:encode-json-key(@name)}">
-            <xsl:value-of select="(tei:symbol/@value, text())[1]"/>
+            <xsl:value-of select="(tei:symbol/@value, tei:string/text(), text())[1]"/>
         </xsl:element>
     </xsl:template>
     
