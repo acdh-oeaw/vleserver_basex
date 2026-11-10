@@ -50,9 +50,9 @@
     <xsl:function name="tei:encode-json-key" as="xs:string">
         <xsl:param name="in" as="xs:string"/>
         <xsl:value-of select="
-            replace($in, '$', '_0024', 'q') =>
-            replace('@', '_0040', 'q') =>
-            replace('_', '__', 'q')"/>
+            replace($in, '_', '__', 'q') =>
+            replace('$', '_0024', 'q') =>
+            replace('@', '_0040', 'q')"/>
     </xsl:function>
     
     <xd:doc>
@@ -296,8 +296,20 @@
         </xd:desc>
     </xd:doc>
     <xsl:template match="_[tei:fs[@type]]" mode="array">
+        <!-- <xsl:if test="./* except ./tei:fs[@type]">
+          <error type="array">
+             <xsl:for-each select="./* except ./tei:fs[@type]">
+               <_><xsl:value-of select="serialize(.)"/></_>
+             </xsl:for-each>
+          </error>
+        </xsl:if> -->
         <features type="array">
-            <xsl:for-each select="./*">
+            <xsl:for-each select="./tei:fs except ./tei:fs[@type]">            
+                <_ type="object">
+                    <xsl:apply-templates mode="tei-fs"/>
+                </_>
+            </xsl:for-each>
+            <xsl:for-each select="./tei:fs[@type]">
                 <_ type="object">
                     <xsl:element name="{tei:encode-json-key(@type)}">
                         <xsl:attribute name="type">object</xsl:attribute>
